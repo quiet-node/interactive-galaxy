@@ -1,0 +1,30 @@
+{
+  "name": "interactive-galaxy",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Interactive Galaxy Between Hands - Create magical galaxies using hand tracking",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "mediapipe",
+    "three.js",
+    "hand-tracking",
+    "webgl",
+    "interactive"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.22-rc.20250304",
+    "three": "^0.181.2",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.181.0"
+  }
+}
