@@ -3,6 +3,7 @@
  * Orchestrates all modules and manages the application lifecycle
  */
 
+import * as THREE from 'three';
 import { HandTracker } from './modules/HandTracker';
 import { GalaxyRenderer } from './modules/GalaxyRenderer';
 import {
@@ -49,6 +50,7 @@ export class App {
   private videoElement: HTMLVideoElement | null = null;
   private statusElement: HTMLElement | null = null;
   private debugElement: HTMLElement | null = null;
+  private controlsElement: HTMLElement | null = null;
 
   // State
   private state: AppState = 'uninitialized';
@@ -183,6 +185,41 @@ export class App {
       min-width: 200px;
     `;
     this.container.appendChild(this.debugElement);
+
+    // Create controls hint widget (hidden by default)
+    this.controlsElement = document.createElement('div');
+    this.controlsElement.id = 'controls-hint';
+    this.controlsElement.style.cssText = `
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      padding: 16px 20px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      color: rgba(255, 255, 255, 0.9);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      line-height: 1.8;
+      border-radius: 12px;
+      z-index: 100;
+      display: block;
+      max-width: 280px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    `;
+    this.controlsElement.innerHTML = `
+      <div style="margin-bottom: 10px; font-size: 14px; font-weight: 600; color: #fff; letter-spacing: 0.5px;">🎮 Controls</div>
+      <div style="margin-bottom: 6px;">👐 Show both hands → Spawn galaxy</div>
+      <div style="margin-bottom: 6px;">↔️ Move hands apart → Grow</div>
+      <div style="margin-bottom: 6px;">↕️ Move hands together → Shrink</div>
+      <div style="margin-bottom: 6px;">🤏 Close hands → Big Bang explosion</div>
+      <div style="margin-bottom: 6px;">✨ Pinch gesture → Star burst</div>
+      <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.15); font-size: 11px; color: rgba(255, 255, 255, 0.6);">
+        Press <kbd style="padding: 2px 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; font-family: monospace;">H</kbd> to toggle hints
+      </div>
+    `;
+    this.container.appendChild(this.controlsElement);
 
     // Set container styles
     this.container.style.cssText = `
@@ -348,12 +385,16 @@ export class App {
   }
 
   /**
-   * Manually trigger Big Bang explosion (for testing)
+   * Toggle controls hint widget
    */
-  triggerExplosion(): void {
-    if (!this.galaxyRenderer) return;
-    console.log('[App] Manual explosion trigger (press B)');
-    this.galaxyRenderer.triggerExplosion();
+  toggleControls(): void {
+    if (!this.controlsElement) return;
+
+    if (this.controlsElement.style.display === 'none') {
+      this.controlsElement.style.display = 'block';
+    } else {
+      this.controlsElement.style.display = 'none';
+    }
   }
 
   /**
@@ -405,6 +446,3 @@ class FpsCounter {
     return this.fps;
   }
 }
-
-// Import THREE for MathUtils in debug panel
-import * as THREE from 'three';

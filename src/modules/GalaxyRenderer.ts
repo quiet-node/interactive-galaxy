@@ -13,7 +13,6 @@ import {
   type GalaxyUniforms,
 } from './types/GalaxyTypes';
 import { PostProcessingManager } from './PostProcessingManager';
-// import { NebulaRenderer } from './NebulaRenderer';
 
 // Vertex shader: differential rotation + turbulence + twinkling + EXPLOSION
 const vertexShader = /* glsl */ `

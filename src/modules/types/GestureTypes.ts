@@ -9,6 +9,10 @@
  */
 
 import * as THREE from 'three';
+import type { Handedness } from './HandTypes';
+
+// Re-export Handedness for convenience
+export type { Handedness };
 
 /**
  * Types of gestures that can be detected
@@ -31,11 +35,6 @@ export enum GestureState {
   /** Gesture just ended this frame */
   ENDED = 'ENDED',
 }
-
-/**
- * Hand identifier for gesture attribution
- */
-export type Handedness = 'left' | 'right' | 'unknown';
 
 /**
  * Data payload for pinch gesture detection

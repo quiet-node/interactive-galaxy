@@ -2,7 +2,7 @@
   "name": "interactive-galaxy",
   "version": "1.0.0",
   "type": "module",
-  "description": "Interactive Galaxy Between Hands - Create magical galaxies using hand tracking",
+  "description": "Interactive Galaxy - Create magical galaxies using hand tracking",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -14,12 +14,24 @@
     "three.js",
     "hand-tracking",
     "webgl",
-    "interactive"
+    "interactive",
+    "particle-system",
+    "galaxy",
+    "typescript"
   ],
-  "author": "",
+  "author": "quiet-node",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/quiet-node/mediapipe-for-fun.git"
+  },
+  "homepage": "https://github.com/quiet-node/mediapipe-for-fun#readme",
+  "bugs": {
+    "url": "https://github.com/quiet-node/mediapipe-for-fun/issues"
+  },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.22-rc.20250304",
+    "@vercel/analytics": "^1.6.1",
     "postprocessing": "^6.38.0",
     "three": "^0.181.2",
     "typescript": "^5.9.3",

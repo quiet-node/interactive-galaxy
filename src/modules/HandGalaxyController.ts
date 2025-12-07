@@ -93,8 +93,6 @@ export class HandGalaxyController {
 
   // Explosion lifecycle tracking
   private hasExplodedThisLife: boolean = false; // Track if current galaxy has exploded
-  // @ts-ignore - Reserved for future lifecycle features
-  private lastGalaxyActivationTime: number = 0; // When galaxy was last shown
 
   // Debug state
   private debugEnabled: boolean = false;
@@ -355,7 +353,6 @@ export class HandGalaxyController {
       this.isGalaxyActive = true;
       // Reset explosion flag for new galaxy lifecycle
       this.hasExplodedThisLife = false;
-      this.lastGalaxyActivationTime = performance.now();
       console.log(
         '[HandGalaxyController] New galaxy spawned - lifecycle reset'
       );
@@ -459,9 +456,8 @@ export class HandGalaxyController {
     const up = new THREE.Vector3().crossVectors(handAxis, right).normalize();
 
     // The galaxy disc should be perpendicular to the hand axis
-    // We want the disc to "face" the camera somewhat, with a slight tilt
-    // Add a base tilt so the spiral is always visible
-    const baseTilt = Math.PI * 0.35; // ~63 degrees from horizontal - shows spiral nicely
+    // Galaxy renders flat without additional tilt for best initial viewing experience
+    const baseTilt = 90 * (Math.PI / 180); // Convert 90 degrees to radians
 
     // Create rotation that aligns galaxy disc perpendicular to hand axis
     const matrix = new THREE.Matrix4();
@@ -470,7 +466,7 @@ export class HandGalaxyController {
 
     const euler = new THREE.Euler().setFromRotationMatrix(matrix);
 
-    // Add the base tilt to show the spiral pattern
+    // Apply base tilt (currently 0 for flat rendering)
     euler.x += baseTilt;
 
     return euler;

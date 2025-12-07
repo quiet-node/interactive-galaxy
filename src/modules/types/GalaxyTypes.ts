@@ -47,12 +47,12 @@ export interface GalaxyConfig {
 
 /**
  * Default galaxy configuration - optimized for stunning visuals
- * REALISTIC GALAXY: millions of tiny white stars like real night sky
+ * Balanced particle count for performance across devices
  */
 export const DEFAULT_GALAXY_CONFIG: GalaxyConfig = {
-  particleCount: 6000000, // 6 MILLION particles for ultra-dense rings
+  particleCount: 20000, // 20K particles - balanced quality and performance
   spiralArms: 4, // 4 arms for classic spiral look
-  radius: 4.5, // Slightly larger for grand scale
+  radius: 5, // Slightly larger for grand scale
   spin: 2.0, // Strong twist for dramatic spirals
   randomness: 0.25, // Natural spread
   randomnessPower: 3,

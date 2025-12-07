@@ -3,8 +3,12 @@
  * Interactive Galaxy Between Hands
  */
 
+import { inject } from '@vercel/analytics';
 import { App } from './app';
 import './styles/main.css';
+
+// Initialize Vercel Analytics for deployment tracking
+inject();
 
 // Get or create container
 const container = document.getElementById('app');
@@ -31,9 +35,9 @@ document.addEventListener('keydown', (event) => {
       // Toggle debug panel
       app.toggleDebug();
       break;
-    case 'b':
-      // Trigger Big Bang explosion (for testing)
-      app.triggerExplosion();
+    case 'h':
+      // Toggle controls hint
+      app.toggleControls();
       break;
     case 'escape':
       // Clean up on Escape
