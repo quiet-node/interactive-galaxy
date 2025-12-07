@@ -366,6 +366,7 @@ export class App {
     }
 
     // Dispose modules
+    this.controller?.dispose();
     this.handTracker.dispose();
     this.galaxyRenderer?.dispose();
 

@@ -12,6 +12,7 @@ import {
   type GalaxyConfig,
   type GalaxyUniforms,
 } from './types/GalaxyTypes';
+import { PostProcessingManager } from './PostProcessingManager';
 
 // Vertex shader: differential rotation + turbulence + twinkling + EXPLOSION
 const vertexShader = /* glsl */ `
@@ -229,7 +230,7 @@ const vertexShader = /* glsl */ `
   }
 `;
 
-// Fragment shader: PURE WHITE stars with intense glow
+// Fragment shader: VIBRANT COSMIC COLOR PALETTE
 const fragmentShader = /* glsl */ `
   varying float vBrightness;
   varying float vTemperature;
@@ -256,17 +257,52 @@ const fragmentShader = /* glsl */ `
     // Discard very faint pixels
     if (alpha < 0.015) discard;
     
-    // COLOR: PURE WHITE stars (no color variation)
-    // Tiny hint of blue for hottest stars (like real star spectrum)
-    vec3 starColor = vec3(1.0, 1.0, 1.0); // Pure white
+    // COLOR: VIBRANT COSMIC PALETTE based on temperature and brightness
+    // Create dramatic color variation for maximum wow factor
+    vec3 starColor;
     
-    // Very subtle blue tint for brightest core (like O-type stars)
+    // Map vTemperature (0-1 from aSeed) to cosmic colors
+    if (vTemperature < 0.25) {
+      // Hot blue-white stars (O/B type)
+      starColor = mix(
+        vec3(0.7, 0.85, 1.0),  // Bright cyan-blue
+        vec3(0.85, 0.92, 1.0), // Blue-white
+        vTemperature * 4.0
+      );
+    } else if (vTemperature < 0.5) {
+      // Purple-magenta stars
+      starColor = mix(
+        vec3(0.85, 0.7, 1.0),  // Light purple
+        vec3(1.0, 0.6, 1.0),   // Bright magenta
+        (vTemperature - 0.25) * 4.0
+      );
+    } else if (vTemperature < 0.75) {
+      // Cyan-teal stars
+      starColor = mix(
+        vec3(0.6, 1.0, 1.0),   // Bright cyan
+        vec3(0.7, 0.95, 1.0),  // Cyan-white
+        (vTemperature - 0.5) * 4.0
+      );
+    } else {
+      // Violet-blue stars
+      starColor = mix(
+        vec3(0.75, 0.8, 1.0),  // Pale blue
+        vec3(0.8, 0.7, 1.0),   // Violet
+        (vTemperature - 0.75) * 4.0
+      );
+    }
+    
+    // Boost color saturation for vibrant cosmic look
+    vec3 white = vec3(1.0);
+    starColor = mix(white, starColor, 0.7); // 70% color, 30% white for luminosity
+    
+    // Brightest stars get extra white glow (HDR-like effect)
     if (vBrightness > 0.85) {
-      starColor = vec3(0.95, 0.97, 1.0); // Barely blue
+      starColor = mix(starColor, white, (vBrightness - 0.85) / 0.15 * 0.4);
     }
     
     // Boost brightness for ULTRA-BRILLIANT stars
-    starColor *= (1.0 + vBrightness * 0.45);
+    starColor *= (1.0 + vBrightness * 0.5);
     
     gl_FragColor = vec4(starColor, alpha);
   }
@@ -279,6 +315,7 @@ export class GalaxyRenderer {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private renderer: THREE.WebGLRenderer;
+  private postProcessing: PostProcessingManager | null = null;
   private galaxy: THREE.Points | null = null;
   private geometry: THREE.BufferGeometry | null = null;
   private material: THREE.ShaderMaterial | null = null;
@@ -290,6 +327,7 @@ export class GalaxyRenderer {
   // Explosion state tracking
   private explosionState: ExplosionState = ExplosionState.NORMAL;
   private explosionStartTime: number = 0;
+  private explosionInitialScale: number = 1.0; // Capture scale when explosion triggers
   private singularityDuration: number = 0.2; // seconds to hold singularity (auto-trigger)
   private explosionDuration: number = 2.0; // seconds for explosion phase
   private fadeDuration: number = 2.5; // seconds to fade away
@@ -343,10 +381,28 @@ export class GalaxyRenderer {
    */
   initialize(): void {
     this.generateGalaxy();
+
+    // Initialize post-processing (Phase 1 enhancement)
+    this.postProcessing = new PostProcessingManager(
+      this.renderer,
+      this.scene,
+      this.camera,
+      {
+        enableBloom: true,
+        bloomIntensity: 1.5,
+        bloomLuminanceThreshold: 0.4,
+        bloomRadius: 0.8,
+        enableChromaticAberration: true,
+        chromaticAberrationOffset: 0.001,
+        enableColorGrading: true,
+        colorGradingIntensity: 0.8,
+      }
+    );
+
     console.log(
       '[GalaxyRenderer] Initialized with',
       this.config.particleCount,
-      'particles'
+      'particles and post-processing effects'
     );
   }
 
@@ -366,9 +422,10 @@ export class GalaxyRenderer {
     // Create geometry
     this.geometry = new THREE.BufferGeometry();
 
-    // Total particles = bright core (22%) + dense rings (core less dense than before)
-    const coreParticles = Math.floor(particleCount * 0.22);
-    const armParticles = particleCount - coreParticles;
+    // Total particles = bright core (20%) + core halo (15%) + arms (65%)
+    const coreParticles = Math.floor(particleCount * 0.2);
+    const coreHaloParticles = Math.floor(particleCount * 0.15);
+    const armParticles = particleCount - coreParticles - coreHaloParticles;
     const totalParticles = particleCount;
 
     // Create typed arrays for attributes
@@ -449,6 +506,35 @@ export class GalaxyRenderer {
       sizes[particleIndex] = 0.4 + Math.random() * 0.5; // Small uniform
       distances[particleIndex] = coreRadius / radius;
       brightnesses[particleIndex] = 0.95 + Math.random() * 0.05; // Maximum brightness
+      seeds[particleIndex] = Math.random();
+
+      particleIndex++;
+    }
+
+    // === GENERATE CORE HALO (transition zone around dense core) ===
+    for (let i = 0; i < coreHaloParticles; i++) {
+      const i3 = particleIndex * 3;
+
+      // Core halo: 0.12 to 0.25 radius (just outside ultra-dense core)
+      const haloRadiusRatio = 0.12 + Math.pow(Math.random(), 0.8) * 0.13;
+      const haloRadius = haloRadiusRatio * radius;
+      const angle = Math.random() * Math.PI * 2;
+
+      const x = Math.cos(angle) * haloRadius;
+      const z = Math.sin(angle) * haloRadius;
+
+      // Slightly more vertical scatter than core, but still very flat
+      const y = (Math.random() - 0.5) * 0.025;
+
+      positions[i3] = x;
+      positions[i3 + 1] = y;
+      positions[i3 + 2] = z;
+
+      // Halo: bright stars, slightly smaller than core
+      sizes[particleIndex] = 0.35 + Math.random() * 0.4;
+      distances[particleIndex] = haloRadiusRatio;
+      // High brightness (0.8-0.95) to visually connect to core
+      brightnesses[particleIndex] = 0.8 + Math.random() * 0.15;
       seeds[particleIndex] = Math.random();
 
       particleIndex++;
@@ -535,7 +621,12 @@ export class GalaxyRenderer {
    * Render the scene
    */
   render(): void {
-    this.renderer.render(this.scene, this.camera);
+    // Use post-processing if available, otherwise fallback to standard render
+    if (this.postProcessing) {
+      this.postProcessing.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 
   /**
@@ -548,6 +639,11 @@ export class GalaxyRenderer {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
+
+    // Resize post-processing composer
+    if (this.postProcessing) {
+      this.postProcessing.resize(width, height);
+    }
   }
 
   /**
@@ -575,9 +671,11 @@ export class GalaxyRenderer {
     ) {
       console.log('[GalaxyRenderer] Big Bang explosion triggered!');
 
-      // Ensure galaxy is visible and scaled for explosion
+      // Capture current scale for smooth collapse animation
+      this.explosionInitialScale = this.uniforms.uScale.value;
+
+      // Ensure galaxy is visible
       this.setVisible(true);
-      this.setScale(1.0);
 
       this.explosionState = ExplosionState.SINGULARITY;
       this.explosionStartTime = performance.now() / 1000;
@@ -610,6 +708,15 @@ export class GalaxyRenderer {
     // State transitions
     switch (this.explosionState) {
       case ExplosionState.SINGULARITY:
+        // Animate scale from initial value to 0 for smooth collapse
+        const collapseProgress = Math.min(
+          explosionElapsed / this.singularityDuration,
+          1.0
+        );
+        const currentScale =
+          this.explosionInitialScale * (1.0 - collapseProgress);
+        this.setScale(currentScale);
+
         if (explosionElapsed >= this.singularityDuration) {
           console.log('[GalaxyRenderer] BOOM! Explosion started');
           this.explosionState = ExplosionState.EXPLODING;
@@ -620,6 +727,14 @@ export class GalaxyRenderer {
         break;
 
       case ExplosionState.EXPLODING:
+        // Animate scale from 0 to larger for visual expansion
+        const explosionProgress = Math.min(
+          explosionElapsed / this.explosionDuration,
+          1.0
+        );
+        // Expand from 0 to 3.0 (3x larger for dramatic effect)
+        this.setScale(explosionProgress * 3.0);
+
         if (explosionElapsed >= this.explosionDuration) {
           console.log('[GalaxyRenderer] Explosion fading...');
           this.explosionState = ExplosionState.FADING;
@@ -656,6 +771,12 @@ export class GalaxyRenderer {
     // Cancel any pending animation
     if (this.animationId !== null) {
       cancelAnimationFrame(this.animationId);
+    }
+
+    // Dispose post-processing
+    if (this.postProcessing) {
+      this.postProcessing.dispose();
+      this.postProcessing = null;
     }
 
     // Dispose Three.js objects

@@ -409,6 +409,13 @@ export class HandGalaxyController {
     this.galaxyRenderer.setVisible(false);
     this.galaxyRenderer.setScale(0);
   }
+
+  /**
+   * Clean up resources
+   */
+  dispose(): void {
+    // No additional cleanup needed - smoothers are plain objects
+  }
 }
 
 /**
