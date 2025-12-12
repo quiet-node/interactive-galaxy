@@ -270,4 +270,14 @@ export interface CosmicSlicerDebugInfo {
   trailPointCounts: Record<string, number>;
   /** Active explosion count */
   activeExplosions: number;
+
+  /** Renderer draw calls (Three.js renderer.info) */
+  drawCalls: number;
+  /** Renderer triangle count (Three.js renderer.info) */
+  triangles: number;
+
+  /** Current trail render mode */
+  trailRenderMode: 'on-top' | 'depth-aware';
+  /** Current hand detection throttling interval */
+  detectionIntervalMs: number;
 }

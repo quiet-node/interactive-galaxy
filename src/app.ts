@@ -358,7 +358,6 @@ export class App {
       <div style="margin-bottom: 8px; color: #fff; font-weight: bold;">Debug Info</div>
       <div>FPS: ${info.fps.toFixed(1)}</div>
       <div>Hands: ${info.handsDetected}</div>
-      <div>Trail Points: ${info.trailPoints}</div>
       <div>Cleared: ${info.clearedPercentage.toFixed(1)}%</div>
       <div style="margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 4px;">
         <div>Wipe Speed: ${info.avgVelocity.toFixed(0)} px/f</div>
@@ -384,7 +383,6 @@ export class App {
       <div>Active Objects: ${info.activeObjects}</div>
       <div>Total Sliced: ${info.totalSliced}</div>
       <div style="margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 4px;">
-        <div>Trail Points: ${trailCounts || 'None'}</div>
         <div>Active Explosions: ${info.activeExplosions}</div>
       </div>
     `);

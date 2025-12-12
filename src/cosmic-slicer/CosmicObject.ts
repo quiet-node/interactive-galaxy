@@ -11,7 +11,7 @@
 import * as THREE from 'three';
 import { CosmicObjectType, COSMIC_OBJECT_CONFIGS } from './types';
 
-// ============== STAR: Blazing sun with corona ==============
+// ============== STAR: Premium blazing sun with dynamic corona ==============
 const starVertexShader = /* glsl */ `
   uniform float uTime;
   varying vec3 vNormal;
@@ -24,8 +24,12 @@ const starVertexShader = /* glsl */ `
     vec4 worldPos = modelMatrix * vec4(position, 1.0);
     vWorldPos = worldPos.xyz;
     
-    // Pulsing effect
-    float pulse = 1.0 + 0.05 * sin(uTime * 3.0);
+    // Dynamic pulsing with noise-based variation
+    float pulseBase = 1.0 + 0.08 * sin(uTime * 3.0);
+    float pulseVariation = 0.03 * sin(vLocalPos.x * 10.0 + uTime * 2.0) * 
+                           sin(vLocalPos.y * 10.0 - uTime * 1.5);
+    float pulse = pulseBase + pulseVariation;
+    
     vec3 pos = position * pulse;
     
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
@@ -40,7 +44,7 @@ const starFragmentShader = /* glsl */ `
   varying vec3 vLocalPos;
   varying vec3 vWorldPos;
   
-  // Simple noise
+  // Enhanced noise for plasma turbulence
   float hash(vec3 p) {
     p = fract(p * 0.3183099 + 0.1);
     p *= 17.0;
@@ -57,39 +61,78 @@ const starFragmentShader = /* glsl */ `
                    mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
   }
   
+  // Turbulent plasma (multiple octaves)
+  float turbulence(vec3 p) {
+    float t = 0.0;
+    float amp = 1.0;
+    for (int i = 0; i < 4; i++) {
+      t += abs(noise(p)) * amp;
+      p *= 2.0;
+      amp *= 0.5;
+    }
+    return t;
+  }
+  
   void main() {
-    // cameraPosition is world-space; use world-space position for correct fresnel/spec.
     vec3 viewDir = normalize(cameraPosition - vWorldPos);
+    
+    // LAYER 1: Dynamic plasma surface (roiling energy)
+    vec3 plasmaCoord = vLocalPos * 3.0 + vec3(uTime * 0.5, -uTime * 0.3, uTime * 0.4);
+    float plasma1 = turbulence(plasmaCoord);
+    float plasma2 = turbulence(plasmaCoord * 1.5 + vec3(uTime * 0.2));
+    float plasmaPattern = plasma1 * 0.6 + plasma2 * 0.4;
+    
+    // LAYER 2: Solar flares (bright active regions)
+    vec3 flareCoord = vLocalPos * 4.0 + vec3(0.0, uTime * 0.8, 0.0);
+    float flares = smoothstep(0.6, 0.8, noise(flareCoord));
+    flares += smoothstep(0.65, 0.85, noise(flareCoord * 2.0 - uTime * 0.5)) * 0.5;
+    
+    // LAYER 3: Temperature-based coloring (photosphere)
+    // HDR values for extreme brightness
+    vec3 coreWhite = vec3(9.0, 9.5, 10.0);      // Blazing white-blue core
+    vec3 hotYellow = vec3(7.0, 6.5, 4.0);       // Hot yellow
+    vec3 warmOrange = uColor * 4.5;              // Orange-red edges
+    
+    vec3 surfaceColor = mix(hotYellow, coreWhite, plasmaPattern * 0.5);
+    surfaceColor = mix(surfaceColor, warmOrange, smoothstep(0.4, 0.7, plasmaPattern));
+    
+    // Add flare hotspots
+    surfaceColor += coreWhite * flares * 0.8;
+    
+    // LAYER 4: Corona glow (atmospheric halo)
     float fresnel = pow(1.0 - max(0.0, dot(viewDir, vNormal)), 2.0);
+    vec3 coronaColor = warmOrange * 1.2;
+    vec3 coronaGlow = coronaColor * fresnel * 5.0; // Intense corona
     
-    // Animated plasma surface
-    float n1 = noise(vLocalPos * 4.0 + uTime * 0.5);
-    float n2 = noise(vLocalPos * 8.0 - uTime * 0.3);
-    float plasma = n1 * 0.6 + n2 * 0.4;
+    // LAYER 5: Chromosphere (mid-layer between surface and corona)
+    float chromosphere = pow(fresnel, 1.5) * (1.0 - fresnel);
+    vec3 chromosphereColor = mix(warmOrange, hotYellow, 0.5);
+    vec3 chromosphereGlow = chromosphereColor * chromosphere * 6.0;
     
-    // Hot spots
-    float spots = smoothstep(0.5, 0.7, noise(vLocalPos * 5.0 + uTime * 0.2));
+    // LAYER 6: Surface detail enhancement
+    float surfaceDetail = noise(vLocalPos * 15.0 + uTime * 0.3);
+    float granulation = smoothstep(0.45, 0.55, surfaceDetail) * 0.3;
     
-    // Temperature colors (HDR - values > 1.0)
-    vec3 white = vec3(4.0, 3.8, 3.5);   // Blazing white core
-    vec3 yellow = vec3(3.0, 2.5, 1.0);  // Hot yellow
-    vec3 orange = uColor * 2.0;          // Edge color
+    // Combine all layers
+    vec3 finalColor = surfaceColor * (1.0 + granulation);
+    finalColor += coronaGlow + chromosphereGlow;
     
-    vec3 color = mix(yellow, white, plasma * 0.5 + spots * 0.5);
-    color = mix(color, orange, fresnel * 0.3);
+    // LAYER 7: Energy pulses across surface
+    float pulse = sin(uTime * 4.0 + plasmaPattern * 8.0) * 0.15 + 0.85;
+    finalColor *= pulse;
     
-    // Corona glow at edges
-    float corona = pow(fresnel, 1.5) * 3.0;
-    color += orange * corona;
+    // LAYER 8: Sparkle effect (surface eruptions/prominences)
+    float sparkles = pow(max(0.0, noise(vLocalPos * 30.0 + uTime * 2.0)), 20.0);
+    finalColor += coreWhite * sparkles * 2.0;
     
-    // Overall brightness
-    color *= (1.5 + plasma * 0.5 + spots * 1.0);
+    // Overall brightness boost for bloom
+    finalColor *= 1.3;
     
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(finalColor, 1.0);
   }
 `;
 
-// ============== METEOR: Fiery rocky asteroid ==============
+// ============== METEOR: Enhanced fiery asteroid with detail ==============
 const meteorVertexShader = /* glsl */ `
   uniform float uTime;
   varying vec3 vNormal;
@@ -114,9 +157,12 @@ const meteorVertexShader = /* glsl */ `
   }
   
   void main() {
-    // Rocky surface displacement
-    float disp = noise(position * 3.0) * 0.25;
-    disp -= noise(position * 6.0) * 0.1;
+    // Enhanced rocky surface displacement with crater-like features
+    float largeCraters = noise(position * 2.0) * 0.35;
+    float mediumRoughness = noise(position * 5.0) * 0.18;
+    float fineDetail = noise(position * 12.0) * 0.08;
+    
+    float disp = largeCraters - mediumRoughness + fineDetail;
     vDisplacement = disp;
     
     vec3 displaced = position + normal * disp;
@@ -160,39 +206,76 @@ const meteorFragmentShader = /* glsl */ `
     vec3 viewDir = normalize(cameraPosition - vWorldPos);
     vec3 lightDir = normalize(vec3(0.5, 0.8, 0.5));
     
-    // Rock colors
-    vec3 darkRock = vec3(0.15, 0.1, 0.08);
-    vec3 lightRock = vec3(0.45, 0.35, 0.25);
+    // Enhanced rock surface detail
+    float rockDetail1 = noise(vLocalPos * 8.0);
+    float rockDetail2 = noise(vLocalPos * 16.0);
+    float rockDetail3 = noise(vLocalPos * 32.0);
     
-    float rockPattern = noise(vLocalPos * 5.0);
-    vec3 rockColor = mix(darkRock, lightRock, rockPattern);
+    // Multi-layer rock coloring
+    vec3 darkRock = vec3(0.12, 0.08, 0.06);    // Deep charcoal
+    vec3 midRock = vec3(0.35, 0.25, 0.18);     // Medium brown
+    vec3 lightRock = vec3(0.55, 0.42, 0.30);   // Light tan
     
-    // Glowing cracks/lava veins
-    float cracks = smoothstep(0.55, 0.6, noise(vLocalPos * 8.0 + uTime * 0.1));
-    vec3 lavaColor = uGlowColor * 3.0; // HDR glow
-    rockColor = mix(rockColor, lavaColor, cracks * 0.8);
+    float rockMix1 = rockDetail1;
+    float rockMix2 = rockDetail2 * 0.5 + 0.5;
     
-    // Lighting
-    float diffuse = max(0.0, dot(vNormal, lightDir)) * 0.7 + 0.3;
+    vec3 rockColor = mix(darkRock, midRock, rockMix1);
+    rockColor = mix(rockColor, lightRock, rockMix2 * 0.4);
     
-    // Atmospheric entry glow at edges
-    float fresnel = pow(1.0 - max(0.0, dot(viewDir, vNormal)), 3.0);
-    vec3 heatGlow = uGlowColor * fresnel * 1.5;
+    // Add crater shadows (displacement-based)
+    float craterShadow = smoothstep(-0.2, 0.1, vDisplacement);
+    rockColor *= (0.5 + 0.5 * craterShadow);
+    
+    // Glowing lava cracks (more dramatic)
+    vec3 crackCoord = vLocalPos * 6.0 + vec3(uTime * 0.15, 0.0, 0.0);
+    float crackPattern = noise(crackCoord);
+    crackPattern += noise(crackCoord * 2.0) * 0.5;
+    
+    // Sharp crack threshold for defined lava veins
+    float cracks = smoothstep(0.68, 0.72, crackPattern);
+    cracks += smoothstep(0.78, 0.82, noise(vLocalPos * 12.0 + uTime * 0.1)) * 0.5;
+    
+    // Animated lava pulse
+    float lavaPulse = 0.8 + 0.2 * sin(uTime * 3.0 + crackPattern * 10.0);
+    vec3 lavaColor = uGlowColor * (4.0 + sin(uTime * 2.0) * 0.5) * lavaPulse; // HDR lava
+    
+    rockColor = mix(rockColor, lavaColor, cracks * 0.85);
+    
+    // Lighting with rim light
+    float diffuse = max(0.0, dot(vNormal, lightDir)) * 0.75 + 0.25;
+    
+    // Specular highlights on rough surface
+    vec3 halfDir = normalize(lightDir + viewDir);
+    float specular = pow(max(0.0, dot(vNormal, halfDir)), 20.0) * rockDetail3;
+    
+    // Atmospheric entry glow (heat shield effect)
+    float fresnel = pow(1.0 - max(0.0, dot(viewDir, vNormal)), 4.0);
+    vec3 heatGlow = uGlowColor * fresnel * 2.5;
+    
+    // Heat distortion on forward-facing surfaces
+    float heatIntensity = max(0.0, dot(vNormal, vec3(0.0, 0.0, 1.0)));
+    heatGlow += uGlowColor * heatIntensity * 1.2;
     
     vec3 color = rockColor * diffuse + heatGlow;
-    color += lavaColor * cracks * 0.5; // Extra glow from cracks
+    color += vec3(1.0) * specular;
+    color += lavaColor * cracks * 0.6; // Extra glow from cracks
+    
+    // Ember particles simulation (sparkle effect)
+    float embers = pow(max(0.0, noise(vLocalPos * 40.0 + uTime * 4.0)), 15.0);
+    color += uGlowColor * embers * 8.0;
     
     gl_FragColor = vec4(color, 1.0);
   }
 `;
 
-// ============== CRYSTAL: Glowing energy crystal ==============
+// ============== CRYSTAL: Premium multi-layered energy crystal ==============
 const crystalVertexShader = /* glsl */ `
   uniform float uTime;
   varying vec3 vNormal;
   varying vec3 vLocalPos;
   varying vec3 vWorldPos;
   varying vec3 vViewDir;
+  varying float vVerticalPos;
   
   void main() {
     vNormal = normalize(normalMatrix * normal);
@@ -201,6 +284,7 @@ const crystalVertexShader = /* glsl */ `
     vec4 worldPos = modelMatrix * vec4(position, 1.0);
     vWorldPos = worldPos.xyz;
     vViewDir = normalize(cameraPosition - worldPos.xyz);
+    vVerticalPos = position.y;
     
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
@@ -215,49 +299,113 @@ const crystalFragmentShader = /* glsl */ `
   varying vec3 vLocalPos;
   varying vec3 vWorldPos;
   varying vec3 vViewDir;
+  varying float vVerticalPos;
+  
+  // High-quality noise for energy veins
+  vec3 hash33(vec3 p3) {
+    p3 = fract(p3 * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yxz + 33.33);
+    return fract((p3.xxy + p3.yxx) * p3.zyx);
+  }
+  
+  float noise(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    
+    vec3 c000 = hash33(i + vec3(0.0, 0.0, 0.0));
+    vec3 c100 = hash33(i + vec3(1.0, 0.0, 0.0));
+    vec3 c010 = hash33(i + vec3(0.0, 1.0, 0.0));
+    vec3 c110 = hash33(i + vec3(1.0, 1.0, 0.0));
+    vec3 c001 = hash33(i + vec3(0.0, 0.0, 1.0));
+    vec3 c101 = hash33(i + vec3(1.0, 0.0, 1.0));
+    vec3 c011 = hash33(i + vec3(0.0, 1.0, 1.0));
+    vec3 c111 = hash33(i + vec3(1.0, 1.0, 1.0));
+    
+    vec3 v00 = mix(c000, c100, f.x);
+    vec3 v10 = mix(c010, c110, f.x);
+    vec3 v01 = mix(c001, c101, f.x);
+    vec3 v11 = mix(c011, c111, f.x);
+    
+    vec3 v0 = mix(v00, v10, f.y);
+    vec3 v1 = mix(v01, v11, f.y);
+    
+    return mix(v0, v1, f.z).x;
+  }
   
   void main() {
-    // Strong fresnel for crystal edges
+    // LAYER 1: Internal energy veins (animated)
+    // Create flowing energy patterns that travel through the crystal
+    float veinPattern = noise(vLocalPos * 3.0 + vec3(0.0, uTime * 0.4, 0.0));
+    veinPattern += noise(vLocalPos * 6.0 - vec3(uTime * 0.3, 0.0, 0.0)) * 0.5;
+    veinPattern = pow(max(0.0, veinPattern), 2.5);
+    
+    // Vertical energy flow (like electricity rising through crystal)
+    float verticalFlow = sin(vVerticalPos * 8.0 - uTime * 3.0) * 0.5 + 0.5;
+    verticalFlow *= sin(vVerticalPos * 4.0 + uTime * 2.0) * 0.5 + 0.5;
+    
+    vec3 energyVeins = uGlowColor * (veinPattern * 3.0 + verticalFlow * 2.5);
+    
     float fresnel = pow(1.0 - abs(dot(vViewDir, vNormal)), 3.0);
+    vec3 fresnelGlow = uGlowColor * fresnel * 5.0;
+
+    vec3 R = reflect(-vViewDir, normalize(vNormal));
+    float sky = clamp(R.y * 0.5 + 0.5, 0.0, 1.0);
+    vec3 env = mix(vec3(0.01, 0.015, 0.03), vec3(0.12, 0.18, 0.32), pow(sky, 1.6));
+    vec3 envSpec = env * fresnel * 4.0;
     
-    // Inner energy glow (animated)
-    float innerGlow = sin(vLocalPos.y * 5.0 + uTime * 2.0) * 0.5 + 0.5;
-    innerGlow *= sin(vLocalPos.x * 4.0 - uTime * 1.5) * 0.5 + 0.5;
+    // LAYER 3: Subsurface scattering approximation
+    // Light appears to pass through the crystal
+    float thickness = abs(vNormal.y); // Simulate varying thickness
+    float subsurface = pow(1.0 - thickness, 2.0);
+    vec3 subsurfaceColor = uColor * subsurface * 1.5;
     
-    // Base crystal color (semi-transparent feel)
-    vec3 crystalBase = uColor * 0.3;
-    
-    // Inner HDR glow
-    vec3 inner = uGlowColor * innerGlow * 2.0;
-    
-    // Edge HDR glow (very bright for bloom)
-    vec3 edge = uGlowColor * fresnel * 4.0;
-    
-    // Facet highlight
+    // LAYER 4: Crystalline facet highlights
     vec3 lightDir = normalize(vec3(0.5, 1.0, 0.5));
     vec3 reflectDir = reflect(-vViewDir, vNormal);
-    float highlight = pow(max(0.0, dot(reflectDir, lightDir)), 80.0);
+    float facetHighlight = pow(max(0.0, dot(reflectDir, lightDir)), 120.0);
+    vec3 highlightColor = vec3(8.0) * facetHighlight; // Very bright highlights
     
-    vec3 color = crystalBase + inner + edge;
-    color += vec3(3.0) * highlight; // Bright HDR highlight
+    // LAYER 5: Base crystal body (semi-transparent look)
+    vec3 crystalBase = uColor * 0.4;
     
-    // Pulsing
-    color *= 0.9 + 0.1 * sin(uTime * 2.5);
+    // LAYER 6: Atmospheric glow (depth impression)
+    float depthGlow = smoothstep(-1.0, 1.0, vVerticalPos);
+    vec3 atmosphericGlow = uGlowColor * depthGlow * 1.2;
     
-    gl_FragColor = vec4(color, 1.0);
+    vec3 finalColor = crystalBase + subsurfaceColor + energyVeins + 
+                      fresnelGlow + envSpec + highlightColor + atmosphericGlow;
+    
+    // LAYER 7: Pulsing energy core (heartbeat effect)
+    float pulse = 0.85 + 0.15 * sin(uTime * 3.0);
+    float corePulse = 0.9 + 0.1 * sin(uTime * 5.0 + vVerticalPos * 4.0);
+    finalColor *= pulse * corePulse;
+    
+    // Add sparkles for magical quality
+    float sparkle = pow(max(0.0, noise(vLocalPos * 25.0 + uTime * 2.0)), 12.0);
+    finalColor += vec3(6.0) * sparkle;
+    
+    gl_FragColor = vec4(finalColor, 1.0);
   }
 `;
 
-// ============== DEBRIS: Metallic space junk ==============
+// ============== DEBRIS: Enhanced metallic space junk with detail ==============
 const debrisVertexShader = /* glsl */ `
   varying vec3 vNormal;
   varying vec3 vPosition;
   varying vec3 vWorldPos;
+  varying vec2 vUv;
   
   void main() {
     vNormal = normalize(normalMatrix * normal);
     vPosition = position;
     vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+    
+    // Generate UVs for panel line patterns
+    vUv = vec2(
+      atan(position.z, position.x) / 6.28318 + 0.5,
+      asin(position.y) / 3.14159 + 0.5
+    );
     
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
@@ -271,6 +419,7 @@ const debrisFragmentShader = /* glsl */ `
   varying vec3 vNormal;
   varying vec3 vPosition;
   varying vec3 vWorldPos;
+  varying vec2 vUv;
   
   float hash(vec3 p) {
     p = fract(p * 0.3183099 + 0.1);
@@ -278,35 +427,146 @@ const debrisFragmentShader = /* glsl */ `
     return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
   }
   
+  float hash2(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+  }
+  
+  float saturate(float x) { return clamp(x, 0.0, 1.0); }
+
+  vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+  }
+
+  float distributionGGX(float NdotH, float roughness) {
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float denom = (NdotH * NdotH) * (a2 - 1.0) + 1.0;
+    return a2 / max(3.14159 * denom * denom, 1e-6);
+  }
+
+  float geometrySchlickGGX(float NdotV, float roughness) {
+    float r = roughness + 1.0;
+    float k = (r * r) / 8.0;
+    return NdotV / max(NdotV * (1.0 - k) + k, 1e-6);
+  }
+
+  float geometrySmith(float NdotV, float NdotL, float roughness) {
+    float ggx1 = geometrySchlickGGX(NdotV, roughness);
+    float ggx2 = geometrySchlickGGX(NdotL, roughness);
+    return ggx1 * ggx2;
+  }
+
   void main() {
-    vec3 viewDir = normalize(cameraPosition - vWorldPos);
-    vec3 lightDir = normalize(vec3(0.8, 0.5, 0.6));
+    vec3 N = normalize(vNormal);
+    vec3 V = normalize(cameraPosition - vWorldPos);
+    vec3 L0 = normalize(vec3(0.25, 0.85, 0.55));
+    vec3 L1 = normalize(vec3(-0.55, 0.25, 0.70));
     
-    // Metallic colors
-    vec3 darkMetal = vec3(0.2, 0.22, 0.25);
-    vec3 lightMetal = vec3(0.55, 0.58, 0.6);
+    // LAYER 1: Base metallic surface
+    float surfaceDetail = hash(vPosition * 12.0);
     
-    float pattern = hash(vPosition * 10.0);
-    vec3 metalColor = mix(darkMetal, lightMetal, pattern);
+    vec3 darkMetal = vec3(0.15, 0.16, 0.18);    // Dark gunmetal
+    vec3 midMetal = vec3(0.42, 0.44, 0.48);     // Medium steel
+    vec3 lightMetal = vec3(0.65, 0.68, 0.72);   // Light aluminum
     
-    // Tint with object color
-    metalColor = mix(metalColor, uColor * 0.3, 0.3);
+    vec3 metalBase = mix(darkMetal, midMetal, surfaceDetail);
+    metalBase = mix(metalBase, lightMetal, hash(vPosition * 6.0) * 0.3);
     
-    // Lighting
-    float diffuse = max(0.0, dot(vNormal, lightDir)) * 0.7 + 0.3;
+    // LAYER 2: Panel lines (mechanical detail)
+    float panelH = fract(vUv.x * 8.0);
+    float panelV = fract(vUv.y * 6.0);
     
-    // Strong metallic specular
-    vec3 reflectDir = reflect(-lightDir, vNormal);
-    float spec = pow(max(0.0, dot(viewDir, reflectDir)), 50.0);
+    float panelLineH = smoothstep(0.02, 0.0, panelH) + smoothstep(0.98, 1.0, panelH);
+    float panelLineV = smoothstep(0.02, 0.0, panelV) + smoothstep(0.98, 1.0, panelV);
+    float panelLines = max(panelLineH, panelLineV);
     
-    // Fresnel rim
-    float fresnel = pow(1.0 - max(0.0, dot(viewDir, vNormal)), 4.0);
+    // Darken panel lines for mechanical look
+    metalBase *= (1.0 - panelLines * 0.6);
     
-    vec3 color = metalColor * diffuse;
-    color += vec3(1.5) * spec; // HDR specular
-    color += uGlowColor * fresnel * 0.5;
+    // LAYER 3: Rivets and bolts
+    vec2 rivetGrid = fract(vUv * 16.0);
+    float rivetDist = length(rivetGrid - 0.5);
+    float rivets = smoothstep(0.15, 0.12, rivetDist) * 
+                   step(hash2(floor(vUv * 16.0)), 0.3); // Random rivets
+    metalBase *= (1.0 - rivets * 0.4);
     
-    gl_FragColor = vec4(color, 1.0);
+    // LAYER 4: Wear and tear (scratches, dents)
+    float wear = hash(vPosition * 20.0);
+    wear = pow(wear, 3.0); // Make scratches less frequent but visible
+    metalBase *= (0.92 + wear * 0.08);
+    
+    // LAYER 5: Damaged/sparking areas
+    float damagePattern = hash(vPosition * 4.0);
+    float damagedAreas = step(0.85, damagePattern);
+    
+    // Animated electrical sparks from damaged sections
+    float sparkTime = uTime * 8.0 + hash(vPosition * 5.0) * 6.28;
+    float sparks = step(0.95, hash(vPosition * 40.0 + floor(sparkTime)));
+    sparks *= damagedAreas;
+    
+    vec3 sparkColor = uGlowColor * 8.0 * sparks; // Bright HDR sparks
+    
+    // Damaged area glow (exposed circuits)
+    vec3 damageGlow = uGlowColor * damagedAreas * 0.8 * 
+                      (0.8 + 0.2 * sin(uTime * 3.0 + damagePattern * 10.0));
+    
+    metalBase = mix(metalBase, uColor * 0.55, 0.35);
+
+    float roughness = clamp(0.18 + panelLines * 0.35 + (1.0 - wear) * 0.22, 0.08, 0.85);
+    float metallic = 1.0;
+    vec3 albedo = metalBase;
+    vec3 F0 = mix(vec3(0.04), albedo, metallic);
+
+    vec3 R = reflect(-V, N);
+    float sky = saturate(R.y * 0.5 + 0.5);
+    vec3 env = mix(vec3(0.01, 0.01, 0.02), vec3(0.12, 0.18, 0.30), pow(sky, 1.6));
+    float envStars = step(0.997, hash(R * 120.0 + uTime * 0.03));
+    env += vec3(0.9, 0.95, 1.0) * envStars * 0.25;
+
+    vec3 Lo = vec3(0.0);
+
+    vec3 lights[2];
+    lights[0] = L0;
+    lights[1] = L1;
+
+    for (int li = 0; li < 2; li++) {
+      vec3 L = lights[li];
+      vec3 H = normalize(V + L);
+
+      float NdotL = saturate(dot(N, L));
+      float NdotV = saturate(dot(N, V));
+      float NdotH = saturate(dot(N, H));
+      float VdotH = saturate(dot(V, H));
+
+      float D = distributionGGX(NdotH, roughness);
+      float G = geometrySmith(NdotV, NdotL, roughness);
+      vec3  F = fresnelSchlick(VdotH, F0);
+
+      vec3 spec = (D * G) * F / max(4.0 * NdotV * NdotL, 1e-4);
+      vec3 kS = F;
+      vec3 kD = (vec3(1.0) - kS);
+      kD *= (1.0 - metallic);
+
+      vec3 diffuse = kD * albedo / 3.14159;
+
+      vec3 radiance = vec3(3.2);
+      Lo += (diffuse + spec) * radiance * NdotL;
+    }
+
+    float rim = pow(1.0 - saturate(dot(V, N)), 4.0);
+    vec3 rimLight = uGlowColor * rim * 0.55;
+
+    vec3 Fenv = fresnelSchlick(saturate(dot(N, V)), F0);
+    vec3 envSpec = env * Fenv * (1.6 + 1.2 * (1.0 - roughness));
+
+    vec3 finalColor = Lo + envSpec;
+    finalColor += rimLight;
+    finalColor += damageGlow;
+    finalColor += sparkColor;
+    
+    gl_FragColor = vec4(finalColor, 1.0);
   }
 `;
 
@@ -374,14 +634,8 @@ class GeometryCache {
     meteor.computeVertexNormals();
     this.geometries.set(CosmicObjectType.METEOR, meteor);
 
-    // Crystal - elongated faceted geometry (slightly higher detail for a cleaner look)
-    const crystal = new THREE.OctahedronGeometry(1, 1);
-    const crystalPos = crystal.attributes.position;
-    for (let i = 0; i < crystalPos.count; i++) {
-      crystalPos.setY(i, crystalPos.getY(i) * 2.5);
-    }
-    this.addSurfaceVariation(crystal, 0.08);
-    crystal.computeVertexNormals();
+    // Crystal - natural hexagonal prism with pyramidal caps
+    const crystal = this.createHexagonalCrystal();
     this.geometries.set(CosmicObjectType.CRYSTAL, crystal);
 
     // Debris - angular shape
@@ -392,6 +646,139 @@ class GeometryCache {
 
     // Glow plane for halos
     this.glowPlane = new THREE.PlaneGeometry(3, 3);
+  }
+
+  /**
+   * Create a natural-looking hexagonal crystal geometry
+   * Like a quartz crystal with hexagonal prism body and pyramidal terminations
+   */
+  private createHexagonalCrystal(): THREE.BufferGeometry {
+    const geometry = new THREE.BufferGeometry();
+    const vertices: number[] = [];
+    const indices: number[] = [];
+
+    const sides = 6; // Hexagonal
+    const height = 2.8;
+    const radius = 0.85;
+    const pyramidHeight = 0.8;
+
+    // Create vertices for hexagonal prism with pyramidal caps
+
+    // Top pyramid apex
+    vertices.push(0, height / 2 + pyramidHeight, 0);
+    const topApexIdx = 0;
+
+    // Top ring (base of top pyramid)
+    const topRingStart = vertices.length / 3;
+    for (let i = 0; i < sides; i++) {
+      const angle = (i / sides) * Math.PI * 2;
+      const x = Math.cos(angle) * radius * 0.95;
+      const z = Math.sin(angle) * radius * 0.95;
+      vertices.push(x, height / 2, z);
+    }
+
+    // Middle-top ring (slight taper)
+    const midTopRingStart = vertices.length / 3;
+    for (let i = 0; i < sides; i++) {
+      const angle = (i / sides) * Math.PI * 2;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      vertices.push(x, height / 4, z);
+    }
+
+    // Center ring (widest part)
+    const centerRingStart = vertices.length / 3;
+    for (let i = 0; i < sides; i++) {
+      const angle = (i / sides) * Math.PI * 2;
+      const x = Math.cos(angle) * radius * 1.05;
+      const z = Math.sin(angle) * radius * 1.05;
+      vertices.push(x, 0, z);
+    }
+
+    // Middle-bottom ring (slight taper)
+    const midBotRingStart = vertices.length / 3;
+    for (let i = 0; i < sides; i++) {
+      const angle = (i / sides) * Math.PI * 2;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      vertices.push(x, -height / 4, z);
+    }
+
+    // Bottom ring (base of bottom pyramid)
+    const botRingStart = vertices.length / 3;
+    for (let i = 0; i < sides; i++) {
+      const angle = (i / sides) * Math.PI * 2;
+      const x = Math.cos(angle) * radius * 0.95;
+      const z = Math.sin(angle) * radius * 0.95;
+      vertices.push(x, -height / 2, z);
+    }
+
+    // Bottom pyramid apex
+    const botApexIdx = vertices.length / 3;
+    vertices.push(0, -height / 2 - pyramidHeight, 0);
+
+    // Build faces
+
+    // Top pyramid faces
+    for (let i = 0; i < sides; i++) {
+      const next = (i + 1) % sides;
+      indices.push(topApexIdx, topRingStart + i, topRingStart + next);
+    }
+
+    // Prism body faces (4 rings creating 3 segments)
+    const rings = [
+      topRingStart,
+      midTopRingStart,
+      centerRingStart,
+      midBotRingStart,
+      botRingStart,
+    ];
+    for (let ring = 0; ring < rings.length - 1; ring++) {
+      for (let i = 0; i < sides; i++) {
+        const next = (i + 1) % sides;
+        const r0 = rings[ring];
+        const r1 = rings[ring + 1];
+
+        // Two triangles per face
+        indices.push(r0 + i, r1 + i, r0 + next);
+        indices.push(r0 + next, r1 + i, r1 + next);
+      }
+    }
+
+    // Bottom pyramid faces
+    for (let i = 0; i < sides; i++) {
+      const next = (i + 1) % sides;
+      indices.push(botApexIdx, botRingStart + next, botRingStart + i);
+    }
+
+    geometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(vertices, 3)
+    );
+    geometry.setIndex(indices);
+
+    // Add slight natural variation to vertices
+    const positions = geometry.attributes.position;
+    for (let i = 0; i < positions.count; i++) {
+      const x = positions.getX(i);
+      const y = positions.getY(i);
+      const z = positions.getZ(i);
+
+      // Skip apex points
+      if (i === topApexIdx || i === botApexIdx) continue;
+
+      // Subtle variation based on position
+      const noise = Math.sin(x * 13.7 + y * 7.3 + z * 11.1) * 0.04;
+      const length = Math.sqrt(x * x + z * z);
+      if (length > 0.01) {
+        positions.setX(i, x + (x / length) * noise);
+        positions.setZ(i, z + (z / length) * noise);
+      }
+      positions.setY(i, y + noise * 0.5);
+    }
+
+    geometry.computeVertexNormals();
+    return geometry;
   }
 
   private addSurfaceVariation(
@@ -474,35 +861,68 @@ export class CosmicObjectFactory {
     const geometry = this.geometryCache.getGeometry(type);
     const material = this.createMaterial(type, config);
 
-    // Core mesh with proper depth settings
+    // Core mesh - solid, writes depth
     const core = new THREE.Mesh(geometry, material);
-    core.renderOrder = 1; // Render after glow
+    core.renderOrder = 100; // Base render order
 
-    // Create group to hold core + glow
+    // Create group to hold all layers
     const group = new THREE.Group();
 
-    // Holographic shell for extra polish on emissive types
+    // CRYSTAL: Multi-layer construction for premium look
+    if (type === CosmicObjectType.CRYSTAL) {
+      // Inner energy core (smaller, brighter, no depth write)
+      const innerCoreMaterial = new THREE.MeshBasicMaterial({
+        color: config.emissiveColor,
+        transparent: true,
+        opacity: 0.5,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: true,
+      });
+      const innerCore = new THREE.Mesh(geometry, innerCoreMaterial);
+      innerCore.scale.setScalar(0.6);
+      innerCore.renderOrder = 99; // Before core
+      group.add(innerCore);
+
+      // Mid-layer (semi-transparent crystal body, no depth write)
+      const midLayerMaterial = new THREE.MeshBasicMaterial({
+        color: config.color,
+        transparent: true,
+        opacity: 0.12,
+        blending: THREE.NormalBlending,
+        depthWrite: false,
+        depthTest: true,
+        side: THREE.DoubleSide,
+      });
+      const midLayer = new THREE.Mesh(geometry, midLayerMaterial);
+      midLayer.scale.setScalar(0.82);
+      midLayer.renderOrder = 98; // Before inner core
+      group.add(midLayer);
+    }
+
+    // Outer shell for stars and crystals (no depth write)
     if (type === CosmicObjectType.STAR || type === CosmicObjectType.CRYSTAL) {
       const shellMaterial = new THREE.MeshBasicMaterial({
         color: config.emissiveColor,
         transparent: true,
-        opacity: 0.25,
+        opacity: type === CosmicObjectType.CRYSTAL ? 0.12 : 0.22,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
+        depthTest: true,
       });
       const shell = new THREE.Mesh(geometry, shellMaterial);
-      shell.scale.setScalar(1.12);
-      shell.renderOrder = 0.5;
+      shell.scale.setScalar(type === CosmicObjectType.CRYSTAL ? 1.06 : 1.1);
+      shell.renderOrder = 97; // Before everything
       group.add(shell);
     }
 
-    // Add glow halo for stars and crystals (render first, behind core)
+    // Glow halo sprite (billboard, no depth write)
     if (type === CosmicObjectType.STAR || type === CosmicObjectType.CRYSTAL) {
       const glowMaterial = this.glowMaterials.get(type)?.clone();
       if (glowMaterial && this.geometryCache.glowPlane) {
         const glow = new THREE.Mesh(this.geometryCache.glowPlane, glowMaterial);
-        glow.scale.setScalar(type === CosmicObjectType.STAR ? 2.5 : 1.8);
-        glow.renderOrder = 0; // Render before core
+        glow.scale.setScalar(type === CosmicObjectType.STAR ? 2.3 : 2.0);
+        glow.renderOrder = 96; // Behind everything
         group.add(glow);
 
         // Store reference for billboard update
@@ -510,7 +930,7 @@ export class CosmicObjectFactory {
       }
     }
 
-    // Add core mesh (renders on top of glow)
+    // Add core mesh last (renders on top, writes depth)
     group.add(core);
 
     group.scale.setScalar(config.scale);
@@ -567,8 +987,9 @@ export class CosmicObjectFactory {
       fragmentShader,
       side: THREE.FrontSide,
       depthTest: true,
-      depthWrite: true,
-      transparent: false, // Opaque core for proper depth sorting
+      depthWrite: true, // Core writes depth
+      transparent: false,
+      toneMapped: true,
     });
   }
 

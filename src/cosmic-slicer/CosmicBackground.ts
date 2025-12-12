@@ -34,20 +34,22 @@ const backgroundVertexShader = /* glsl */ `
     
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     
-    // Twinkling effect
-    float twinkleSpeed = 1.0 + aSeed * 3.0;
+    float twinkleSpeed = 0.95 + aSeed * 10.25;
     float twinklePhase = aSeed * 6.28318;
-    float twinkle = 0.5 + 0.5 * sin(uTime * twinkleSpeed + twinklePhase);
-    
-    // Secondary slower twinkle
-    float slowTwinkle = 0.8 + 0.2 * sin(uTime * 0.3 + aSeed * 3.14159);
+    float twinkle = 0.75 + 0.25 * sin(uTime * twinkleSpeed + twinklePhase);
+
+    float slowTwinkle = 0.85 + 0.15 * sin(uTime * 0.28 + aSeed * 3.14159);
     twinkle *= slowTwinkle;
-    
+
+    float micro = 0.5 + 0.5 * sin(uTime * (twinkleSpeed * 2.2) + twinklePhase * 3.7);
+    micro = pow(micro, 8.0);
+    twinkle = clamp(twinkle + micro * 0.35, 0.0, 1.35);
+
     vBrightness = aBrightness * twinkle;
-    
-    // Size with perspective
+
     float perspectiveSize = aSize * uSize * (300.0 / -mvPosition.z);
-    gl_PointSize = clamp(perspectiveSize, 0.3, 3.0);
+    perspectiveSize *= (0.9 + 0.95 * twinkle);
+    gl_PointSize = clamp(perspectiveSize, 0.35, 3.6);
     
     gl_Position = projectionMatrix * mvPosition;
   }
@@ -65,9 +67,8 @@ const backgroundFragmentShader = /* glsl */ `
     
     if (dist > 0.5) discard;
     
-    // Soft glow
     float alpha = exp(-dist * dist * 8.0);
-    float halo = exp(-dist * 2.0) * 0.3;
+    float halo = exp(-dist * 2.0) * 0.95;
     alpha += halo;
     
     alpha *= vBrightness;
@@ -107,8 +108,7 @@ const backgroundFragmentShader = /* glsl */ `
       );
     }
     
-    // Boost brightness
-    starColor *= (1.0 + vBrightness * 0.5);
+    starColor *= (1.0 + vBrightness * 0.65);
     
     gl_FragColor = vec4(starColor, alpha);
   }
@@ -218,6 +218,10 @@ export class CosmicBackground {
    */
   update(deltaTime: number): void {
     this.uniforms.uTime.value += deltaTime * this.config.twinkleSpeed;
+    if (this.points) {
+      this.points.rotation.y += deltaTime * 0.03;
+      this.points.rotation.x += deltaTime * 0.03;
+    }
   }
 
   /**

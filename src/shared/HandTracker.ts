@@ -24,8 +24,19 @@ export class HandTracker {
   private config: HandTrackerConfig;
   private _isReady: boolean = false;
 
+  private detectionIntervalMs: number = 0;
+  private lastResult: HandLandmarkerResult | null = null;
+
   constructor(config: Partial<HandTrackerConfig> = {}) {
     this.config = { ...DEFAULT_HAND_TRACKER_CONFIG, ...config };
+  }
+
+  setDetectionIntervalMs(intervalMs: number): void {
+    this.detectionIntervalMs = Math.max(0, intervalMs);
+  }
+
+  getDetectionIntervalMs(): number {
+    return this.detectionIntervalMs;
   }
 
   /**
@@ -159,7 +170,7 @@ export class HandTracker {
   }
 
   // Track last timestamp to avoid duplicate detections
-  private lastDetectionTimestamp: number = -1;
+  private lastDetectForVideoTimestamp: number = -1;
 
   /**
    * Detect hands in current video frame
@@ -178,14 +189,29 @@ export class HandTracker {
 
     // Ensure timestamp is strictly increasing (MediaPipe requirement)
     // This prevents "timestamp must be monotonically increasing" errors
-    if (timestamp <= this.lastDetectionTimestamp) {
-      return null;
+    if (timestamp <= this.lastDetectForVideoTimestamp) {
+      return this.lastResult;
     }
-    this.lastDetectionTimestamp = timestamp;
+
+    // Throttle expensive detectForVideo calls to protect frame time.
+    // Returning cached results keeps the render loop running at 60fps.
+    if (
+      this.detectionIntervalMs > 0 &&
+      this.lastDetectForVideoTimestamp >= 0 &&
+      timestamp - this.lastDetectForVideoTimestamp < this.detectionIntervalMs
+    ) {
+      return this.lastResult;
+    }
 
     try {
       // detectForVideo is synchronous in VIDEO running mode
-      return this.handLandmarker.detectForVideo(this.videoElement, timestamp);
+      const result = this.handLandmarker.detectForVideo(
+        this.videoElement,
+        timestamp
+      );
+      this.lastDetectForVideoTimestamp = timestamp;
+      this.lastResult = result;
+      return result;
     } catch (error) {
       console.error('[HandTracker] Detection error:', error);
       return null;

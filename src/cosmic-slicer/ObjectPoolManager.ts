@@ -22,6 +22,10 @@ export class ObjectPoolManager {
   private config: ObjectPoolConfig;
   private factory: CosmicObjectFactory;
 
+  private readonly baseSpawnRate: number;
+  private readonly baseMaxActiveObjects: number;
+  private objectScaleMultiplier: number = 0.6;
+
   private pool: CosmicObjectInstance[] = [];
   private nextId: number = 0;
 
@@ -40,6 +44,9 @@ export class ObjectPoolManager {
     this.config = { ...DEFAULT_OBJECT_POOL_CONFIG, ...config };
     this.factory = new CosmicObjectFactory();
     this.spawnInterval = 1000 / this.config.spawnRate;
+
+    this.baseSpawnRate = this.config.spawnRate;
+    this.baseMaxActiveObjects = this.config.maxActiveObjects;
 
     this.initializePool();
   }
@@ -188,7 +195,7 @@ export class ObjectPoolManager {
 
     // Size jitter to keep the fleet feeling varied (and smaller by default)
     const sizeJitter = 0.82 + Math.random() * 0.25;
-    const scale = config.scale * sizeJitter;
+    const scale = config.scale * sizeJitter * this.objectScaleMultiplier;
     instance.mesh.scale.setScalar(scale);
 
     instance.boundingSphere.center.copy(instance.position);
@@ -200,7 +207,7 @@ export class ObjectPoolManager {
     deltaTime: number
   ): void {
     // Update position
-    instance.position.add(instance.velocity.clone().multiplyScalar(deltaTime));
+    instance.position.addScaledVector(instance.velocity, deltaTime);
     instance.mesh.position.copy(instance.position);
 
     // Update rotation (only for the core, glow billboards separately)
@@ -323,6 +330,34 @@ export class ObjectPoolManager {
 
   setMaxActiveObjects(max: number): void {
     this.config.maxActiveObjects = Math.min(max, this.config.poolSize);
+  }
+
+  setObjectScaleMultiplier(multiplier: number): void {
+    this.objectScaleMultiplier = Math.max(0.1, Math.min(2.0, multiplier));
+  }
+
+  setQualityLevel(level: 'high' | 'medium' | 'low'): void {
+    if (level === 'high') {
+      this.setSpawnRate(this.baseSpawnRate);
+      this.setMaxActiveObjects(this.baseMaxActiveObjects);
+      this.setObjectScaleMultiplier(0.6);
+      return;
+    }
+
+    if (level === 'medium') {
+      this.setSpawnRate(this.baseSpawnRate * 0.8);
+      this.setMaxActiveObjects(
+        Math.max(3, Math.floor(this.baseMaxActiveObjects * 0.8))
+      );
+      this.setObjectScaleMultiplier(0.58);
+      return;
+    }
+
+    this.setSpawnRate(this.baseSpawnRate * 0.6);
+    this.setMaxActiveObjects(
+      Math.max(2, Math.floor(this.baseMaxActiveObjects * 0.6))
+    );
+    this.setObjectScaleMultiplier(0.55);
   }
 
   reset(): void {

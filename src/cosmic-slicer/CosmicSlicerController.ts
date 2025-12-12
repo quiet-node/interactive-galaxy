@@ -50,6 +50,13 @@ export class CosmicSlicerController {
   private lastFrameTime: number = 0;
   private isRunning: boolean = false;
 
+  private lastHandResults: ReturnType<HandTracker['detectHands']> = null;
+  private lastHandsDetected: number = 0;
+
+  private adaptivePerfEnabled: boolean = true;
+  private trailRenderMode: 'on-top' | 'depth-aware' = 'on-top';
+  private lastPerfTuningTime: number = 0;
+
   // Debug
   private debugCallback: ((info: CosmicSlicerDebugInfo) => void) | null = null;
   private fpsCounter: FpsCounter;
@@ -145,13 +152,17 @@ export class CosmicSlicerController {
       this.container,
       {
         maxPoints: 72,
-        ribbonWidth: 0.1,
+        ribbonWidth: 0.2,
         trailLength: 28,
-        fadeDurationMs: 460,
-        coreColor: new THREE.Color(0xc8f4ff), // Icy-white core
-        glowColor: new THREE.Color(0x5bc8ff), // Cyan halo
+        coreColor: new THREE.Color(0xffffff), // Pure white core
+        glowColor: new THREE.Color(0x00d4ff), // Electric cyan glow
+        smoothingFactor: 0.35,
+        velocityScale: 2.5,
+        intensityBoost: 1.2,
       }
     );
+
+    this.trailRenderer.setRenderMode(this.trailRenderMode);
 
     // Initialize object pool (pass camera for glow billboarding)
     this.objectPool = new ObjectPoolManager(this.scene, this.camera, {
@@ -258,11 +269,16 @@ export class CosmicSlicerController {
    * Update game logic
    */
   private update(timestamp: number, deltaTime: number): void {
-    // Get hand tracking results
-    const handResults = this.handTracker.detectHands(timestamp);
+    if (this.adaptivePerfEnabled) {
+      this.updateAdaptivePerformance(timestamp);
+    }
+
+    // Get hand tracking results (expensive; must be called once per frame)
+    this.lastHandResults = this.handTracker.detectHands(timestamp);
+    this.lastHandsDetected = this.lastHandResults?.landmarks?.length ?? 0;
 
     // Update GPU particle trail renderer
-    this.trailRenderer?.update(handResults, deltaTime);
+    this.trailRenderer?.update(this.lastHandResults, deltaTime);
 
     // Update 3D object pool
     this.objectPool?.update(deltaTime, timestamp);
@@ -342,10 +358,57 @@ export class CosmicSlicerController {
     if (this.trailRenderer) {
       const prevAutoClear = this.renderer.autoClear;
       this.renderer.autoClear = false;
-      this.renderer.clearDepth();
+      if (this.trailRenderMode === 'on-top') {
+        this.renderer.clearDepth();
+      }
       this.renderer.render(this.overlayScene, this.camera);
       this.renderer.autoClear = prevAutoClear;
     }
+  }
+
+  setTrailRenderMode(mode: 'on-top' | 'depth-aware'): void {
+    this.trailRenderMode = mode;
+    this.trailRenderer?.setRenderMode(mode);
+  }
+
+  setAdaptivePerformanceEnabled(enabled: boolean): void {
+    this.adaptivePerfEnabled = enabled;
+    if (!enabled) {
+      this.handTracker.setDetectionIntervalMs(0);
+    }
+  }
+
+  private updateAdaptivePerformance(timestamp: number): void {
+    // Don’t retune too frequently.
+    if (timestamp - this.lastPerfTuningTime < 500) return;
+    this.lastPerfTuningTime = timestamp;
+
+    const fps = this.fpsCounter.getFps();
+
+    // Quality ladder:
+    // - >= 52fps: full
+    // - 38-52fps: mild throttle
+    // - < 38fps: aggressive throttle
+    if (fps >= 52) {
+      this.handTracker.setDetectionIntervalMs(0);
+      this.trailRenderer?.setQualityLevel('high');
+      this.postProcessing?.setBloomIntensity(1.35);
+      this.objectPool?.setQualityLevel('high');
+      return;
+    }
+
+    if (fps >= 38) {
+      this.handTracker.setDetectionIntervalMs(33);
+      this.trailRenderer?.setQualityLevel('medium');
+      this.postProcessing?.setBloomIntensity(1.0);
+      this.objectPool?.setQualityLevel('medium');
+      return;
+    }
+
+    this.handTracker.setDetectionIntervalMs(66);
+    this.trailRenderer?.setQualityLevel('low');
+    this.postProcessing?.setBloomIntensity(0.65);
+    this.objectPool?.setQualityLevel('low');
   }
 
   /**
@@ -370,14 +433,15 @@ export class CosmicSlicerController {
 
     const info: CosmicSlicerDebugInfo = {
       fps: this.fpsCounter.getFps(),
-      handsDetected: this.handTracker.isReady()
-        ? this.handTracker.detectHands(performance.now())?.landmarks?.length ??
-          0
-        : 0,
+      handsDetected: this.lastHandsDetected,
       activeObjects: this.objectPool?.getActiveCount() ?? 0,
       totalSliced: this.objectPool?.getTotalSliced() ?? 0,
       trailPointCounts: this.trailRenderer?.getTrailPointCounts() ?? {},
       activeExplosions: this.sliceEffect?.getActiveCount() ?? 0,
+      drawCalls: this.renderer.info.render.calls,
+      triangles: this.renderer.info.render.triangles,
+      trailRenderMode: this.trailRenderMode,
+      detectionIntervalMs: this.handTracker.getDetectionIntervalMs(),
     };
 
     this.debugCallback(info);
@@ -387,9 +451,7 @@ export class CosmicSlicerController {
    * Get number of detected hands
    */
   getHandCount(): number {
-    return (
-      this.handTracker.detectHands(performance.now())?.landmarks?.length ?? 0
-    );
+    return this.lastHandsDetected;
   }
 
   /**
