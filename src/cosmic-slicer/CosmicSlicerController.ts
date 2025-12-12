@@ -408,11 +408,12 @@ export class CosmicSlicerController {
 
     // Trigger explosion at object's 3D position
     const velocityMultiplier = Math.min(2.5, Math.max(0.7, velocity / 300));
-    this.sliceEffect?.trigger(
-      object.position.clone(),
-      object.config.emissiveColor,
-      velocityMultiplier
-    );
+    this.sliceEffect?.trigger(object.position.clone(), {
+      type: object.config.type,
+      baseColor: object.config.color,
+      glowColor: object.config.emissiveColor,
+      velocityMultiplier,
+    });
   }
 
   /**

@@ -22,6 +22,8 @@ export class ObjectPoolManager {
   private config: ObjectPoolConfig;
   private factory: CosmicObjectFactory;
 
+  private readonly despawnFadeDistance: number = 1.6;
+
   private readonly baseSpawnRate: number;
   private readonly baseMaxActiveObjects: number;
   private objectScaleMultiplier: number = 0.6;
@@ -199,6 +201,9 @@ export class ObjectPoolManager {
     const sizeJitter = 0.82 + Math.random() * 0.25;
     const scale = config.scale * sizeJitter * this.objectScaleMultiplier;
     instance.mesh.scale.setScalar(scale);
+    instance.mesh.userData.baseScale = scale;
+
+    this.applyDespawnFade(instance.mesh, 1);
 
     instance.boundingSphere.center.copy(instance.position);
     instance.boundingSphere.radius = config.collisionRadius * scale;
@@ -232,9 +237,79 @@ export class ObjectPoolManager {
     instance.boundingSphere.center.copy(instance.position);
 
     // Check despawn
-    if (instance.position.z > this.config.despawnZPosition) {
+    const fadeStartZ = this.config.despawnZPosition - this.despawnFadeDistance;
+    const fade =
+      instance.position.z <= fadeStartZ
+        ? 1
+        : Math.max(
+            0,
+            Math.min(
+              1,
+              (this.config.despawnZPosition - instance.position.z) /
+                this.despawnFadeDistance
+            )
+          );
+
+    this.applyDespawnFade(instance.mesh, fade);
+
+    const baseScale =
+      (instance.mesh.userData.baseScale as number | undefined) ??
+      instance.mesh.scale.x;
+    const scaleFactor = 0.72 + 0.28 * fade;
+    instance.mesh.scale.setScalar(baseScale * scaleFactor);
+
+    if (instance.position.z > this.config.despawnZPosition + 0.15) {
       this.recycleObject(instance, CosmicObjectState.MISSED);
     }
+  }
+
+  private applyDespawnFade(object: THREE.Object3D, fade: number): void {
+    const clamped = Math.max(0, Math.min(1, fade));
+
+    object.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+
+      const materials = Array.isArray(child.material)
+        ? child.material
+        : [child.material];
+
+      for (const material of materials) {
+        if (!(material instanceof THREE.Material)) continue;
+
+        const userData = material.userData as Record<string, unknown>;
+        const key = '__fadeOriginal';
+        if (!userData[key]) {
+          userData[key] = {
+            transparent: material.transparent,
+            opacity: material.opacity,
+            depthWrite: material.depthWrite,
+          };
+        }
+
+        const original = userData[key] as {
+          transparent: boolean;
+          opacity: number;
+          depthWrite: boolean;
+        };
+
+        const uniforms = (material as THREE.ShaderMaterial).uniforms;
+        if (uniforms && uniforms.uFade) {
+          uniforms.uFade.value = clamped;
+        }
+
+        if (clamped >= 0.999) {
+          material.transparent = original.transparent;
+          material.opacity = original.opacity;
+          material.depthWrite = original.depthWrite;
+        } else {
+          material.transparent = true;
+          material.opacity = original.opacity * clamped;
+          material.depthWrite = false;
+        }
+
+        material.needsUpdate = true;
+      }
+    });
   }
 
   private disposeObject(object: THREE.Object3D): void {

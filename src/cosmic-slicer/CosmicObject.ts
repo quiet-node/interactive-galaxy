@@ -521,6 +521,10 @@ class GeometryCache {
   private static instance: GeometryCache | null = null;
   private geometries: Map<CosmicObjectType, THREE.BufferGeometry> = new Map();
   public glowPlane: THREE.PlaneGeometry | null = null;
+  public voidPearlRing: THREE.TorusGeometry | null = null;
+  public voidPearlCore: THREE.SphereGeometry | null = null;
+  public nebulaShell: THREE.SphereGeometry | null = null;
+  public cometTail: THREE.CylinderGeometry | null = null;
 
   private constructor() {
     this.createGeometries();
@@ -563,8 +567,8 @@ class GeometryCache {
     this.geometries.set(CosmicObjectType.CRYSTAL, crystal);
 
     // Debris - angular shape
-    const voidPearl = new THREE.IcosahedronGeometry(1, 4);
-    this.addSurfaceVariation(voidPearl, 0.03);
+    const voidPearl = new THREE.SphereGeometry(1, 42, 28);
+    this.addSurfaceVariation(voidPearl, 0.012);
     voidPearl.computeVertexNormals();
     if (voidPearl.attributes.uv) {
       voidPearl.setAttribute(
@@ -573,6 +577,9 @@ class GeometryCache {
       );
     }
     this.geometries.set(CosmicObjectType.VOID_PEARL, voidPearl);
+
+    this.voidPearlRing = new THREE.TorusGeometry(1.12, 0.055, 28, 160);
+    this.voidPearlCore = new THREE.SphereGeometry(0.66, 26, 20);
 
     const nebulaCore = new THREE.IcosahedronGeometry(1, 4);
     this.addSurfaceVariation(nebulaCore, 0.05);
@@ -606,6 +613,9 @@ class GeometryCache {
       );
     }
     this.geometries.set(CosmicObjectType.COMET_EMBER, cometEmber);
+
+    this.nebulaShell = new THREE.SphereGeometry(1.16, 32, 24);
+    this.cometTail = new THREE.CylinderGeometry(0.0, 0.45, 2.0, 18, 1, true);
 
     // Glow plane for halos
     this.glowPlane = new THREE.PlaneGeometry(3, 3);
@@ -799,6 +809,10 @@ class GeometryCache {
     for (const geometry of this.geometries.values()) {
       geometry.dispose();
     }
+    this.voidPearlRing?.dispose();
+    this.voidPearlCore?.dispose();
+    this.nebulaShell?.dispose();
+    this.cometTail?.dispose();
     this.glowPlane?.dispose();
     this.geometries.clear();
     GeometryCache.instance = null;
@@ -893,48 +907,63 @@ export class CosmicObjectFactory {
     }
 
     if (type === CosmicObjectType.VOID_PEARL) {
-      const ringGeometry = new THREE.TorusGeometry(1.08, 0.06, 24, 128);
-      const ringMaterial = new THREE.MeshPhysicalMaterial({
-        color: config.color.clone(),
-        metalness: 1.0,
-        roughness: 0.18,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.08,
-        emissive: config.emissiveColor.clone(),
-        emissiveIntensity: Math.max(0.35, config.emissiveIntensity * 0.55),
-      });
-      ringMaterial.envMapIntensity = 2.2;
+      if (this.geometryCache.voidPearlRing) {
+        const ringMaterial = new THREE.MeshPhysicalMaterial({
+          color: config.color.clone().lerp(new THREE.Color(0xffffff), 0.22),
+          metalness: 1.0,
+          roughness: 0.14,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.06,
+          emissive: config.emissiveColor.clone(),
+          emissiveIntensity: Math.max(0.35, config.emissiveIntensity * 0.65),
+        });
+        ringMaterial.envMapIntensity = 2.35;
 
-      const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-      ring.rotation.set(0.6, 0.0, 0.25);
-      ring.renderOrder = 99;
-      rotationRoot.add(ring);
+        const ring = new THREE.Mesh(
+          this.geometryCache.voidPearlRing,
+          ringMaterial
+        );
+        ring.rotation.set(0.65, 0.0, 0.25);
+        ring.renderOrder = 99;
+        rotationRoot.add(ring);
+      }
+
+      if (this.geometryCache.voidPearlCore) {
+        const coreMat = new THREE.MeshBasicMaterial({
+          color: config.emissiveColor.clone(),
+          transparent: true,
+          opacity: 0.12,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          depthTest: true,
+        });
+        const inner = new THREE.Mesh(this.geometryCache.voidPearlCore, coreMat);
+        inner.renderOrder = 98;
+        rotationRoot.add(inner);
+      }
     }
 
     if (type === CosmicObjectType.NEBULA_CORE) {
-      const shellGeometry = new THREE.SphereGeometry(1.16, 32, 24);
-      const shellMaterial = new THREE.MeshBasicMaterial({
-        color: config.emissiveColor.clone(),
-        transparent: true,
-        opacity: 0.08,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        depthTest: true,
-      });
-      const shell = new THREE.Mesh(shellGeometry, shellMaterial);
-      shell.renderOrder = 98;
-      group.add(shell);
+      if (this.geometryCache.nebulaShell) {
+        const shellMaterial = new THREE.MeshBasicMaterial({
+          color: config.emissiveColor.clone(),
+          transparent: true,
+          opacity: 0.08,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          depthTest: true,
+        });
+        const shell = new THREE.Mesh(
+          this.geometryCache.nebulaShell,
+          shellMaterial
+        );
+        shell.renderOrder = 98;
+        group.add(shell);
+      }
     }
 
     if (type === CosmicObjectType.COMET_EMBER) {
-      const tailGeometry = new THREE.CylinderGeometry(
-        0.0,
-        0.45,
-        2.0,
-        18,
-        1,
-        true
-      );
+      const tailGeometry = this.geometryCache.cometTail;
       const tailMaterial = new THREE.ShaderMaterial({
         uniforms: {
           uColor: { value: config.emissiveColor.clone() },
@@ -965,11 +994,13 @@ export class CosmicObjectFactory {
         toneMapped: true,
         side: THREE.DoubleSide,
       });
-      const tail = new THREE.Mesh(tailGeometry, tailMaterial);
-      tail.rotation.x = -Math.PI / 2;
-      tail.position.z = -1.0;
-      tail.renderOrder = 98;
-      rotationRoot.add(tail);
+      if (tailGeometry) {
+        const tail = new THREE.Mesh(tailGeometry, tailMaterial);
+        tail.rotation.x = -Math.PI / 2;
+        tail.position.z = -1.0;
+        tail.renderOrder = 98;
+        rotationRoot.add(tail);
+      }
     }
 
     // Glow halo sprite (billboard, no depth write)

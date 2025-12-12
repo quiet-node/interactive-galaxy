@@ -10,7 +10,11 @@
  */
 
 import * as THREE from 'three';
-import { SliceEffectConfig, DEFAULT_SLICE_EFFECT_CONFIG } from './types';
+import {
+  CosmicObjectType,
+  SliceEffectConfig,
+  DEFAULT_SLICE_EFFECT_CONFIG,
+} from './types';
 
 // Optimized vertex shader
 const explosionVertexShader = /* glsl */ `
@@ -62,8 +66,160 @@ interface ExplosionInstance {
   startIndex: number;
   count: number;
   origin: THREE.Vector3;
-  color: THREE.Color;
+  baseColor: THREE.Color;
+  glowColor: THREE.Color;
+  style: ExplosionStyle;
   active: boolean;
+}
+
+interface ExplosionStyle {
+  countMin: number;
+  countMax: number;
+  sizeMin: number;
+  sizeMax: number;
+  speedMin: number;
+  speedMax: number;
+  hueJitter: number;
+  colorMix: number;
+  discBias: number;
+  sparkChance: number;
+}
+
+function clamp01(v: number): number {
+  return Math.max(0, Math.min(1, v));
+}
+
+function jitterHsl(color: THREE.Color, hueJitter: number): THREE.Color {
+  const hsl = { h: 0, s: 0, l: 0 };
+  color.getHSL(hsl);
+  hsl.h = (hsl.h + (Math.random() - 0.5) * hueJitter + 1) % 1;
+  hsl.s = clamp01(hsl.s * (0.9 + Math.random() * 0.2));
+  hsl.l = clamp01(hsl.l * (0.85 + Math.random() * 0.35));
+  return new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l);
+}
+
+function getStyleForType(
+  type: CosmicObjectType,
+  baseCount: number
+): ExplosionStyle {
+  const cap = baseCount;
+
+  const make = (
+    s: Omit<ExplosionStyle, 'countMin' | 'countMax'> & {
+      cm: number;
+      cx: number;
+    }
+  ): ExplosionStyle => {
+    return {
+      countMin: Math.max(8, Math.min(cap, Math.floor(cap * s.cm))),
+      countMax: Math.max(12, Math.min(cap, Math.floor(cap * s.cx))),
+      sizeMin: s.sizeMin,
+      sizeMax: s.sizeMax,
+      speedMin: s.speedMin,
+      speedMax: s.speedMax,
+      hueJitter: s.hueJitter,
+      colorMix: s.colorMix,
+      discBias: s.discBias,
+      sparkChance: s.sparkChance,
+    };
+  };
+
+  if (type === CosmicObjectType.STAR) {
+    return make({
+      cm: 0.85,
+      cx: 1.0,
+      sizeMin: 0.65,
+      sizeMax: 1.05,
+      speedMin: 1.05,
+      speedMax: 1.55,
+      hueJitter: 0.02,
+      colorMix: 0.55,
+      discBias: 0.15,
+      sparkChance: 0.18,
+    });
+  }
+  if (type === CosmicObjectType.METEOR) {
+    return make({
+      cm: 0.75,
+      cx: 0.95,
+      sizeMin: 0.7,
+      sizeMax: 1.15,
+      speedMin: 1.1,
+      speedMax: 1.7,
+      hueJitter: 0.03,
+      colorMix: 0.5,
+      discBias: 0.25,
+      sparkChance: 0.14,
+    });
+  }
+  if (type === CosmicObjectType.CRYSTAL) {
+    return make({
+      cm: 0.7,
+      cx: 0.9,
+      sizeMin: 0.75,
+      sizeMax: 1.25,
+      speedMin: 0.95,
+      speedMax: 1.4,
+      hueJitter: 0.04,
+      colorMix: 0.62,
+      discBias: 0.28,
+      sparkChance: 0.08,
+    });
+  }
+  if (type === CosmicObjectType.VOID_PEARL) {
+    return make({
+      cm: 0.65,
+      cx: 0.85,
+      sizeMin: 0.75,
+      sizeMax: 1.3,
+      speedMin: 0.75,
+      speedMax: 1.15,
+      hueJitter: 0.06,
+      colorMix: 0.7,
+      discBias: 0.45,
+      sparkChance: 0.1,
+    });
+  }
+  if (type === CosmicObjectType.NEBULA_CORE) {
+    return make({
+      cm: 0.75,
+      cx: 0.95,
+      sizeMin: 0.8,
+      sizeMax: 1.45,
+      speedMin: 0.8,
+      speedMax: 1.25,
+      hueJitter: 0.08,
+      colorMix: 0.72,
+      discBias: 0.55,
+      sparkChance: 0.06,
+    });
+  }
+  if (type === CosmicObjectType.ANCIENT_RELIC) {
+    return make({
+      cm: 0.65,
+      cx: 0.85,
+      sizeMin: 0.65,
+      sizeMax: 1.1,
+      speedMin: 0.9,
+      speedMax: 1.35,
+      hueJitter: 0.02,
+      colorMix: 0.42,
+      discBias: 0.18,
+      sparkChance: 0.12,
+    });
+  }
+  return make({
+    cm: 0.75,
+    cx: 0.95,
+    sizeMin: 0.8,
+    sizeMax: 1.35,
+    speedMin: 1.15,
+    speedMax: 1.75,
+    hueJitter: 0.04,
+    colorMix: 0.55,
+    discBias: 0.2,
+    sparkChance: 0.16,
+  });
 }
 
 /**
@@ -176,9 +332,30 @@ export class SliceEffect {
    */
   trigger(
     position: THREE.Vector3,
-    color: THREE.Color,
+    colorOrOptions:
+      | THREE.Color
+      | {
+          type: CosmicObjectType;
+          baseColor: THREE.Color;
+          glowColor: THREE.Color;
+          velocityMultiplier?: number;
+        },
     velocityMultiplier: number = 1
   ): number {
+    const options =
+      colorOrOptions instanceof THREE.Color
+        ? {
+            type: CosmicObjectType.METEOR,
+            baseColor: colorOrOptions,
+            glowColor: colorOrOptions,
+            velocityMultiplier,
+          }
+        : {
+            ...colorOrOptions,
+            velocityMultiplier:
+              colorOrOptions.velocityMultiplier ?? velocityMultiplier,
+          };
+
     // Find available slot
     let slot = -1;
     for (let i = 0; i < this.maxExplosions; i++) {
@@ -204,17 +381,26 @@ export class SliceEffect {
 
     if (slot === -1) slot = 0;
 
+    const style = getStyleForType(options.type, this.config.particleCount);
+    const count =
+      style.countMin +
+      Math.floor(
+        Math.random() * Math.max(1, style.countMax - style.countMin + 1)
+      );
+
     const explosion: ExplosionInstance = {
       id: this.nextId++,
       startTime: performance.now() / 1000,
       startIndex: slot * this.config.particleCount,
-      count: this.config.particleCount,
+      count,
       origin: position.clone(),
-      color: color.clone(),
+      baseColor: options.baseColor.clone(),
+      glowColor: options.glowColor.clone(),
+      style,
       active: true,
     };
 
-    this.initializeParticles(explosion, velocityMultiplier);
+    this.initializeParticles(explosion, options.velocityMultiplier);
 
     if (this.explosions.length <= slot) {
       this.explosions.push(explosion);
@@ -235,6 +421,13 @@ export class SliceEffect {
     const sizes = this.sizeAttr.array as Float32Array;
     const colors = this.colorAttr.array as Float32Array;
 
+    const style = explosion.style;
+    const discBias = clamp01(style.discBias + (Math.random() - 0.5) * 0.1);
+    const speedMult =
+      style.speedMin + Math.random() * (style.speedMax - style.speedMin);
+    const baseSizeMult =
+      style.sizeMin + Math.random() * (style.sizeMax - style.sizeMin);
+
     for (let i = 0; i < explosion.count; i++) {
       const idx = explosion.startIndex + i;
       const i3 = idx * 3;
@@ -246,13 +439,21 @@ export class SliceEffect {
 
       // Spherical velocity
       const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
+      const rnd = Math.random();
+      const phi = Math.acos(2 * rnd - 1);
       const speed =
-        this.config.initialVelocity * (0.5 + Math.random()) * velocityMult;
+        this.config.initialVelocity *
+        (0.5 + Math.random()) *
+        velocityMult *
+        speedMult;
 
-      this.velocities[i3] = Math.sin(phi) * Math.cos(theta) * speed;
-      this.velocities[i3 + 1] = Math.sin(phi) * Math.sin(theta) * speed;
-      this.velocities[i3 + 2] = Math.cos(phi) * speed;
+      const disc = Math.random() < discBias;
+      const sinPhi = disc ? 1.0 : Math.sin(phi);
+      const cosPhi = disc ? (Math.random() - 0.5) * 0.35 : Math.cos(phi);
+
+      this.velocities[i3] = sinPhi * Math.cos(theta) * speed;
+      this.velocities[i3 + 1] = sinPhi * Math.sin(theta) * speed;
+      this.velocities[i3 + 2] = cosPhi * speed;
 
       // Alpha
       alphas[idx] = 0.7 + Math.random() * 0.3;
@@ -262,12 +463,29 @@ export class SliceEffect {
       this.lifetimeOffsets[idx] = (Math.random() - 0.5) * 0.25;
 
       // Size
-      sizes[idx] = this.config.particleSize * (0.6 + Math.random() * 0.8);
+      sizes[idx] =
+        this.config.particleSize * baseSizeMult * (0.55 + Math.random() * 0.9);
 
       // Color
-      colors[i3] = explosion.color.r;
-      colors[i3 + 1] = explosion.color.g;
-      colors[i3 + 2] = explosion.color.b;
+      const mixFactor = clamp01(style.colorMix + (Math.random() - 0.5) * 0.22);
+      const mixed = explosion.baseColor
+        .clone()
+        .lerp(explosion.glowColor, mixFactor);
+      const jittered = jitterHsl(mixed, style.hueJitter);
+
+      const isSpark = Math.random() < style.sparkChance;
+      if (isSpark) {
+        jittered.lerp(new THREE.Color(0xffffff), 0.55);
+      }
+
+      const brightness = isSpark
+        ? 1.25 + Math.random() * 0.75
+        : 0.85 + Math.random() * 0.55;
+      jittered.multiplyScalar(brightness);
+
+      colors[i3] = jittered.r;
+      colors[i3 + 1] = jittered.g;
+      colors[i3 + 2] = jittered.b;
     }
 
     this.positionAttr.needsUpdate = true;
