@@ -11,6 +11,8 @@ import {
   HandGalaxyController,
   DebugInfo,
 } from './interactive-galaxy/HandGalaxyController';
+import { CosmicSlicerController } from './cosmic-slicer/CosmicSlicerController';
+import { CosmicSlicerDebugInfo } from './cosmic-slicer/types';
 import { HandTracker } from './shared/HandTracker';
 import { DebugComponent } from './ui/DebugComponent';
 import { Footer } from './ui/Footer';
@@ -53,6 +55,7 @@ export class App {
   private galaxyRenderer: GalaxyRenderer | null = null;
   private controller: HandGalaxyController | null = null;
   private foggyMirrorController: FoggyMirrorController | null = null;
+  private cosmicSlicerController: CosmicSlicerController | null = null;
   private config: AppConfig;
   private currentMode: InteractionMode | null = null;
 
@@ -159,8 +162,10 @@ export class App {
     this.landingPage = new LandingPage(this.container, (mode) => {
       if (mode === 'galaxy') {
         this.switchToGalaxyMode();
-      } else {
+      } else if (mode === 'foggy-mirror') {
         this.switchToFoggyMirrorMode();
+      } else if (mode === 'cosmic-slicer') {
+        this.switchToCosmicSlicerMode();
       }
     });
 
@@ -178,8 +183,11 @@ export class App {
     // Mode Indicator
     this.modeIndicator = new ModeIndicator(this.container);
     this.modeIndicator.onClick(() => {
+      // Cycle through modes: galaxy -> foggy-mirror -> cosmic-slicer -> galaxy
       if (this.currentMode === 'galaxy') {
         this.switchToFoggyMirrorMode();
+      } else if (this.currentMode === 'foggy-mirror') {
+        this.switchToCosmicSlicerMode();
       } else {
         this.switchToGalaxyMode();
       }
@@ -217,6 +225,9 @@ export class App {
         return;
       } else if (key === 'f') {
         this.switchToFoggyMirrorMode();
+        return;
+      } else if (key === 's') {
+        this.switchToCosmicSlicerMode();
         return;
       }
 
@@ -298,6 +309,13 @@ export class App {
       this.foggyMirrorController.enableDebug((info) =>
         this.updateFoggyMirrorDebugPanel(info)
       );
+    } else if (
+      this.currentMode === 'cosmic-slicer' &&
+      this.cosmicSlicerController
+    ) {
+      this.cosmicSlicerController.enableDebug((info) =>
+        this.updateCosmicSlicerDebugPanel(info)
+      );
     }
   }
 
@@ -345,6 +363,29 @@ export class App {
       <div style="margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 4px;">
         <div>Wipe Speed: ${info.avgVelocity.toFixed(0)} px/f</div>
         <div>Brush Size: ${info.avgBrushSize.toFixed(0)} px</div>
+      </div>
+    `);
+  }
+
+  /**
+   * Update cosmic slicer debug panel with current info
+   */
+  private updateCosmicSlicerDebugPanel(info: CosmicSlicerDebugInfo): void {
+    if (!this.debugComponent) return;
+
+    const trailCounts = Object.entries(info.trailPointCounts)
+      .map(([hand, count]) => `${hand}: ${count}`)
+      .join(', ');
+
+    this.debugComponent.update(`
+      <div style="margin-bottom: 8px; color: #fff; font-weight: bold;">Debug Info</div>
+      <div>FPS: ${info.fps.toFixed(1)}</div>
+      <div>Hands: ${info.handsDetected}</div>
+      <div>Active Objects: ${info.activeObjects}</div>
+      <div>Total Sliced: ${info.totalSliced}</div>
+      <div style="margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 4px;">
+        <div>Trail Points: ${trailCounts || 'None'}</div>
+        <div>Active Explosions: ${info.activeExplosions}</div>
       </div>
     `);
   }
@@ -407,6 +448,7 @@ export class App {
     if (!isVisible) {
       this.controller?.disableDebug();
       this.foggyMirrorController?.disableDebug();
+      this.cosmicSlicerController?.disableDebug();
     } else {
       if (this.currentMode === 'galaxy' && this.controller) {
         this.controller.enableDebug((info) =>
@@ -418,6 +460,13 @@ export class App {
       ) {
         this.foggyMirrorController.enableDebug((info) =>
           this.updateFoggyMirrorDebugPanel(info)
+        );
+      } else if (
+        this.currentMode === 'cosmic-slicer' &&
+        this.cosmicSlicerController
+      ) {
+        this.cosmicSlicerController.enableDebug((info) =>
+          this.updateCosmicSlicerDebugPanel(info)
         );
       }
     }
@@ -452,6 +501,10 @@ export class App {
       // Dim video for galaxy mode (background effect)
       this.videoElement.style.cssText =
         baseStyles + 'filter: brightness(0.20) contrast(0.6);';
+    } else if (mode === 'cosmic-slicer') {
+      // Dim video for cosmic slicer (cosmic background effect)
+      this.videoElement.style.cssText =
+        baseStyles + 'filter: brightness(0.25) contrast(0.7) saturate(0.8);';
     } else {
       // Full brightness for foggy-mirror mode
       this.videoElement.style.cssText = baseStyles + 'filter: none;';
@@ -473,8 +526,16 @@ export class App {
     if (this.foggyMirrorController) {
       this.foggyMirrorController.stop();
       this.foggyMirrorController.disableDebug();
-      this.foggyMirrorController.dispose(); // Fully dispose to save resources
+      this.foggyMirrorController.dispose();
       this.foggyMirrorController = null;
+    }
+
+    // Stop cosmic slicer controller
+    if (this.cosmicSlicerController) {
+      this.cosmicSlicerController.stop();
+      this.cosmicSlicerController.disableDebug();
+      this.cosmicSlicerController.dispose();
+      this.cosmicSlicerController = null;
     }
 
     // Initialize galaxy renderer if needed
@@ -535,15 +596,20 @@ export class App {
     // Stop galaxy mode
     if (this.galaxyRenderer) {
       this.galaxyRenderer.hide();
-      // We could dispose it, but keeping it might be faster for switching back.
-      // However, user said "fully disable the other".
-      // Let's dispose it to be safe and save memory.
       this.galaxyRenderer.dispose();
       this.galaxyRenderer = null;
     }
     if (this.controller) {
       this.controller.dispose();
       this.controller = null;
+    }
+
+    // Stop cosmic slicer controller
+    if (this.cosmicSlicerController) {
+      this.cosmicSlicerController.stop();
+      this.cosmicSlicerController.disableDebug();
+      this.cosmicSlicerController.dispose();
+      this.cosmicSlicerController = null;
     }
 
     // Initialize foggy mirror controller if needed
@@ -605,6 +671,76 @@ export class App {
   }
 
   /**
+   * Switch to cosmic slicer interaction mode
+   */
+  switchToCosmicSlicerMode(): void {
+    if (this.currentMode === 'cosmic-slicer') return;
+
+    console.log('[App] Switching to cosmic-slicer mode');
+
+    // Hide landing page
+    this.landingPage?.hide();
+
+    // Stop galaxy mode
+    if (this.galaxyRenderer) {
+      this.galaxyRenderer.hide();
+      this.galaxyRenderer.dispose();
+      this.galaxyRenderer = null;
+    }
+    if (this.controller) {
+      this.controller.dispose();
+      this.controller = null;
+    }
+
+    // Stop foggy-mirror controller
+    if (this.foggyMirrorController) {
+      this.foggyMirrorController.stop();
+      this.foggyMirrorController.disableDebug();
+      this.foggyMirrorController.dispose();
+      this.foggyMirrorController = null;
+    }
+
+    // Initialize cosmic slicer controller if needed
+    if (!this.cosmicSlicerController) {
+      this.updateStatus('Loading Cosmic Slicer...', 'loading');
+      this.cosmicSlicerController = new CosmicSlicerController(
+        this.handTracker,
+        this.container,
+        { debug: this.config.debug }
+      );
+      this.cosmicSlicerController.initialize();
+    }
+
+    // Start cosmic slicer controller
+    this.cosmicSlicerController.start();
+
+    // Apply video styles - dim video for cosmic mode
+    this.applyVideoStyles('cosmic-slicer');
+
+    // Update mode
+    this.currentMode = 'cosmic-slicer';
+    this.state = 'running';
+    this.updateStatus('Cosmic Slicer - Slice the objects!', 'ready');
+
+    // Show UI elements
+    this.statusIndicator?.show();
+    this.footer?.show();
+    this.hintComponent?.update('cosmic-slicer');
+    this.hintComponent?.show();
+    this.modeIndicator?.update('cosmic-slicer');
+
+    // Start loop
+    this.startAnimationLoop();
+
+    // Re-enable debug if it was active
+    if (this.debugComponent?.isVisibleState()) {
+      this.cosmicSlicerController.enableDebug((info) =>
+        this.updateCosmicSlicerDebugPanel(info)
+      );
+    }
+  }
+
+  /**
    * Clean up and stop the application
    */
   dispose(): void {
@@ -619,6 +755,7 @@ export class App {
     // Dispose modules
     this.controller?.dispose();
     this.foggyMirrorController?.dispose();
+    this.cosmicSlicerController?.dispose();
     this.handTracker.dispose();
     this.galaxyRenderer?.dispose();
 

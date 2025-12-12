@@ -17,7 +17,7 @@ export class HintComponent {
     this.actionHandler = handler;
   }
 
-  update(mode: 'galaxy' | 'foggy-mirror'): void {
+  update(mode: 'galaxy' | 'foggy-mirror' | 'cosmic-slicer'): void {
     if (!this.element) {
       this.createDOM();
     }
@@ -38,6 +38,18 @@ export class HintComponent {
           <div class="hint-item">Move together to shrink</div>
           <div class="hint-item">Close hands for Big Bang</div>
           <div class="hint-item">Pinch for Star burst</div>
+        </div>
+      `;
+    } else if (mode === 'cosmic-slicer') {
+      content.innerHTML = `
+        <div class="hint-header">
+          <span class="hint-title">Gesture Guide</span>
+        </div>
+        <div class="hint-list">
+          <div class="hint-item">Raise your hands to see trails</div>
+          <div class="hint-item">Move hands to slice objects</div>
+          <div class="hint-item">Fast swipes = bigger explosions</div>
+          <div class="hint-item">Slice as many as you can!</div>
         </div>
       `;
     } else {

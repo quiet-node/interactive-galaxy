@@ -3,7 +3,7 @@
  * Displays the initial mode selection screen
  */
 
-export type InteractionMode = 'galaxy' | 'foggy-mirror';
+export type InteractionMode = 'galaxy' | 'foggy-mirror' | 'cosmic-slicer';
 
 export class LandingPage {
   private container: HTMLElement;
@@ -53,6 +53,17 @@ export class LandingPage {
             </div>
             <div class="portal-footer">
               <span class="key-hint">Press <kbd>F</kbd></span>
+            </div>
+            <div class="portal-bg"></div>
+          </button>
+          
+          <button class="portal-card slicer-portal" data-mode="cosmic-slicer">
+            <div class="portal-content">
+              <h2 class="portal-title">Cosmic Slicer</h2>
+              <p class="portal-desc">Slice through cosmic debris with your hands</p>
+            </div>
+            <div class="portal-footer">
+              <span class="key-hint">Press <kbd>S</kbd></span>
             </div>
             <div class="portal-bg"></div>
           </button>
@@ -188,6 +199,10 @@ export class LandingPage {
 
       .fog-portal .portal-bg {
         background: linear-gradient(90deg, rgba(200, 200, 220, 0.1), transparent);
+      }
+
+      .slicer-portal .portal-bg {
+        background: linear-gradient(90deg, rgba(255, 100, 100, 0.1), transparent);
       }
 
       .portal-card:hover {

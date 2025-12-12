@@ -19,7 +19,7 @@ export class ModeIndicator {
     }
   }
 
-  update(mode: 'galaxy' | 'foggy-mirror'): void {
+  update(mode: 'galaxy' | 'foggy-mirror' | 'cosmic-slicer'): void {
     if (!this.element) {
       this.createDOM();
     }
@@ -35,10 +35,16 @@ export class ModeIndicator {
         <div class="switch-hint desktop-hint">Press <kbd>F</kbd> for Foggy Mirror</div>
         <div class="switch-hint mobile-hint">Tap to Switch Mode</div>
       `;
+    } else if (mode === 'cosmic-slicer') {
+      content.innerHTML = `
+        <div class="current-mode">Cosmic Slicer</div>
+        <div class="switch-hint desktop-hint">Press <kbd>G</kbd> for Interactive Galaxy</div>
+        <div class="switch-hint mobile-hint">Tap to Switch Mode</div>
+      `;
     } else {
       content.innerHTML = `
         <div class="current-mode">Foggy Mirror</div>
-        <div class="switch-hint desktop-hint">Press <kbd>G</kbd> for Interactive Galaxy</div>
+        <div class="switch-hint desktop-hint">Press <kbd>S</kbd> for Cosmic Slicer</div>
         <div class="switch-hint mobile-hint">Tap to Switch Mode</div>
       `;
     }

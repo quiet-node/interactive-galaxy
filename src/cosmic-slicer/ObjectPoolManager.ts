@@ -1,0 +1,348 @@
+/**
+ * ObjectPoolManager Module
+ * Manages spawning, movement, and recycling of cosmic objects
+ */
+
+import * as THREE from 'three';
+import {
+  ObjectPoolConfig,
+  DEFAULT_OBJECT_POOL_CONFIG,
+  CosmicObjectState,
+  CosmicObjectInstance,
+  COSMIC_OBJECT_CONFIGS,
+} from './types';
+import { CosmicObjectFactory } from './CosmicObject';
+
+/**
+ * ObjectPoolManager - Manages cosmic object lifecycle
+ */
+export class ObjectPoolManager {
+  private scene: THREE.Scene;
+  private camera: THREE.Camera;
+  private config: ObjectPoolConfig;
+  private factory: CosmicObjectFactory;
+
+  private pool: CosmicObjectInstance[] = [];
+  private nextId: number = 0;
+
+  private lastSpawnTime: number = 0;
+  private spawnInterval: number;
+  private animationTime: number = 0;
+  private totalSliced: number = 0;
+
+  constructor(
+    scene: THREE.Scene,
+    camera: THREE.Camera,
+    config: Partial<ObjectPoolConfig> = {}
+  ) {
+    this.scene = scene;
+    this.camera = camera;
+    this.config = { ...DEFAULT_OBJECT_POOL_CONFIG, ...config };
+    this.factory = new CosmicObjectFactory();
+    this.spawnInterval = 1000 / this.config.spawnRate;
+
+    this.initializePool();
+  }
+
+  private initializePool(): void {
+    for (let i = 0; i < this.config.poolSize; i++) {
+      const type = CosmicObjectFactory.getRandomType();
+      const object = this.factory.createObject(type);
+      const config = COSMIC_OBJECT_CONFIGS[type];
+
+      object.visible = false;
+
+      const instance: CosmicObjectInstance = {
+        id: this.nextId++,
+        state: CosmicObjectState.POOLED,
+        config,
+        mesh: object,
+        position: new THREE.Vector3(),
+        velocity: new THREE.Vector3(),
+        rotationSpeed: new THREE.Vector3(
+          (Math.random() - 0.5) * 2,
+          (Math.random() - 0.5) * 2,
+          (Math.random() - 0.5) * 2
+        ),
+        activatedAt: 0,
+        boundingSphere: new THREE.Sphere(
+          new THREE.Vector3(),
+          config.collisionRadius
+        ),
+      };
+
+      this.pool.push(instance);
+      this.scene.add(object);
+    }
+
+    console.log(
+      `[ObjectPoolManager] Initialized pool with ${this.config.poolSize} objects`
+    );
+  }
+
+  update(deltaTime: number, currentTime: number): void {
+    this.animationTime += deltaTime;
+
+    this.trySpawn(currentTime);
+
+    // Sort active objects by z-depth (further = render first)
+    // This prevents blending issues when objects overlap
+    const activeObjects = this.pool.filter(
+      (obj) => obj.state === CosmicObjectState.ACTIVE
+    );
+    activeObjects.sort((a, b) => b.position.z - a.position.z);
+
+    // Update in sorted order and set renderOrder
+    for (let i = 0; i < activeObjects.length; i++) {
+      const instance = activeObjects[i];
+      // Set renderOrder based on depth (closer = higher order)
+      instance.mesh.renderOrder = 10 + i;
+      this.updateActiveObject(instance, deltaTime);
+    }
+  }
+
+  private trySpawn(currentTime: number): void {
+    if (currentTime - this.lastSpawnTime < this.spawnInterval) {
+      return;
+    }
+
+    const activeCount = this.getActiveCount();
+    if (activeCount >= this.config.maxActiveObjects) {
+      return;
+    }
+
+    const instance = this.getPooledObject();
+    if (!instance) {
+      return;
+    }
+
+    this.activateObject(instance);
+    this.lastSpawnTime = currentTime;
+  }
+
+  private getPooledObject(): CosmicObjectInstance | null {
+    for (const instance of this.pool) {
+      if (instance.state === CosmicObjectState.POOLED) {
+        return instance;
+      }
+    }
+    return null;
+  }
+
+  private activateObject(instance: CosmicObjectInstance): void {
+    const type = CosmicObjectFactory.getRandomType();
+    const config = COSMIC_OBJECT_CONFIGS[type];
+
+    // Replace object if type changed
+    if (instance.config.type !== type) {
+      this.scene.remove(instance.mesh);
+      this.disposeObject(instance.mesh);
+
+      instance.mesh = this.factory.createObject(type);
+      instance.config = config;
+      this.scene.add(instance.mesh);
+    }
+
+    // Spawn position with basic separation to reduce overlaps
+    const spawnPos = this.pickSpawnPosition();
+    instance.position.copy(spawnPos);
+    instance.mesh.position.copy(instance.position);
+
+    // Velocity toward camera
+    const targetX = (Math.random() - 0.5) * 3.8;
+    const targetY = (Math.random() - 0.5) * 2.6;
+    const targetZ = this.config.despawnZPosition;
+
+    const direction = new THREE.Vector3(targetX, targetY, targetZ)
+      .sub(instance.position)
+      .normalize();
+
+    const speedVariation = 0.8 + Math.random() * 0.4;
+    instance.velocity
+      .copy(direction)
+      .multiplyScalar(config.speed * speedVariation);
+
+    // Random rotation
+    instance.rotationSpeed.set(
+      (Math.random() - 0.5) * 2,
+      (Math.random() - 0.5) * 2,
+      (Math.random() - 0.5) * 2
+    );
+
+    instance.state = CosmicObjectState.ACTIVE;
+    instance.activatedAt = performance.now();
+    instance.mesh.visible = true;
+
+    // Set proper render order and depth settings
+    instance.mesh.renderOrder = 10;
+
+    // Ensure depth testing is enabled for proper sorting
+    instance.mesh.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        if (child.material instanceof THREE.Material) {
+          child.material.depthTest = true;
+          child.material.depthWrite = true;
+        }
+      }
+    });
+
+    // Size jitter to keep the fleet feeling varied (and smaller by default)
+    const sizeJitter = 0.82 + Math.random() * 0.25;
+    const scale = config.scale * sizeJitter;
+    instance.mesh.scale.setScalar(scale);
+
+    instance.boundingSphere.center.copy(instance.position);
+    instance.boundingSphere.radius = config.collisionRadius * scale;
+  }
+
+  private updateActiveObject(
+    instance: CosmicObjectInstance,
+    deltaTime: number
+  ): void {
+    // Update position
+    instance.position.add(instance.velocity.clone().multiplyScalar(deltaTime));
+    instance.mesh.position.copy(instance.position);
+
+    // Update rotation (only for the core, glow billboards separately)
+    const coreMesh = instance.mesh.userData.coreMesh as THREE.Mesh | undefined;
+    if (coreMesh) {
+      coreMesh.rotation.x += instance.rotationSpeed.x * deltaTime;
+      coreMesh.rotation.y += instance.rotationSpeed.y * deltaTime;
+      coreMesh.rotation.z += instance.rotationSpeed.z * deltaTime;
+    } else {
+      instance.mesh.rotation.x += instance.rotationSpeed.x * deltaTime;
+      instance.mesh.rotation.y += instance.rotationSpeed.y * deltaTime;
+      instance.mesh.rotation.z += instance.rotationSpeed.z * deltaTime;
+    }
+
+    // Update shader time and billboard glow sprites
+    CosmicObjectFactory.updateObjectTime(
+      instance.mesh,
+      this.animationTime,
+      this.camera
+    );
+
+    // Update bounding sphere
+    instance.boundingSphere.center.copy(instance.position);
+
+    // Check despawn
+    if (instance.position.z > this.config.despawnZPosition) {
+      this.recycleObject(instance, CosmicObjectState.MISSED);
+    }
+  }
+
+  private disposeObject(object: THREE.Object3D): void {
+    object.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.geometry?.dispose();
+        if (child.material instanceof THREE.Material) {
+          child.material.dispose();
+        }
+      }
+    });
+  }
+
+  sliceObject(instance: CosmicObjectInstance): void {
+    if (instance.state !== CosmicObjectState.ACTIVE) {
+      return;
+    }
+
+    instance.state = CosmicObjectState.SLICED;
+    this.totalSliced++;
+    instance.mesh.visible = false;
+
+    setTimeout(() => {
+      this.recycleObject(instance, CosmicObjectState.POOLED);
+    }, 50);
+  }
+
+  private recycleObject(
+    instance: CosmicObjectInstance,
+    newState: CosmicObjectState
+  ): void {
+    instance.state =
+      newState === CosmicObjectState.POOLED
+        ? CosmicObjectState.POOLED
+        : newState;
+
+    if (newState === CosmicObjectState.MISSED) {
+      instance.state = CosmicObjectState.POOLED;
+    }
+
+    instance.mesh.visible = false;
+  }
+
+  private pickSpawnPosition(): THREE.Vector3 {
+    const spreadX = this.config.spawnSpread;
+    const spreadY = this.config.spawnSpread * 0.55;
+    const baseZ = this.config.spawnZPosition;
+    const candidate = new THREE.Vector3();
+
+    for (let attempt = 0; attempt < 6; attempt++) {
+      candidate.set(
+        (Math.random() - 0.5) * spreadX,
+        (Math.random() - 0.5) * spreadY,
+        baseZ
+      );
+
+      const tooClose = this.pool.some((obj) => {
+        if (obj.state !== CosmicObjectState.ACTIVE) return false;
+        return (
+          Math.hypot(
+            obj.position.x - candidate.x,
+            obj.position.y - candidate.y
+          ) < 1.25
+        );
+      });
+
+      if (!tooClose) {
+        return candidate;
+      }
+    }
+
+    return candidate;
+  }
+
+  getActiveObjects(): CosmicObjectInstance[] {
+    return this.pool.filter((obj) => obj.state === CosmicObjectState.ACTIVE);
+  }
+
+  getActiveCount(): number {
+    return this.pool.filter((obj) => obj.state === CosmicObjectState.ACTIVE)
+      .length;
+  }
+
+  getTotalSliced(): number {
+    return this.totalSliced;
+  }
+
+  setSpawnRate(rate: number): void {
+    this.config.spawnRate = rate;
+    this.spawnInterval = 1000 / rate;
+  }
+
+  setMaxActiveObjects(max: number): void {
+    this.config.maxActiveObjects = Math.min(max, this.config.poolSize);
+  }
+
+  reset(): void {
+    for (const instance of this.pool) {
+      instance.state = CosmicObjectState.POOLED;
+      instance.mesh.visible = false;
+    }
+    this.totalSliced = 0;
+    this.lastSpawnTime = 0;
+    this.animationTime = 0;
+  }
+
+  dispose(): void {
+    for (const instance of this.pool) {
+      this.scene.remove(instance.mesh);
+      this.disposeObject(instance.mesh);
+    }
+
+    this.pool = [];
+    this.factory.dispose();
+    console.log('[ObjectPoolManager] Disposed');
+  }
+}
