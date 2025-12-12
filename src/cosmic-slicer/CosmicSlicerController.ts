@@ -21,10 +21,13 @@ import { CosmicBackground } from './CosmicBackground';
 import { CosmicAssetLibrary } from './CosmicAssetLibrary';
 import { HybridCosmicObjectFactory } from './HybridCosmicObjectFactory';
 import { createCosmicEnvironment } from './CosmicEnvironment';
+import { ScoreManager } from './ScoreManager';
+import { ScoreHud } from './ScoreHud';
 import {
   CosmicSlicerConfig,
   DEFAULT_COSMIC_SLICER_CONFIG,
   CosmicSlicerDebugInfo,
+  CosmicObjectType,
 } from './types';
 
 /**
@@ -50,6 +53,11 @@ export class CosmicSlicerController {
   private collisionDetector: CollisionDetector | null = null;
   private sliceEffect: SliceEffect | null = null;
   private background: CosmicBackground | null = null;
+
+  // Scoring
+  private scoreManager: ScoreManager | null = null;
+  private scoreHud: ScoreHud | null = null;
+  private removeScoreListener: (() => void) | null = null;
 
   // Animation
   private animationId: number | null = null;
@@ -233,6 +241,8 @@ export class CosmicSlicerController {
       factory
     );
 
+    this.setupScoring();
+
     // Initialize precise collision detector (smaller radius = must actually touch)
     this.collisionDetector = new CollisionDetector(this.camera, width, height);
     this.collisionDetector.setCollisionRadius(30);
@@ -266,6 +276,73 @@ export class CosmicSlicerController {
     );
 
     console.log('[CosmicSlicerController] Initialized');
+  }
+
+  private setupScoring(): void {
+    if (!this.objectPool) return;
+
+    this.scoreManager?.reset();
+    this.removeScoreListener?.();
+    this.removeScoreListener = null;
+
+    const pointsByType: Record<CosmicObjectType, number> = {
+      [CosmicObjectType.STAR]: 9,
+      [CosmicObjectType.CRYSTAL]: 12,
+      [CosmicObjectType.METEOR]: 14,
+      [CosmicObjectType.VOID_PEARL]: 16,
+      [CosmicObjectType.NEBULA_CORE]: 18,
+      [CosmicObjectType.ANCIENT_RELIC]: 20,
+      [CosmicObjectType.COMET_EMBER]: 22,
+    };
+
+    const missPenaltyByType: Partial<Record<CosmicObjectType, number>> = {
+      [CosmicObjectType.STAR]: 6,
+      [CosmicObjectType.CRYSTAL]: 7,
+      [CosmicObjectType.METEOR]: 8,
+      [CosmicObjectType.VOID_PEARL]: 9,
+      [CosmicObjectType.NEBULA_CORE]: 10,
+      [CosmicObjectType.ANCIENT_RELIC]: 11,
+      [CosmicObjectType.COMET_EMBER]: 12,
+    };
+
+    this.scoreManager = new ScoreManager({
+      pointsByType,
+      missPenaltyByType,
+      maxLevel: 50,
+    });
+
+    this.scoreHud =
+      this.scoreHud ??
+      new ScoreHud(this.container, {
+        anchor: 'top-right',
+      });
+    this.scoreHud.show();
+
+    this.removeScoreListener = this.scoreManager.addListener((state, event) => {
+      this.scoreHud?.update(state, event);
+
+      if (event.type === 'levelChanged') {
+        this.objectPool?.setSpeedMultiplier(state.speedMultiplier);
+
+        const k = Math.max(0, state.level - 1);
+        const spawnRateMultiplier = Math.min(3.0, 1 + 0.12 * k);
+        const maxActiveMultiplier = Math.min(2.4, 1 + 0.1 * k);
+        this.objectPool?.setDifficultyScaling({
+          spawnRateMultiplier,
+          maxActiveMultiplier,
+        });
+      }
+    });
+
+    this.objectPool.onObjectMissed((instance) => {
+      this.scoreManager?.applyMiss(instance.config.type);
+    });
+
+    this.objectPool.setSpeedMultiplier(1);
+    this.objectPool.setDifficultyScaling({
+      spawnRateMultiplier: 1,
+      maxActiveMultiplier: 1,
+    });
   }
 
   private setupLighting(): void {
@@ -406,6 +483,8 @@ export class CosmicSlicerController {
     // Mark object as sliced
     this.objectPool?.sliceObject(object);
 
+    this.scoreManager?.applySlice(object.config.type);
+
     // Trigger explosion at object's 3D position
     const velocityMultiplier = Math.min(2.5, Math.max(0.7, velocity / 300));
     this.sliceEffect?.trigger(object.position.clone(), {
@@ -536,6 +615,12 @@ export class CosmicSlicerController {
     this.collisionDetector?.reset();
     this.sliceEffect?.clear();
     this.trailRenderer?.clear();
+    this.scoreManager?.reset();
+    this.objectPool?.setSpeedMultiplier(1);
+    this.objectPool?.setDifficultyScaling({
+      spawnRateMultiplier: 1,
+      maxActiveMultiplier: 1,
+    });
     console.log('[CosmicSlicerController] Reset');
   }
 
@@ -554,6 +639,12 @@ export class CosmicSlicerController {
     this.background?.dispose();
     this.postProcessing?.dispose();
     this.assetLibrary?.dispose();
+
+    this.removeScoreListener?.();
+    this.removeScoreListener = null;
+    this.scoreHud?.dispose();
+    this.scoreHud = null;
+    this.scoreManager = null;
 
     if (this.ambientLight) this.scene.remove(this.ambientLight);
     if (this.pointLight) this.scene.remove(this.pointLight);

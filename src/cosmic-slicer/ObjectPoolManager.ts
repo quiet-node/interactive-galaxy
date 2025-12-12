@@ -24,8 +24,8 @@ export class ObjectPoolManager {
 
   private readonly despawnFadeDistance: number = 1.6;
 
-  private readonly baseSpawnRate: number;
-  private readonly baseMaxActiveObjects: number;
+  private baseSpawnRate: number;
+  private baseMaxActiveObjects: number;
   private objectScaleMultiplier: number = 0.6;
 
   private pool: CosmicObjectInstance[] = [];
@@ -35,6 +35,16 @@ export class ObjectPoolManager {
   private spawnInterval: number;
   private animationTime: number = 0;
   private totalSliced: number = 0;
+
+  private speedMultiplier: number = 1;
+  private onObjectMissedHandler:
+    | ((instance: CosmicObjectInstance) => void)
+    | null = null;
+
+  private qualitySpawnRateMultiplier: number = 1;
+  private qualityMaxActiveMultiplier: number = 1;
+  private difficultySpawnRateMultiplier: number = 1;
+  private difficultyMaxActiveMultiplier: number = 1;
 
   constructor(
     scene: THREE.Scene,
@@ -52,6 +62,29 @@ export class ObjectPoolManager {
     this.baseMaxActiveObjects = this.config.maxActiveObjects;
 
     this.initializePool();
+  }
+
+  private recomputeEffectiveTuning(): void {
+    const nextSpawnRate =
+      this.baseSpawnRate *
+      this.qualitySpawnRateMultiplier *
+      this.difficultySpawnRateMultiplier;
+
+    const nextMaxActive = Math.min(
+      this.config.poolSize,
+      Math.max(
+        1,
+        Math.floor(
+          this.baseMaxActiveObjects *
+            this.qualityMaxActiveMultiplier *
+            this.difficultyMaxActiveMultiplier
+        )
+      )
+    );
+
+    this.config.spawnRate = Math.max(0.1, nextSpawnRate);
+    this.spawnInterval = 1000 / this.config.spawnRate;
+    this.config.maxActiveObjects = nextMaxActive;
   }
 
   private initializePool(): void {
@@ -170,7 +203,7 @@ export class ObjectPoolManager {
     const speedVariation = 0.8 + Math.random() * 0.4;
     instance.velocity
       .copy(direction)
-      .multiplyScalar(config.speed * speedVariation);
+      .multiplyScalar(config.speed * speedVariation * this.speedMultiplier);
 
     // Random rotation
     instance.rotationSpeed.set(
@@ -259,6 +292,7 @@ export class ObjectPoolManager {
     instance.mesh.scale.setScalar(baseScale * scaleFactor);
 
     if (instance.position.z > this.config.despawnZPosition + 0.15) {
+      this.onObjectMissedHandler?.(instance);
       this.recycleObject(instance, CosmicObjectState.MISSED);
     }
   }
@@ -397,13 +431,53 @@ export class ObjectPoolManager {
     return this.totalSliced;
   }
 
+  onObjectMissed(handler: (instance: CosmicObjectInstance) => void): void {
+    this.onObjectMissedHandler = handler;
+  }
+
+  setSpeedMultiplier(multiplier: number): void {
+    const next = Math.max(0.25, Math.min(4.0, multiplier));
+    if (Math.abs(next - this.speedMultiplier) < 1e-6) return;
+
+    const ratio = next / this.speedMultiplier;
+    this.speedMultiplier = next;
+
+    for (const instance of this.pool) {
+      if (instance.state !== CosmicObjectState.ACTIVE) continue;
+      instance.velocity.multiplyScalar(ratio);
+    }
+  }
+
   setSpawnRate(rate: number): void {
-    this.config.spawnRate = rate;
-    this.spawnInterval = 1000 / rate;
+    this.baseSpawnRate = Math.max(0.1, rate);
+    this.recomputeEffectiveTuning();
   }
 
   setMaxActiveObjects(max: number): void {
-    this.config.maxActiveObjects = Math.min(max, this.config.poolSize);
+    this.baseMaxActiveObjects = Math.min(
+      Math.max(1, Math.floor(max)),
+      this.config.poolSize
+    );
+    this.recomputeEffectiveTuning();
+  }
+
+  setDifficultyScaling(options: {
+    spawnRateMultiplier?: number;
+    maxActiveMultiplier?: number;
+  }): void {
+    if (typeof options.spawnRateMultiplier === 'number') {
+      this.difficultySpawnRateMultiplier = Math.max(
+        0.25,
+        Math.min(4.0, options.spawnRateMultiplier)
+      );
+    }
+    if (typeof options.maxActiveMultiplier === 'number') {
+      this.difficultyMaxActiveMultiplier = Math.max(
+        0.5,
+        Math.min(4.0, options.maxActiveMultiplier)
+      );
+    }
+    this.recomputeEffectiveTuning();
   }
 
   setObjectScaleMultiplier(multiplier: number): void {
@@ -412,25 +486,24 @@ export class ObjectPoolManager {
 
   setQualityLevel(level: 'high' | 'medium' | 'low'): void {
     if (level === 'high') {
-      this.setSpawnRate(this.baseSpawnRate);
-      this.setMaxActiveObjects(this.baseMaxActiveObjects);
+      this.qualitySpawnRateMultiplier = 1;
+      this.qualityMaxActiveMultiplier = 1;
+      this.recomputeEffectiveTuning();
       this.setObjectScaleMultiplier(0.6);
       return;
     }
 
     if (level === 'medium') {
-      this.setSpawnRate(this.baseSpawnRate * 0.8);
-      this.setMaxActiveObjects(
-        Math.max(3, Math.floor(this.baseMaxActiveObjects * 0.8))
-      );
+      this.qualitySpawnRateMultiplier = 0.8;
+      this.qualityMaxActiveMultiplier = 0.8;
+      this.recomputeEffectiveTuning();
       this.setObjectScaleMultiplier(0.58);
       return;
     }
 
-    this.setSpawnRate(this.baseSpawnRate * 0.6);
-    this.setMaxActiveObjects(
-      Math.max(2, Math.floor(this.baseMaxActiveObjects * 0.6))
-    );
+    this.qualitySpawnRateMultiplier = 0.6;
+    this.qualityMaxActiveMultiplier = 0.6;
+    this.recomputeEffectiveTuning();
     this.setObjectScaleMultiplier(0.55);
   }
 
@@ -442,6 +515,10 @@ export class ObjectPoolManager {
     this.totalSliced = 0;
     this.lastSpawnTime = 0;
     this.animationTime = 0;
+    this.speedMultiplier = 1;
+    this.difficultySpawnRateMultiplier = 1;
+    this.difficultyMaxActiveMultiplier = 1;
+    this.recomputeEffectiveTuning();
   }
 
   dispose(): void {
