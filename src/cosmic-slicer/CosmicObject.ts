@@ -45,6 +45,82 @@ const starVertexShader = /* glsl */ `
   }
 `;
 
+const nebulaCoreVertexShader = /* glsl */ `
+  uniform float uTime;
+  varying vec3 vLocalPos;
+  varying vec3 vWorldPos;
+
+  void main() {
+    vLocalPos = position;
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldPos = worldPos.xyz;
+
+    float pulse = 1.0 + 0.03 * sin(uTime * 2.2 + position.y * 3.0);
+    vec3 pos = position * pulse;
+
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+  }
+`;
+
+const nebulaCoreFragmentShader = /* glsl */ `
+  uniform float uTime;
+  uniform vec3 uColor;
+  uniform vec3 uGlowColor;
+
+  varying vec3 vLocalPos;
+  varying vec3 vWorldPos;
+
+  float hash(vec3 p) {
+    p = fract(p * 0.3183099 + 0.1);
+    p *= 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+  }
+
+  float noise(vec3 x) {
+    vec3 i = floor(x);
+    vec3 f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x),
+                   mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+               mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                   mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+  }
+
+  float fbm(vec3 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 4; i++) {
+      v += noise(p) * a;
+      p *= 2.0;
+      a *= 0.5;
+    }
+    return v;
+  }
+
+  void main() {
+    vec3 viewDir = normalize(cameraPosition - vWorldPos);
+    float fresnel = pow(1.0 - max(0.0, dot(viewDir, normalize(vLocalPos))), 2.2);
+
+    vec3 p = normalize(vLocalPos);
+    float t = uTime * 0.18;
+
+    float swirl1 = fbm(p * 3.2 + vec3(t, -t * 1.3, t * 0.7));
+    float swirl2 = fbm(p * 5.8 + vec3(-t * 1.1, t * 0.9, -t * 0.6));
+    float clouds = clamp(swirl1 * 0.65 + swirl2 * 0.35, 0.0, 1.0);
+
+    float core = pow(clamp(1.0 - length(vLocalPos) * 0.85, 0.0, 1.0), 2.2);
+    float filaments = pow(clamp(noise(p * 10.0 + t * 2.0), 0.0, 1.0), 5.0);
+
+    vec3 base = mix(uColor * 0.35, uGlowColor * 0.55, clouds);
+    vec3 energy = uGlowColor * (0.8 * core + 0.55 * filaments);
+    vec3 rim = mix(uColor, uGlowColor, 0.6) * fresnel * 1.6;
+
+    vec3 finalColor = base + energy + rim;
+    finalColor *= 1.15;
+    gl_FragColor = vec4(finalColor, 1.0);
+  }
+`;
+
 const starFragmentShader = /* glsl */ `
   uniform float uTime;
   uniform vec3 uColor;
@@ -398,194 +474,11 @@ const crystalFragmentShader = /* glsl */ `
   }
 `;
 
-// ============== DEBRIS: Enhanced metallic space junk with detail ==============
-const debrisVertexShader = /* glsl */ `
-  varying vec3 vNormal;
-  varying vec3 vPosition;
-  varying vec3 vWorldPos;
-  varying vec2 vUv;
-  
-  void main() {
-    vNormal = normalize(normalMatrix * normal);
-    vPosition = position;
-    vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
-    
-    // Generate UVs for panel line patterns
-    vUv = vec2(
-      atan(position.z, position.x) / 6.28318 + 0.5,
-      asin(position.y) / 3.14159 + 0.5
-    );
-    
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-const debrisFragmentShader = /* glsl */ `
-  uniform float uTime;
-  uniform vec3 uColor;
-  uniform vec3 uGlowColor;
-  
-  varying vec3 vNormal;
-  varying vec3 vPosition;
-  varying vec3 vWorldPos;
-  varying vec2 vUv;
-  
-  float hash(vec3 p) {
-    p = fract(p * 0.3183099 + 0.1);
-    p *= 17.0;
-    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-  }
-  
-  float hash2(vec2 p) {
-    p = fract(p * vec2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-    return fract(p.x * p.y);
-  }
-  
-  float saturate(float x) { return clamp(x, 0.0, 1.0); }
-
-  vec3 fresnelSchlick(float cosTheta, vec3 F0) {
-    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
-  }
-
-  float distributionGGX(float NdotH, float roughness) {
-    float a = roughness * roughness;
-    float a2 = a * a;
-    float denom = (NdotH * NdotH) * (a2 - 1.0) + 1.0;
-    return a2 / max(3.14159 * denom * denom, 1e-6);
-  }
-
-  float geometrySchlickGGX(float NdotV, float roughness) {
-    float r = roughness + 1.0;
-    float k = (r * r) / 8.0;
-    return NdotV / max(NdotV * (1.0 - k) + k, 1e-6);
-  }
-
-  float geometrySmith(float NdotV, float NdotL, float roughness) {
-    float ggx1 = geometrySchlickGGX(NdotV, roughness);
-    float ggx2 = geometrySchlickGGX(NdotL, roughness);
-    return ggx1 * ggx2;
-  }
-
-  void main() {
-    vec3 N = normalize(vNormal);
-    vec3 V = normalize(cameraPosition - vWorldPos);
-    vec3 L0 = normalize(vec3(0.25, 0.85, 0.55));
-    vec3 L1 = normalize(vec3(-0.55, 0.25, 0.70));
-    
-    // LAYER 1: Base metallic surface
-    float surfaceDetail = hash(vPosition * 12.0);
-    
-    vec3 darkMetal = vec3(0.15, 0.16, 0.18);    // Dark gunmetal
-    vec3 midMetal = vec3(0.42, 0.44, 0.48);     // Medium steel
-    vec3 lightMetal = vec3(0.65, 0.68, 0.72);   // Light aluminum
-    
-    vec3 metalBase = mix(darkMetal, midMetal, surfaceDetail);
-    metalBase = mix(metalBase, lightMetal, hash(vPosition * 6.0) * 0.3);
-    
-    // LAYER 2: Panel lines (mechanical detail)
-    float panelH = fract(vUv.x * 8.0);
-    float panelV = fract(vUv.y * 6.0);
-    
-    float panelLineH = smoothstep(0.02, 0.0, panelH) + smoothstep(0.98, 1.0, panelH);
-    float panelLineV = smoothstep(0.02, 0.0, panelV) + smoothstep(0.98, 1.0, panelV);
-    float panelLines = max(panelLineH, panelLineV);
-    
-    // Darken panel lines for mechanical look
-    metalBase *= (1.0 - panelLines * 0.6);
-    
-    // LAYER 3: Rivets and bolts
-    vec2 rivetGrid = fract(vUv * 16.0);
-    float rivetDist = length(rivetGrid - 0.5);
-    float rivets = smoothstep(0.15, 0.12, rivetDist) * 
-                   step(hash2(floor(vUv * 16.0)), 0.3); // Random rivets
-    metalBase *= (1.0 - rivets * 0.4);
-    
-    // LAYER 4: Wear and tear (scratches, dents)
-    float wear = hash(vPosition * 20.0);
-    wear = pow(wear, 3.0); // Make scratches less frequent but visible
-    metalBase *= (0.92 + wear * 0.08);
-    
-    // LAYER 5: Damaged/sparking areas
-    float damagePattern = hash(vPosition * 4.0);
-    float damagedAreas = step(0.85, damagePattern);
-    
-    // Animated electrical sparks from damaged sections
-    float sparkTime = uTime * 8.0 + hash(vPosition * 5.0) * 6.28;
-    float sparks = step(0.95, hash(vPosition * 40.0 + floor(sparkTime)));
-    sparks *= damagedAreas;
-    
-    vec3 sparkColor = uGlowColor * 8.0 * sparks; // Bright HDR sparks
-    
-    // Damaged area glow (exposed circuits)
-    vec3 damageGlow = uGlowColor * damagedAreas * 0.8 * 
-                      (0.8 + 0.2 * sin(uTime * 3.0 + damagePattern * 10.0));
-    
-    metalBase = mix(metalBase, uColor * 0.55, 0.35);
-
-    float roughness = clamp(0.18 + panelLines * 0.35 + (1.0 - wear) * 0.22, 0.08, 0.85);
-    float metallic = 1.0;
-    vec3 albedo = metalBase;
-    vec3 F0 = mix(vec3(0.04), albedo, metallic);
-
-    vec3 R = reflect(-V, N);
-    float sky = saturate(R.y * 0.5 + 0.5);
-    vec3 env = mix(vec3(0.01, 0.01, 0.02), vec3(0.12, 0.18, 0.30), pow(sky, 1.6));
-    float envStars = step(0.997, hash(R * 120.0 + uTime * 0.03));
-    env += vec3(0.9, 0.95, 1.0) * envStars * 0.25;
-
-    vec3 Lo = vec3(0.0);
-
-    vec3 lights[2];
-    lights[0] = L0;
-    lights[1] = L1;
-
-    for (int li = 0; li < 2; li++) {
-      vec3 L = lights[li];
-      vec3 H = normalize(V + L);
-
-      float NdotL = saturate(dot(N, L));
-      float NdotV = saturate(dot(N, V));
-      float NdotH = saturate(dot(N, H));
-      float VdotH = saturate(dot(V, H));
-
-      float D = distributionGGX(NdotH, roughness);
-      float G = geometrySmith(NdotV, NdotL, roughness);
-      vec3  F = fresnelSchlick(VdotH, F0);
-
-      vec3 spec = (D * G) * F / max(4.0 * NdotV * NdotL, 1e-4);
-      vec3 kS = F;
-      vec3 kD = (vec3(1.0) - kS);
-      kD *= (1.0 - metallic);
-
-      vec3 diffuse = kD * albedo / 3.14159;
-
-      vec3 radiance = vec3(3.2);
-      Lo += (diffuse + spec) * radiance * NdotL;
-    }
-
-    float rim = pow(1.0 - saturate(dot(V, N)), 4.0);
-    vec3 rimLight = uGlowColor * rim * 0.55;
-
-    vec3 Fenv = fresnelSchlick(saturate(dot(N, V)), F0);
-    vec3 envSpec = env * Fenv * (1.6 + 1.2 * (1.0 - roughness));
-
-    vec3 finalColor = Lo + envSpec;
-    finalColor += rimLight;
-    finalColor += damageGlow;
-    finalColor += sparkColor;
-    
-    gl_FragColor = vec4(finalColor, 1.0);
-  }
-`;
-
 const _legacyShaderSources = [
   meteorVertexShader,
   meteorFragmentShader,
   crystalVertexShader,
   crystalFragmentShader,
-  debrisVertexShader,
-  debrisFragmentShader,
 ];
 void _legacyShaderSources;
 
@@ -670,16 +563,49 @@ class GeometryCache {
     this.geometries.set(CosmicObjectType.CRYSTAL, crystal);
 
     // Debris - angular shape
-    const debris = new THREE.DodecahedronGeometry(1, 0);
-    this.addSurfaceVariation(debris, 0.12);
-    debris.computeVertexNormals();
-    if (debris.attributes.uv) {
-      debris.setAttribute(
+    const voidPearl = new THREE.IcosahedronGeometry(1, 4);
+    this.addSurfaceVariation(voidPearl, 0.03);
+    voidPearl.computeVertexNormals();
+    if (voidPearl.attributes.uv) {
+      voidPearl.setAttribute(
         'uv2',
-        new THREE.BufferAttribute(debris.attributes.uv.array, 2)
+        new THREE.BufferAttribute(voidPearl.attributes.uv.array, 2)
       );
     }
-    this.geometries.set(CosmicObjectType.DEBRIS, debris);
+    this.geometries.set(CosmicObjectType.VOID_PEARL, voidPearl);
+
+    const nebulaCore = new THREE.IcosahedronGeometry(1, 4);
+    this.addSurfaceVariation(nebulaCore, 0.05);
+    nebulaCore.computeVertexNormals();
+    if (nebulaCore.attributes.uv) {
+      nebulaCore.setAttribute(
+        'uv2',
+        new THREE.BufferAttribute(nebulaCore.attributes.uv.array, 2)
+      );
+    }
+    this.geometries.set(CosmicObjectType.NEBULA_CORE, nebulaCore);
+
+    const ancientRelic = new THREE.CylinderGeometry(0.62, 0.78, 2.2, 6, 4);
+    this.addSurfaceVariation(ancientRelic, 0.06);
+    ancientRelic.computeVertexNormals();
+    if (ancientRelic.attributes.uv) {
+      ancientRelic.setAttribute(
+        'uv2',
+        new THREE.BufferAttribute(ancientRelic.attributes.uv.array, 2)
+      );
+    }
+    this.geometries.set(CosmicObjectType.ANCIENT_RELIC, ancientRelic);
+
+    const cometEmber = new THREE.IcosahedronGeometry(1, 3);
+    this.addSurfaceVariation(cometEmber, 0.2);
+    cometEmber.computeVertexNormals();
+    if (cometEmber.attributes.uv) {
+      cometEmber.setAttribute(
+        'uv2',
+        new THREE.BufferAttribute(cometEmber.attributes.uv.array, 2)
+      );
+    }
+    this.geometries.set(CosmicObjectType.COMET_EMBER, cometEmber);
 
     // Glow plane for halos
     this.glowPlane = new THREE.PlaneGeometry(3, 3);
@@ -906,7 +832,13 @@ export class CosmicObjectFactory {
           ? 3.6
           : type === CosmicObjectType.CRYSTAL
           ? 1.1
-          : 2.4;
+          : type === CosmicObjectType.VOID_PEARL
+          ? 1.15
+          : type === CosmicObjectType.NEBULA_CORE
+          ? 1.35
+          : type === CosmicObjectType.COMET_EMBER
+          ? 1.25
+          : 0.95;
 
       const material = new THREE.ShaderMaterial({
         uniforms: {
@@ -936,8 +868,13 @@ export class CosmicObjectFactory {
     const core = new THREE.Mesh(geometry, material);
     core.renderOrder = 100; // Base render order
 
+    const rotationRoot = new THREE.Group();
+    rotationRoot.add(core);
+
     // Create group to hold all layers
     const group = new THREE.Group();
+
+    group.add(rotationRoot);
 
     // Outer shell for stars (no depth write)
     if (type === CosmicObjectType.STAR) {
@@ -952,15 +889,111 @@ export class CosmicObjectFactory {
       const shell = new THREE.Mesh(geometry, shellMaterial);
       shell.scale.setScalar(1.1);
       shell.renderOrder = 97; // Before everything
+      rotationRoot.add(shell);
+    }
+
+    if (type === CosmicObjectType.VOID_PEARL) {
+      const ringGeometry = new THREE.TorusGeometry(1.08, 0.06, 24, 128);
+      const ringMaterial = new THREE.MeshPhysicalMaterial({
+        color: config.color.clone(),
+        metalness: 1.0,
+        roughness: 0.18,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.08,
+        emissive: config.emissiveColor.clone(),
+        emissiveIntensity: Math.max(0.35, config.emissiveIntensity * 0.55),
+      });
+      ringMaterial.envMapIntensity = 2.2;
+
+      const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+      ring.rotation.set(0.6, 0.0, 0.25);
+      ring.renderOrder = 99;
+      rotationRoot.add(ring);
+    }
+
+    if (type === CosmicObjectType.NEBULA_CORE) {
+      const shellGeometry = new THREE.SphereGeometry(1.16, 32, 24);
+      const shellMaterial = new THREE.MeshBasicMaterial({
+        color: config.emissiveColor.clone(),
+        transparent: true,
+        opacity: 0.08,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: true,
+      });
+      const shell = new THREE.Mesh(shellGeometry, shellMaterial);
+      shell.renderOrder = 98;
       group.add(shell);
     }
 
+    if (type === CosmicObjectType.COMET_EMBER) {
+      const tailGeometry = new THREE.CylinderGeometry(
+        0.0,
+        0.45,
+        2.0,
+        18,
+        1,
+        true
+      );
+      const tailMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          uColor: { value: config.emissiveColor.clone() },
+        },
+        vertexShader: /* glsl */ `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          uniform vec3 uColor;
+          varying vec2 vUv;
+          void main() {
+            float t = 1.0 - vUv.y;
+            float glow = pow(t, 2.4);
+            vec3 color = uColor * glow * 2.4;
+            float alpha = glow * 0.35;
+            if (alpha < 0.01) discard;
+            gl_FragColor = vec4(color, alpha);
+          }
+        `,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: true,
+        toneMapped: true,
+        side: THREE.DoubleSide,
+      });
+      const tail = new THREE.Mesh(tailGeometry, tailMaterial);
+      tail.rotation.x = -Math.PI / 2;
+      tail.position.z = -1.0;
+      tail.renderOrder = 98;
+      rotationRoot.add(tail);
+    }
+
     // Glow halo sprite (billboard, no depth write)
-    if (type === CosmicObjectType.STAR || type === CosmicObjectType.CRYSTAL) {
+    if (
+      type === CosmicObjectType.STAR ||
+      type === CosmicObjectType.CRYSTAL ||
+      type === CosmicObjectType.VOID_PEARL ||
+      type === CosmicObjectType.NEBULA_CORE ||
+      type === CosmicObjectType.COMET_EMBER
+    ) {
       const glowMaterial = this.glowMaterials.get(type)?.clone();
       if (glowMaterial && this.geometryCache.glowPlane) {
         const glow = new THREE.Mesh(this.geometryCache.glowPlane, glowMaterial);
-        glow.scale.setScalar(type === CosmicObjectType.STAR ? 2.1 : 1.35);
+        const scale =
+          type === CosmicObjectType.STAR
+            ? 2.1
+            : type === CosmicObjectType.CRYSTAL
+            ? 1.35
+            : type === CosmicObjectType.NEBULA_CORE
+            ? 1.55
+            : type === CosmicObjectType.COMET_EMBER
+            ? 1.5
+            : 1.45;
+        glow.scale.setScalar(scale);
         glow.renderOrder = 96; // Behind everything
         group.add(glow);
 
@@ -968,9 +1001,6 @@ export class CosmicObjectFactory {
         group.userData.glowSprite = glow;
       }
     }
-
-    // Add core mesh last (renders on top, writes depth)
-    group.add(core);
 
     group.scale.setScalar(config.scale);
 
@@ -983,7 +1013,7 @@ export class CosmicObjectFactory {
     group.userData.cosmicType = type;
     group.userData.config = config;
     group.userData.coreMesh = core;
-    group.userData.rotationRoot = core;
+    group.userData.rotationRoot = rotationRoot;
     group.userData.assetBacked = false;
 
     return group;
@@ -1032,22 +1062,82 @@ export class CosmicObjectFactory {
       return m;
     }
 
-    if (type === CosmicObjectType.DEBRIS) {
+    if (type === CosmicObjectType.VOID_PEARL) {
+      const m = new THREE.MeshPhysicalMaterial({
+        color: config.color.clone(),
+        metalness: 0.25,
+        roughness: 0.08,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.03,
+        ior: 1.5,
+        iridescence: 0.35,
+        iridescenceIOR: 1.25,
+        iridescenceThicknessRange: [160, 520],
+        emissive: config.emissiveColor.clone(),
+        emissiveIntensity: Math.max(0.25, config.emissiveIntensity * 0.45),
+      });
+      m.envMapIntensity = 2.65;
+      m.depthTest = true;
+      m.depthWrite = true;
+      m.toneMapped = true;
+      return m;
+    }
+
+    if (type === CosmicObjectType.NEBULA_CORE) {
+      return new THREE.ShaderMaterial({
+        uniforms: {
+          uTime: { value: Math.random() * 100 },
+          uColor: { value: config.color.clone() },
+          uGlowColor: { value: config.emissiveColor.clone() },
+        },
+        vertexShader: nebulaCoreVertexShader,
+        fragmentShader: nebulaCoreFragmentShader,
+        side: THREE.FrontSide,
+        depthTest: true,
+        depthWrite: true,
+        transparent: false,
+        toneMapped: true,
+      });
+    }
+
+    if (type === CosmicObjectType.ANCIENT_RELIC) {
       const m = new THREE.MeshStandardMaterial({
         color: config.color.clone(),
         metalness: 1.0,
-        roughness: 0.35,
+        roughness: 0.28,
         map: this.metalTextures.map,
         normalMap: this.metalTextures.normalMap,
-        normalScale: new THREE.Vector2(1.25, 1.25),
+        normalScale: new THREE.Vector2(1.15, 1.15),
         roughnessMap: this.metalTextures.roughnessMap,
         aoMap: this.metalTextures.aoMap,
         aoMapIntensity: 1.0,
         emissive: config.emissiveColor.clone(),
         emissiveMap: this.metalTextures.emissiveMap,
-        emissiveIntensity: Math.max(0.5, config.emissiveIntensity * 1.25),
+        emissiveIntensity: Math.max(0.4, config.emissiveIntensity * 1.15),
       });
-      m.envMapIntensity = 1.85;
+      m.envMapIntensity = 2.15;
+      m.depthTest = true;
+      m.depthWrite = true;
+      m.toneMapped = true;
+      return m;
+    }
+
+    if (type === CosmicObjectType.COMET_EMBER) {
+      const m = new THREE.MeshStandardMaterial({
+        color: config.color.clone(),
+        metalness: 0.05,
+        roughness: 0.72,
+        map: this.rockTextures.map,
+        normalMap: this.rockTextures.normalMap,
+        normalScale: new THREE.Vector2(1.55, 1.55),
+        roughnessMap: this.rockTextures.roughnessMap,
+        aoMap: this.rockTextures.aoMap,
+        aoMapIntensity: 1.0,
+        emissive: config.emissiveColor.clone(),
+        emissiveMap: this.rockTextures.emissiveMap,
+        emissiveIntensity: Math.max(0.85, config.emissiveIntensity * 1.35),
+      });
+      m.envMapIntensity = 1.55;
       m.depthTest = true;
       m.depthWrite = true;
       m.toneMapped = true;
@@ -1108,11 +1198,16 @@ export class CosmicObjectFactory {
   }
 
   static getRandomType(): CosmicObjectType {
-    const rand = Math.random();
-    if (rand < 0.2) return CosmicObjectType.STAR;
-    if (rand < 0.5) return CosmicObjectType.METEOR;
-    if (rand < 0.8) return CosmicObjectType.CRYSTAL;
-    return CosmicObjectType.DEBRIS;
+    const types: CosmicObjectType[] = [
+      CosmicObjectType.STAR,
+      CosmicObjectType.METEOR,
+      CosmicObjectType.CRYSTAL,
+      CosmicObjectType.VOID_PEARL,
+      CosmicObjectType.NEBULA_CORE,
+      CosmicObjectType.ANCIENT_RELIC,
+      CosmicObjectType.COMET_EMBER,
+    ];
+    return types[Math.floor(Math.random() * types.length)];
   }
 
   dispose(): void {

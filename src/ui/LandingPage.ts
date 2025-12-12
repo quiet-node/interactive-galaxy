@@ -60,7 +60,7 @@ export class LandingPage {
           <button class="portal-card slicer-portal" data-mode="cosmic-slicer">
             <div class="portal-content">
               <h2 class="portal-title">Cosmic Slicer</h2>
-              <p class="portal-desc">Slice through cosmic debris with your hands</p>
+              <p class="portal-desc">Slice through cosmic anomalies with your hands</p>
             </div>
             <div class="portal-footer">
               <span class="key-hint">Press <kbd>S</kbd></span>

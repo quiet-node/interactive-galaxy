@@ -12,7 +12,10 @@ export enum CosmicObjectType {
   CRYSTAL = 'crystal',
   METEOR = 'meteor',
   STAR = 'star',
-  DEBRIS = 'debris',
+  VOID_PEARL = 'void-pearl',
+  NEBULA_CORE = 'nebula-core',
+  ANCIENT_RELIC = 'ancient-relic',
+  COMET_EMBER = 'comet-ember',
 }
 
 /**
@@ -84,14 +87,41 @@ export const COSMIC_OBJECT_CONFIGS: Record<
     speed: 1.7,
     collisionRadius: 0.55,
   },
-  [CosmicObjectType.DEBRIS]: {
-    type: CosmicObjectType.DEBRIS,
-    color: new THREE.Color(0x8db7ff), // Electric steel blue
-    emissiveColor: new THREE.Color(0x5a9dff),
-    emissiveIntensity: 1.15,
-    scale: 0.55,
-    speed: 2.8,
-    collisionRadius: 0.5,
+  [CosmicObjectType.VOID_PEARL]: {
+    type: CosmicObjectType.VOID_PEARL,
+    color: new THREE.Color(0x4336ff),
+    emissiveColor: new THREE.Color(0xb0a6ff),
+    emissiveIntensity: 1.05,
+    scale: 0.62,
+    speed: 2.1,
+    collisionRadius: 0.56,
+  },
+  [CosmicObjectType.NEBULA_CORE]: {
+    type: CosmicObjectType.NEBULA_CORE,
+    color: new THREE.Color(0x7a5cff),
+    emissiveColor: new THREE.Color(0xff5fd7),
+    emissiveIntensity: 1.2,
+    scale: 0.66,
+    speed: 2.15,
+    collisionRadius: 0.58,
+  },
+  [CosmicObjectType.ANCIENT_RELIC]: {
+    type: CosmicObjectType.ANCIENT_RELIC,
+    color: new THREE.Color(0xffd28a),
+    emissiveColor: new THREE.Color(0xffb84a),
+    emissiveIntensity: 0.95,
+    scale: 0.66,
+    speed: 2.25,
+    collisionRadius: 0.58,
+  },
+  [CosmicObjectType.COMET_EMBER]: {
+    type: CosmicObjectType.COMET_EMBER,
+    color: new THREE.Color(0xff5a3c),
+    emissiveColor: new THREE.Color(0xffc06b),
+    emissiveIntensity: 1.25,
+    scale: 0.6,
+    speed: 2.7,
+    collisionRadius: 0.54,
   },
 };
 

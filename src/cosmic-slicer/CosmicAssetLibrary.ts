@@ -15,7 +15,6 @@ const DEFAULT_COSMIC_ASSET_LIBRARY_CONFIG: CosmicAssetLibraryConfig = {
   modelUrls: {
     [CosmicObjectType.METEOR]: 'meteor.glb',
     [CosmicObjectType.CRYSTAL]: 'crystal.glb',
-    [CosmicObjectType.DEBRIS]: 'debris.glb',
   },
   enableKtx2: false,
   ktx2TranscoderPath: '/basis/',
