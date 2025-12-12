@@ -9,7 +9,16 @@
  */
 
 import * as THREE from 'three';
-import { CosmicObjectType, COSMIC_OBJECT_CONFIGS } from './types';
+import {
+  CosmicObjectType,
+  COSMIC_OBJECT_CONFIGS,
+  type CosmicObjectConfig,
+} from './types';
+import {
+  createCrystalMicroNormal,
+  createMetalTextures,
+  createRockTextures,
+} from './ProceduralTextures';
 
 // ============== STAR: Premium blazing sun with dynamic corona ==============
 const starVertexShader = /* glsl */ `
@@ -570,6 +579,16 @@ const debrisFragmentShader = /* glsl */ `
   }
 `;
 
+const _legacyShaderSources = [
+  meteorVertexShader,
+  meteorFragmentShader,
+  crystalVertexShader,
+  crystalFragmentShader,
+  debrisVertexShader,
+  debrisFragmentShader,
+];
+void _legacyShaderSources;
+
 // ============== GLOW SPRITE for halos ==============
 const glowSpriteVertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -626,12 +645,24 @@ class GeometryCache {
     const star = new THREE.IcosahedronGeometry(1, 3);
     this.addSurfaceVariation(star, 0.06);
     star.computeVertexNormals();
+    if (star.attributes.uv) {
+      star.setAttribute(
+        'uv2',
+        new THREE.BufferAttribute(star.attributes.uv.array, 2)
+      );
+    }
     this.geometries.set(CosmicObjectType.STAR, star);
 
     // Meteor - rougher sphere
     const meteor = new THREE.IcosahedronGeometry(1, 3);
     this.addSurfaceVariation(meteor, 0.18);
     meteor.computeVertexNormals();
+    if (meteor.attributes.uv) {
+      meteor.setAttribute(
+        'uv2',
+        new THREE.BufferAttribute(meteor.attributes.uv.array, 2)
+      );
+    }
     this.geometries.set(CosmicObjectType.METEOR, meteor);
 
     // Crystal - natural hexagonal prism with pyramidal caps
@@ -642,6 +673,12 @@ class GeometryCache {
     const debris = new THREE.DodecahedronGeometry(1, 0);
     this.addSurfaceVariation(debris, 0.12);
     debris.computeVertexNormals();
+    if (debris.attributes.uv) {
+      debris.setAttribute(
+        'uv2',
+        new THREE.BufferAttribute(debris.attributes.uv.array, 2)
+      );
+    }
     this.geometries.set(CosmicObjectType.DEBRIS, debris);
 
     // Glow plane for halos
@@ -757,6 +794,28 @@ class GeometryCache {
     );
     geometry.setIndex(indices);
 
+    const positionsForUv = geometry.attributes
+      .position as THREE.BufferAttribute;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (let i = 0; i < positionsForUv.count; i++) {
+      const y = positionsForUv.getY(i);
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    const ySpan = Math.max(1e-6, maxY - minY);
+    const uvs: number[] = [];
+    for (let i = 0; i < positionsForUv.count; i++) {
+      const x = positionsForUv.getX(i);
+      const y = positionsForUv.getY(i);
+      const z = positionsForUv.getZ(i);
+      const u = Math.atan2(z, x) / (Math.PI * 2) + 0.5;
+      const v = (y - minY) / ySpan;
+      uvs.push(u, v);
+    }
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geometry.setAttribute('uv2', new THREE.Float32BufferAttribute(uvs, 2));
+
     // Add slight natural variation to vertices
     const positions = geometry.attributes.position;
     for (let i = 0; i < positions.count; i++) {
@@ -826,6 +885,13 @@ export class CosmicObjectFactory {
   private glowMaterials: Map<CosmicObjectType, THREE.ShaderMaterial> =
     new Map();
 
+  private rockTextures = createRockTextures({ size: 256, seed: 1337 });
+  private metalTextures = createMetalTextures({ size: 256, seed: 4242 });
+  private crystalMicroNormal = createCrystalMicroNormal({
+    size: 256,
+    seed: 9001,
+  });
+
   constructor() {
     this.geometryCache = GeometryCache.getInstance();
     this.createGlowMaterials();
@@ -835,7 +901,12 @@ export class CosmicObjectFactory {
     // Pre-create glow materials for halo sprites
     for (const type of Object.values(CosmicObjectType)) {
       const config = COSMIC_OBJECT_CONFIGS[type as CosmicObjectType];
-      const intensity = type === CosmicObjectType.STAR ? 3.6 : 2.4;
+      const intensity =
+        type === CosmicObjectType.STAR
+          ? 3.6
+          : type === CosmicObjectType.CRYSTAL
+          ? 1.1
+          : 2.4;
 
       const material = new THREE.ShaderMaterial({
         uniforms: {
@@ -868,50 +939,18 @@ export class CosmicObjectFactory {
     // Create group to hold all layers
     const group = new THREE.Group();
 
-    // CRYSTAL: Multi-layer construction for premium look
-    if (type === CosmicObjectType.CRYSTAL) {
-      // Inner energy core (smaller, brighter, no depth write)
-      const innerCoreMaterial = new THREE.MeshBasicMaterial({
-        color: config.emissiveColor,
-        transparent: true,
-        opacity: 0.5,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        depthTest: true,
-      });
-      const innerCore = new THREE.Mesh(geometry, innerCoreMaterial);
-      innerCore.scale.setScalar(0.6);
-      innerCore.renderOrder = 99; // Before core
-      group.add(innerCore);
-
-      // Mid-layer (semi-transparent crystal body, no depth write)
-      const midLayerMaterial = new THREE.MeshBasicMaterial({
-        color: config.color,
-        transparent: true,
-        opacity: 0.12,
-        blending: THREE.NormalBlending,
-        depthWrite: false,
-        depthTest: true,
-        side: THREE.DoubleSide,
-      });
-      const midLayer = new THREE.Mesh(geometry, midLayerMaterial);
-      midLayer.scale.setScalar(0.82);
-      midLayer.renderOrder = 98; // Before inner core
-      group.add(midLayer);
-    }
-
-    // Outer shell for stars and crystals (no depth write)
-    if (type === CosmicObjectType.STAR || type === CosmicObjectType.CRYSTAL) {
+    // Outer shell for stars (no depth write)
+    if (type === CosmicObjectType.STAR) {
       const shellMaterial = new THREE.MeshBasicMaterial({
         color: config.emissiveColor,
         transparent: true,
-        opacity: type === CosmicObjectType.CRYSTAL ? 0.12 : 0.22,
+        opacity: 0.22,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         depthTest: true,
       });
       const shell = new THREE.Mesh(geometry, shellMaterial);
-      shell.scale.setScalar(type === CosmicObjectType.CRYSTAL ? 1.06 : 1.1);
+      shell.scale.setScalar(1.1);
       shell.renderOrder = 97; // Before everything
       group.add(shell);
     }
@@ -921,7 +960,7 @@ export class CosmicObjectFactory {
       const glowMaterial = this.glowMaterials.get(type)?.clone();
       if (glowMaterial && this.geometryCache.glowPlane) {
         const glow = new THREE.Mesh(this.geometryCache.glowPlane, glowMaterial);
-        glow.scale.setScalar(type === CosmicObjectType.STAR ? 2.3 : 2.0);
+        glow.scale.setScalar(type === CosmicObjectType.STAR ? 2.1 : 1.35);
         glow.renderOrder = 96; // Behind everything
         group.add(glow);
 
@@ -944,53 +983,104 @@ export class CosmicObjectFactory {
     group.userData.cosmicType = type;
     group.userData.config = config;
     group.userData.coreMesh = core;
+    group.userData.rotationRoot = core;
+    group.userData.assetBacked = false;
 
     return group;
   }
 
   private createMaterial(
     type: CosmicObjectType,
-    config: { color: THREE.Color; emissiveColor: THREE.Color }
-  ): THREE.ShaderMaterial {
-    let vertexShader: string;
-    let fragmentShader: string;
-
-    switch (type) {
-      case CosmicObjectType.STAR:
-        vertexShader = starVertexShader;
-        fragmentShader = starFragmentShader;
-        break;
-      case CosmicObjectType.METEOR:
-        vertexShader = meteorVertexShader;
-        fragmentShader = meteorFragmentShader;
-        break;
-      case CosmicObjectType.CRYSTAL:
-        vertexShader = crystalVertexShader;
-        fragmentShader = crystalFragmentShader;
-        break;
-      case CosmicObjectType.DEBRIS:
-        vertexShader = debrisVertexShader;
-        fragmentShader = debrisFragmentShader;
-        break;
-      default:
-        vertexShader = starVertexShader;
-        fragmentShader = starFragmentShader;
+    config: CosmicObjectConfig
+  ): THREE.Material {
+    if (type === CosmicObjectType.STAR) {
+      return new THREE.ShaderMaterial({
+        uniforms: {
+          uTime: { value: Math.random() * 100 },
+          uColor: { value: config.color.clone() },
+          uGlowColor: { value: config.emissiveColor.clone() },
+        },
+        vertexShader: starVertexShader,
+        fragmentShader: starFragmentShader,
+        side: THREE.FrontSide,
+        depthTest: true,
+        depthWrite: true,
+        transparent: false,
+        toneMapped: true,
+      });
     }
 
-    return new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: Math.random() * 100 },
-        uColor: { value: config.color.clone() },
-        uGlowColor: { value: config.emissiveColor.clone() },
-      },
-      vertexShader,
-      fragmentShader,
-      side: THREE.FrontSide,
-      depthTest: true,
-      depthWrite: true, // Core writes depth
-      transparent: false,
-      toneMapped: true,
+    if (type === CosmicObjectType.METEOR) {
+      const m = new THREE.MeshStandardMaterial({
+        color: config.color.clone(),
+        metalness: 0.0,
+        roughness: 1.0,
+        map: this.rockTextures.map,
+        normalMap: this.rockTextures.normalMap,
+        normalScale: new THREE.Vector2(1.35, 1.35),
+        roughnessMap: this.rockTextures.roughnessMap,
+        aoMap: this.rockTextures.aoMap,
+        aoMapIntensity: 1.0,
+        emissive: config.emissiveColor.clone(),
+        emissiveMap: this.rockTextures.emissiveMap,
+        emissiveIntensity: Math.max(0.8, config.emissiveIntensity * 1.35),
+      });
+      m.envMapIntensity = 1.65;
+      m.depthTest = true;
+      m.depthWrite = true;
+      m.toneMapped = true;
+      return m;
+    }
+
+    if (type === CosmicObjectType.DEBRIS) {
+      const m = new THREE.MeshStandardMaterial({
+        color: config.color.clone(),
+        metalness: 1.0,
+        roughness: 0.35,
+        map: this.metalTextures.map,
+        normalMap: this.metalTextures.normalMap,
+        normalScale: new THREE.Vector2(1.25, 1.25),
+        roughnessMap: this.metalTextures.roughnessMap,
+        aoMap: this.metalTextures.aoMap,
+        aoMapIntensity: 1.0,
+        emissive: config.emissiveColor.clone(),
+        emissiveMap: this.metalTextures.emissiveMap,
+        emissiveIntensity: Math.max(0.5, config.emissiveIntensity * 1.25),
+      });
+      m.envMapIntensity = 1.85;
+      m.depthTest = true;
+      m.depthWrite = true;
+      m.toneMapped = true;
+      return m;
+    }
+
+    const m = new THREE.MeshPhysicalMaterial({
+      color: config.color.clone(),
+      metalness: 0.0,
+      roughness: 0.06,
+      transmission: 0.0,
+      thickness: 0.0,
+      ior: 1.45,
+      attenuationColor: config.color.clone(),
+      attenuationDistance: 0.0,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.04,
+      specularIntensity: 1.0,
+      specularColor: new THREE.Color(0xffffff),
+      iridescence: 0.35,
+      iridescenceIOR: 1.25,
+      iridescenceThicknessRange: [120, 420],
+      emissive: config.emissiveColor.clone(),
+      emissiveIntensity: Math.max(0.5, config.emissiveIntensity * 0.9),
+      side: THREE.DoubleSide,
     });
+    m.normalMap = this.crystalMicroNormal;
+    m.normalScale = new THREE.Vector2(0.75, 0.75);
+    m.envMapIntensity = 2.75;
+    m.depthTest = true;
+    m.depthWrite = false;
+    m.toneMapped = true;
+    return m;
   }
 
   static updateObjectTime(
@@ -1001,8 +1091,11 @@ export class CosmicObjectFactory {
     // Update core mesh shader time
     const coreMesh = object.userData.coreMesh as THREE.Mesh | undefined;
     if (coreMesh) {
-      const material = coreMesh.material as THREE.ShaderMaterial;
-      if (material.uniforms?.uTime) {
+      const material = coreMesh.material;
+      if (
+        material instanceof THREE.ShaderMaterial &&
+        material.uniforms?.uTime
+      ) {
         material.uniforms.uTime.value = time;
       }
     }
@@ -1027,6 +1120,21 @@ export class CosmicObjectFactory {
       material.dispose();
     }
     this.glowMaterials.clear();
+
+    this.rockTextures.map.dispose();
+    this.rockTextures.normalMap.dispose();
+    this.rockTextures.roughnessMap.dispose();
+    this.rockTextures.aoMap.dispose();
+    this.rockTextures.emissiveMap.dispose();
+
+    this.metalTextures.map.dispose();
+    this.metalTextures.normalMap.dispose();
+    this.metalTextures.roughnessMap.dispose();
+    this.metalTextures.aoMap.dispose();
+    this.metalTextures.emissiveMap.dispose();
+
+    this.crystalMicroNormal.dispose();
+
     console.log('[CosmicObjectFactory] Disposed');
   }
 }

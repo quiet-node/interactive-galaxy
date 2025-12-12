@@ -37,12 +37,13 @@ export class ObjectPoolManager {
   constructor(
     scene: THREE.Scene,
     camera: THREE.Camera,
-    config: Partial<ObjectPoolConfig> = {}
+    config: Partial<ObjectPoolConfig> = {},
+    factory?: CosmicObjectFactory
   ) {
     this.scene = scene;
     this.camera = camera;
     this.config = { ...DEFAULT_OBJECT_POOL_CONFIG, ...config };
-    this.factory = new CosmicObjectFactory();
+    this.factory = factory ?? new CosmicObjectFactory();
     this.spawnInterval = 1000 / this.config.spawnRate;
 
     this.baseSpawnRate = this.config.spawnRate;
@@ -188,7 +189,8 @@ export class ObjectPoolManager {
       if (child instanceof THREE.Mesh) {
         if (child.material instanceof THREE.Material) {
           child.material.depthTest = true;
-          child.material.depthWrite = true;
+
+          if (!child.material.transparent) child.material.depthWrite = true;
         }
       }
     });
@@ -210,17 +212,14 @@ export class ObjectPoolManager {
     instance.position.addScaledVector(instance.velocity, deltaTime);
     instance.mesh.position.copy(instance.position);
 
-    // Update rotation (only for the core, glow billboards separately)
-    const coreMesh = instance.mesh.userData.coreMesh as THREE.Mesh | undefined;
-    if (coreMesh) {
-      coreMesh.rotation.x += instance.rotationSpeed.x * deltaTime;
-      coreMesh.rotation.y += instance.rotationSpeed.y * deltaTime;
-      coreMesh.rotation.z += instance.rotationSpeed.z * deltaTime;
-    } else {
-      instance.mesh.rotation.x += instance.rotationSpeed.x * deltaTime;
-      instance.mesh.rotation.y += instance.rotationSpeed.y * deltaTime;
-      instance.mesh.rotation.z += instance.rotationSpeed.z * deltaTime;
-    }
+    const rotationRoot =
+      (instance.mesh.userData.rotationRoot as THREE.Object3D | undefined) ??
+      (instance.mesh.userData.coreMesh as THREE.Object3D | undefined) ??
+      instance.mesh;
+
+    rotationRoot.rotation.x += instance.rotationSpeed.x * deltaTime;
+    rotationRoot.rotation.y += instance.rotationSpeed.y * deltaTime;
+    rotationRoot.rotation.z += instance.rotationSpeed.z * deltaTime;
 
     // Update shader time and billboard glow sprites
     CosmicObjectFactory.updateObjectTime(

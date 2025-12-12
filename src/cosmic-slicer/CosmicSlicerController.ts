@@ -12,11 +12,15 @@
 import * as THREE from 'three';
 import type { HandTracker } from '../shared/HandTracker';
 import { PostProcessingManager } from '../shared/PostProcessingManager';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { HandTrailRenderer } from './HandTrailRenderer';
 import { ObjectPoolManager } from './ObjectPoolManager';
 import { CollisionDetector, CollisionEvent } from './CollisionDetector';
 import { SliceEffect } from './SliceEffect';
 import { CosmicBackground } from './CosmicBackground';
+import { CosmicAssetLibrary } from './CosmicAssetLibrary';
+import { HybridCosmicObjectFactory } from './HybridCosmicObjectFactory';
+import { createCosmicEnvironment } from './CosmicEnvironment';
 import {
   CosmicSlicerConfig,
   DEFAULT_COSMIC_SLICER_CONFIG,
@@ -37,6 +41,8 @@ export class CosmicSlicerController {
   private camera: THREE.PerspectiveCamera;
   private renderer: THREE.WebGLRenderer;
   private postProcessing: PostProcessingManager | null = null;
+
+  private assetLibrary: CosmicAssetLibrary | null = null;
 
   // Game subsystems
   private trailRenderer: HandTrailRenderer | null = null;
@@ -64,6 +70,11 @@ export class CosmicSlicerController {
   // Lighting
   private ambientLight: THREE.AmbientLight | null = null;
   private pointLight: THREE.PointLight | null = null;
+  private keyLight: THREE.DirectionalLight | null = null;
+  private fillLight: THREE.DirectionalLight | null = null;
+  private rimLight: THREE.DirectionalLight | null = null;
+  private pmremGenerator: THREE.PMREMGenerator | null = null;
+  private environmentMap: THREE.Texture | null = null;
 
   constructor(
     handTracker: HandTracker,
@@ -99,8 +110,10 @@ export class CosmicSlicerController {
 
     // Enable HDR rendering with tone mapping
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.35;
+    this.renderer.toneMappingExposure = 1.22;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    this.renderer.transmissionResolutionScale = 0.75;
 
     // Ensure depth sorting is enabled
     this.renderer.sortObjects = true;
@@ -118,6 +131,37 @@ export class CosmicSlicerController {
 
     // Handle resize
     window.addEventListener('resize', this.handleResize);
+  }
+
+  private setupEnvironment(): void {
+    if (this.pmremGenerator) return;
+
+    this.pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+    this.pmremGenerator.compileEquirectangularShader();
+
+    const environment = createCosmicEnvironment();
+    const envMap = this.pmremGenerator.fromScene(environment.scene).texture;
+    environment.dispose();
+    this.environmentMap = envMap;
+    this.scene.environment = this.environmentMap;
+
+    const hdriUrl = '/assets/cosmic-slicer/hdri/space.hdr';
+    new RGBELoader().load(
+      hdriUrl,
+      (texture) => {
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        const nextEnv =
+          this.pmremGenerator!.fromEquirectangular(texture).texture;
+        this.environmentMap?.dispose();
+        this.environmentMap = nextEnv;
+        this.scene.environment = this.environmentMap;
+        texture.dispose();
+      },
+      undefined,
+      () => {
+        // Keep RoomEnvironment fallback.
+      }
+    );
   }
 
   private handleResize = (): void => {
@@ -142,6 +186,15 @@ export class CosmicSlicerController {
     // Setup lighting
     this.setupLighting();
 
+    // Setup environment lighting (IBL)
+    this.setupEnvironment();
+
+    // Optional local-only model assets (must be user-provided CC0)
+    this.assetLibrary = new CosmicAssetLibrary(this.renderer, {
+      enableKtx2: false,
+    });
+    this.assetLibrary.preload([]);
+
     // Initialize background (star field)
     this.background = new CosmicBackground(this.scene, this.config.background);
 
@@ -165,14 +218,20 @@ export class CosmicSlicerController {
     this.trailRenderer.setRenderMode(this.trailRenderMode);
 
     // Initialize object pool (pass camera for glow billboarding)
-    this.objectPool = new ObjectPoolManager(this.scene, this.camera, {
-      ...this.config.objectPool,
-      maxActiveObjects: 5,
-      spawnRate: 1.0,
-      spawnZPosition: -10,
-      despawnZPosition: 3,
-      spawnSpread: 6,
-    });
+    const factory = new HybridCosmicObjectFactory(this.assetLibrary);
+    this.objectPool = new ObjectPoolManager(
+      this.scene,
+      this.camera,
+      {
+        ...this.config.objectPool,
+        maxActiveObjects: 5,
+        spawnRate: 1.0,
+        spawnZPosition: -10,
+        despawnZPosition: 3,
+        spawnSpread: 6,
+      },
+      factory
+    );
 
     // Initialize precise collision detector (smaller radius = must actually touch)
     this.collisionDetector = new CollisionDetector(this.camera, width, height);
@@ -195,11 +254,13 @@ export class CosmicSlicerController {
       this.camera,
       {
         enableBloom: true,
-        bloomIntensity: 1.35,
-        bloomLuminanceThreshold: 0.24,
-        bloomRadius: 0.75,
-        enableChromaticAberration: false,
-        enableColorGrading: false,
+        bloomIntensity: 1.15,
+        bloomLuminanceThreshold: 0.26,
+        bloomRadius: 0.65,
+        enableChromaticAberration: true,
+        chromaticAberrationOffset: 0.00065,
+        enableColorGrading: true,
+        colorGradingIntensity: 0.6,
         enableGravitationalLensing: false,
       }
     );
@@ -209,13 +270,25 @@ export class CosmicSlicerController {
 
   private setupLighting(): void {
     // Ambient light
-    this.ambientLight = new THREE.AmbientLight(0x404060, 0.6);
+    this.ambientLight = new THREE.AmbientLight(0x222244, 0.35);
     this.scene.add(this.ambientLight);
 
     // Point light from camera
-    this.pointLight = new THREE.PointLight(0xffffff, 0.8, 30);
+    this.pointLight = new THREE.PointLight(0xffffff, 0.35, 30);
     this.pointLight.position.set(0, 0, 5);
     this.scene.add(this.pointLight);
+
+    this.keyLight = new THREE.DirectionalLight(0xffffff, 1.55);
+    this.keyLight.position.set(4, 6, 4);
+    this.scene.add(this.keyLight);
+
+    this.fillLight = new THREE.DirectionalLight(0x7aa7ff, 0.55);
+    this.fillLight.position.set(-5, 2, 3);
+    this.scene.add(this.fillLight);
+
+    this.rimLight = new THREE.DirectionalLight(0x86fff3, 1.25);
+    this.rimLight.position.set(-2, 3, -6);
+    this.scene.add(this.rimLight);
   }
 
   /**
@@ -479,11 +552,25 @@ export class CosmicSlicerController {
     this.sliceEffect?.dispose();
     this.background?.dispose();
     this.postProcessing?.dispose();
+    this.assetLibrary?.dispose();
 
     if (this.ambientLight) this.scene.remove(this.ambientLight);
     if (this.pointLight) this.scene.remove(this.pointLight);
+    if (this.keyLight) this.scene.remove(this.keyLight);
+    if (this.fillLight) this.scene.remove(this.fillLight);
+    if (this.rimLight) this.scene.remove(this.rimLight);
+
+    this.keyLight = null;
+    this.fillLight = null;
+    this.rimLight = null;
 
     this.renderer.dispose();
+
+    this.pmremGenerator?.dispose();
+    this.pmremGenerator = null;
+
+    this.environmentMap?.dispose();
+    this.environmentMap = null;
 
     if (this.renderer.domElement.parentNode) {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);

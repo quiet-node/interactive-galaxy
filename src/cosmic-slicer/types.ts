@@ -221,10 +221,10 @@ export interface CosmicBackgroundConfig {
  * Default cosmic background configuration
  */
 export const DEFAULT_COSMIC_BACKGROUND_CONFIG: CosmicBackgroundConfig = {
-  starCount: 15000,
-  starSpread: 50,
-  starSize: 0.6,
-  twinkleSpeed: 1.0,
+  starCount: 6500,
+  starSpread: 55,
+  starSize: 0.45,
+  twinkleSpeed: 0.85,
 };
 
 /**

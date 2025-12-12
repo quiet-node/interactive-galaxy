@@ -372,10 +372,6 @@ export class App {
   private updateCosmicSlicerDebugPanel(info: CosmicSlicerDebugInfo): void {
     if (!this.debugComponent) return;
 
-    const trailCounts = Object.entries(info.trailPointCounts)
-      .map(([hand, count]) => `${hand}: ${count}`)
-      .join(', ');
-
     this.debugComponent.update(`
       <div style="margin-bottom: 8px; color: #fff; font-weight: bold;">Debug Info</div>
       <div>FPS: ${info.fps.toFixed(1)}</div>
