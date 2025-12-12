@@ -393,9 +393,21 @@ export class ObjectPoolManager {
     const baseZ = this.config.spawnZPosition;
     const candidate = new THREE.Vector3();
 
+    const pickEdgeBiased = (
+      spread: number,
+      centerDeadzone01: number
+    ): number => {
+      const half = spread / 2;
+      const dead = Math.max(0, Math.min(0.49, centerDeadzone01)) * half;
+      const sign = Math.random() < 0.5 ? -1 : 1;
+      const t = Math.pow(Math.random(), 1.9);
+      const mag = dead + (half - dead) * t;
+      return sign * mag;
+    };
+
     for (let attempt = 0; attempt < 6; attempt++) {
       candidate.set(
-        (Math.random() - 0.5) * spreadX,
+        pickEdgeBiased(spreadX, 0.18),
         (Math.random() - 0.5) * spreadY,
         baseZ
       );

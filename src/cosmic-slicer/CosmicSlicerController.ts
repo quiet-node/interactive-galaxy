@@ -23,6 +23,7 @@ import { HybridCosmicObjectFactory } from './HybridCosmicObjectFactory';
 import { createCosmicEnvironment } from './CosmicEnvironment';
 import { ScoreManager } from './ScoreManager';
 import { ScoreHud } from './ScoreHud';
+import { FloatingScoreEffect } from './FloatingScoreEffect';
 import {
   CosmicSlicerConfig,
   DEFAULT_COSMIC_SLICER_CONFIG,
@@ -54,6 +55,8 @@ export class CosmicSlicerController {
   private sliceEffect: SliceEffect | null = null;
   private background: CosmicBackground | null = null;
 
+  private floatingScoreEffect: FloatingScoreEffect | null = null;
+
   // Scoring
   private scoreManager: ScoreManager | null = null;
   private scoreHud: ScoreHud | null = null;
@@ -63,6 +66,7 @@ export class CosmicSlicerController {
   private animationId: number | null = null;
   private lastFrameTime: number = 0;
   private isRunning: boolean = false;
+  private isPaused: boolean = false;
 
   private lastHandResults: ReturnType<HandTracker['detectHands']> = null;
   private lastHandsDetected: number = 0;
@@ -236,7 +240,7 @@ export class CosmicSlicerController {
         spawnRate: 1.0,
         spawnZPosition: -10,
         despawnZPosition: 3,
-        spawnSpread: 6,
+        spawnSpread: 9,
       },
       factory
     );
@@ -255,6 +259,11 @@ export class CosmicSlicerController {
       initialVelocity: 6.0,
       velocityDecay: 0.91,
       particleSize: 1.2,
+    });
+
+    this.floatingScoreEffect = new FloatingScoreEffect(this.scene, {
+      poolSize: 28,
+      baseDurationSec: 1.0,
     });
 
     // Initialize HDR-aware post-processing with bloom
@@ -321,23 +330,39 @@ export class CosmicSlicerController {
     this.removeScoreListener = this.scoreManager.addListener((state, event) => {
       this.scoreHud?.update(state, event);
 
-      if (event.type === 'levelChanged') {
-        this.objectPool?.setSpeedMultiplier(state.speedMultiplier);
+      if (event.type !== 'levelChanged') return;
 
-        const k = Math.max(0, state.level - 1);
-        const spawnRateMultiplier = Math.min(3.0, 1 + 0.12 * k);
-        const maxActiveMultiplier = Math.min(2.4, 1 + 0.1 * k);
-        this.objectPool?.setDifficultyScaling({
-          spawnRateMultiplier,
-          maxActiveMultiplier,
-        });
-      }
+      // Difficulty scaling should meaningfully begin after level 3.
+      const k = Math.max(0, state.level - 3);
+
+      const speedMultiplier = state.level <= 3 ? 1 : state.speedMultiplier;
+      this.objectPool?.setSpeedMultiplier(speedMultiplier);
+
+      const spawnRateMultiplier =
+        state.level <= 3 ? 1 : Math.min(3.6, 1 + 0.22 * k);
+      const maxActiveMultiplier =
+        state.level <= 3 ? 1 : Math.min(3.0, 1 + 0.18 * k);
+
+      this.objectPool?.setDifficultyScaling({
+        spawnRateMultiplier,
+        maxActiveMultiplier,
+      });
     });
 
     this.objectPool.onObjectMissed((instance) => {
-      this.scoreManager?.applyMiss(instance.config.type);
+      const appliedDelta =
+        this.scoreManager?.applyMiss(instance.config.type) ?? 0;
+      this.floatingScoreEffect?.trigger(
+        instance.position.clone(),
+        appliedDelta,
+        {
+          intensity01: 0.35,
+          durationSec: 0.85,
+        }
+      );
     });
 
+    // Baseline difficulty at level 1.
     this.objectPool.setSpeedMultiplier(1);
     this.objectPool.setDifficultyScaling({
       spawnRateMultiplier: 1,
@@ -374,6 +399,7 @@ export class CosmicSlicerController {
   start(): void {
     if (this.isRunning) return;
 
+    this.isPaused = false;
     this.isRunning = true;
     this.lastFrameTime = performance.now();
     this.animate();
@@ -395,6 +421,31 @@ export class CosmicSlicerController {
     }
 
     console.log('[CosmicSlicerController] Stopped');
+  }
+
+  pause(): void {
+    if (this.isPaused) return;
+    this.isPaused = true;
+    this.stop();
+  }
+
+  resume(): void {
+    if (!this.isPaused) return;
+    this.isPaused = false;
+    this.start();
+  }
+
+  togglePause(): boolean {
+    if (this.isPaused) {
+      this.resume();
+      return false;
+    }
+    this.pause();
+    return true;
+  }
+
+  getIsPaused(): boolean {
+    return this.isPaused;
   }
 
   /**
@@ -441,6 +492,9 @@ export class CosmicSlicerController {
 
     // Update explosions
     this.sliceEffect?.update(deltaTime);
+
+    // Update floating score labels
+    this.floatingScoreEffect?.update(deltaTime);
   }
 
   /**
@@ -483,10 +537,21 @@ export class CosmicSlicerController {
     // Mark object as sliced
     this.objectPool?.sliceObject(object);
 
-    this.scoreManager?.applySlice(object.config.type);
+    const appliedDelta = this.scoreManager?.applySlice(object.config.type) ?? 0;
 
     // Trigger explosion at object's 3D position
     const velocityMultiplier = Math.min(2.5, Math.max(0.7, velocity / 300));
+
+    const intensity01 = Math.max(
+      0,
+      Math.min(1, (velocityMultiplier - 0.7) / (2.5 - 0.7))
+    );
+
+    this.floatingScoreEffect?.trigger(object.position.clone(), appliedDelta, {
+      intensity01,
+      durationSec: 1.0,
+    });
+
     this.sliceEffect?.trigger(object.position.clone(), {
       type: object.config.type,
       baseColor: object.config.color,
@@ -615,12 +680,14 @@ export class CosmicSlicerController {
     this.collisionDetector?.reset();
     this.sliceEffect?.clear();
     this.trailRenderer?.clear();
+    this.floatingScoreEffect?.clear();
     this.scoreManager?.reset();
     this.objectPool?.setSpeedMultiplier(1);
     this.objectPool?.setDifficultyScaling({
       spawnRateMultiplier: 1,
       maxActiveMultiplier: 1,
     });
+    this.isPaused = false;
     console.log('[CosmicSlicerController] Reset');
   }
 
@@ -636,6 +703,7 @@ export class CosmicSlicerController {
     this.objectPool?.dispose();
     this.collisionDetector?.dispose();
     this.sliceEffect?.dispose();
+    this.floatingScoreEffect?.dispose();
     this.background?.dispose();
     this.postProcessing?.dispose();
     this.assetLibrary?.dispose();
@@ -645,6 +713,7 @@ export class CosmicSlicerController {
     this.scoreHud?.dispose();
     this.scoreHud = null;
     this.scoreManager = null;
+    this.floatingScoreEffect = null;
 
     if (this.ambientLight) this.scene.remove(this.ambientLight);
     if (this.pointLight) this.scene.remove(this.pointLight);

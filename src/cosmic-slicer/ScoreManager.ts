@@ -116,25 +116,25 @@ export class ScoreManager {
     }
   }
 
-  applySlice(objectType: CosmicObjectType): void {
+  applySlice(objectType: CosmicObjectType): number {
     const delta = this.pointsByType[objectType] ?? 0;
-    this.applyScoreDelta(delta, 'slice', objectType);
+    return this.applyScoreDelta(delta, 'slice', objectType);
   }
 
-  applyMiss(objectType: CosmicObjectType): void {
+  applyMiss(objectType: CosmicObjectType): number {
     const penalty =
       this.missPenaltyByType?.[objectType] ??
       this.pointsByType[objectType] ??
       0;
-    this.applyScoreDelta(-Math.abs(penalty), 'miss', objectType);
+    return this.applyScoreDelta(-Math.abs(penalty), 'miss', objectType);
   }
 
   private applyScoreDelta(
     delta: number,
     reason: 'slice' | 'miss',
     objectType: CosmicObjectType
-  ): void {
-    if (!Number.isFinite(delta) || delta === 0) return;
+  ): number {
+    if (!Number.isFinite(delta) || delta === 0) return 0;
 
     const prevScore = this.score;
     const prevLevel = this.level;
@@ -160,6 +160,8 @@ export class ScoreManager {
         newLevel: this.level,
       });
     }
+
+    return appliedDelta;
   }
 
   private computeLevelForScore(score: number): number {

@@ -183,14 +183,7 @@ export class App {
     // Mode Indicator
     this.modeIndicator = new ModeIndicator(this.container);
     this.modeIndicator.onClick(() => {
-      // Cycle through modes: galaxy -> foggy-mirror -> cosmic-slicer -> galaxy
-      if (this.currentMode === 'galaxy') {
-        this.switchToFoggyMirrorMode();
-      } else if (this.currentMode === 'foggy-mirror') {
-        this.switchToCosmicSlicerMode();
-      } else {
-        this.switchToGalaxyMode();
-      }
+      this.returnToMainMenu();
     });
 
     // Status Indicator
@@ -210,12 +203,29 @@ export class App {
     window.addEventListener('keydown', (event) => {
       const key = event.key.toLowerCase();
 
+      if (event.code === 'Space') {
+        if (
+          this.currentMode === 'cosmic-slicer' &&
+          this.cosmicSlicerController
+        ) {
+          event.preventDefault();
+          const paused = this.cosmicSlicerController.togglePause();
+          if (paused) {
+            this.updateStatus('Paused — Press Space to resume', 'ready');
+          }
+        }
+        return;
+      }
+
       // Global shortcuts (work everywhere)
       if (key === 'd') {
         this.toggleDebug();
         return;
       } else if (key === 'h') {
         this.toggleControls();
+        return;
+      } else if (key === 'm') {
+        this.returnToMainMenu();
         return;
       }
 
@@ -226,7 +236,7 @@ export class App {
       } else if (key === 'f') {
         this.switchToFoggyMirrorMode();
         return;
-      } else if (key === 's') {
+      } else if (key === 'c') {
         this.switchToCosmicSlicerMode();
         return;
       }
@@ -252,6 +262,64 @@ export class App {
 
     // Show landing
     this.landingPage?.show();
+  }
+
+  private returnToMainMenu(): void {
+    if (this.state === 'landing') {
+      this.showLandingPage();
+      return;
+    }
+
+    // Stop galaxy mode
+    if (this.galaxyRenderer) {
+      this.galaxyRenderer.hide();
+      this.galaxyRenderer.dispose();
+      this.galaxyRenderer = null;
+    }
+    if (this.controller) {
+      this.controller.disableDebug();
+      this.controller.dispose();
+      this.controller = null;
+    }
+
+    // Stop foggy-mirror controller
+    if (this.foggyMirrorController) {
+      this.foggyMirrorController.stop();
+      this.foggyMirrorController.disableDebug();
+      this.foggyMirrorController.dispose();
+      this.foggyMirrorController = null;
+    }
+
+    // Stop cosmic slicer controller
+    if (this.cosmicSlicerController) {
+      this.cosmicSlicerController.stop();
+      this.cosmicSlicerController.disableDebug();
+      this.cosmicSlicerController.dispose();
+      this.cosmicSlicerController = null;
+    }
+
+    this.showLandingPage();
+  }
+
+  private updateHandStatus(handCount: number): void {
+    if (this.currentMode === null) return;
+
+    if (this.currentMode === 'cosmic-slicer' && this.cosmicSlicerController) {
+      if (this.cosmicSlicerController.getIsPaused()) {
+        this.updateStatus('Paused — Press Space to resume', 'ready');
+        return;
+      }
+    }
+
+    if (handCount <= 0) {
+      this.updateStatus('No hands detected', 'ready');
+      return;
+    }
+    if (handCount === 1) {
+      this.updateStatus('1 hand detected', 'active');
+      return;
+    }
+    this.updateStatus(`${handCount} hands detected`, 'active');
   }
 
   /**
@@ -403,15 +471,14 @@ export class App {
       if (this.currentMode === 'galaxy') {
         this.controller?.update(timestamp);
 
-        // Update status based on hands (get from controller to avoid duplicate detection)
         const handCount = this.controller?.getHandCount() ?? 0;
-        if (handCount >= 2) {
-          this.updateStatus(`${handCount} hands detected`, 'active');
-        } else if (handCount === 1) {
-          this.updateStatus('Show both hands', 'ready');
-        } else {
-          this.updateStatus('No hands detected', 'ready');
-        }
+        this.updateHandStatus(handCount);
+      } else if (this.currentMode === 'foggy-mirror') {
+        const handCount = this.foggyMirrorController?.getHandCount() ?? 0;
+        this.updateHandStatus(handCount);
+      } else if (this.currentMode === 'cosmic-slicer') {
+        const handCount = this.cosmicSlicerController?.getHandCount() ?? 0;
+        this.updateHandStatus(handCount);
       }
       // Note: foggy-mirror mode has its own update loop in FoggyMirrorController
 
@@ -558,7 +625,7 @@ export class App {
     // Update mode
     this.currentMode = 'galaxy';
     this.state = 'running';
-    this.updateStatus('Galaxy Mode - Show both hands', 'ready');
+    this.updateHandStatus(0);
 
     // Show UI elements
     this.statusIndicator?.show();
@@ -625,7 +692,7 @@ export class App {
     // Update mode
     this.currentMode = 'foggy-mirror';
     this.state = 'running';
-    this.updateStatus('Foggy Mirror', 'ready');
+    this.updateHandStatus(0);
 
     // Show UI elements
     this.statusIndicator?.show();
@@ -714,7 +781,7 @@ export class App {
     // Update mode
     this.currentMode = 'cosmic-slicer';
     this.state = 'running';
-    this.updateStatus('Cosmic Slicer - Slice the objects!', 'ready');
+    this.updateHandStatus(0);
 
     // Show UI elements
     this.statusIndicator?.show();

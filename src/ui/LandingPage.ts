@@ -63,7 +63,7 @@ export class LandingPage {
               <p class="portal-desc">Slice through cosmic anomalies with your hands</p>
             </div>
             <div class="portal-footer">
-              <span class="key-hint">Press <kbd>S</kbd></span>
+              <span class="key-hint">Press <kbd>C</kbd></span>
             </div>
             <div class="portal-bg"></div>
           </button>

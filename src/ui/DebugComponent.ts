@@ -56,8 +56,8 @@ export class DebugComponent {
     style.textContent = `
       .debug-component {
         position: absolute;
-        top: 20px;
-        right: 20px;
+        bottom: 78px;
+        left: 20px;
         padding: 12px 16px;
         background: rgba(20, 20, 25, 0.6);
         backdrop-filter: blur(20px);
@@ -72,6 +72,13 @@ export class DebugComponent {
         border: 1px solid rgba(255, 255, 255, 0.08);
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
         line-height: 1.5;
+      }
+
+      @media (max-width: 768px) {
+        .debug-component {
+          bottom: 96px;
+          left: 10px;
+        }
       }
       
       .debug-component .debug-content div {

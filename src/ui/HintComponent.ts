@@ -46,10 +46,10 @@ export class HintComponent {
           <span class="hint-title">Gesture Guide</span>
         </div>
         <div class="hint-list">
-          <div class="hint-item">Raise your hands to see trails</div>
-          <div class="hint-item">Move hands to slice objects</div>
-          <div class="hint-item">Fast swipes = bigger explosions</div>
-          <div class="hint-item">Slice as many as you can!</div>
+          <div class="hint-item">Raise your hands to reveal the trails</div>
+          <div class="hint-item">Swipe through objects to score points</div>
+          <div class="hint-item">Fast swipes for bigger explosions</div>
+          <div class="hint-item">Press <kbd>Space</kbd> to pause/resume</div>
         </div>
       `;
     } else {
@@ -58,7 +58,7 @@ export class HintComponent {
           <span class="hint-title">Gesture Guide</span>
         </div>
         <div class="hint-list">
-          <div class="hint-item">Wave hand to wipe fog</div>
+          <div class="hint-item">Wave your hand to wipe away the fog</div>
           <div class="hint-item highlight clickable-hint" data-action="reset">
             <span class="desktop-text">Press <kbd>R</kbd> to reset</span>
             <span class="mobile-text">Tap to Reset</span>

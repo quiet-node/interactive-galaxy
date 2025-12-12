@@ -29,25 +29,18 @@ export class ModeIndicator {
     const content = this.element.querySelector('.mode-content');
     if (!content) return;
 
-    if (mode === 'galaxy') {
-      content.innerHTML = `
-        <div class="current-mode">Interactive Galaxy</div>
-        <div class="switch-hint desktop-hint">Press <kbd>F</kbd> for Foggy Mirror</div>
-        <div class="switch-hint mobile-hint">Tap to Switch Mode</div>
-      `;
-    } else if (mode === 'cosmic-slicer') {
-      content.innerHTML = `
-        <div class="current-mode">Cosmic Slicer</div>
-        <div class="switch-hint desktop-hint">Press <kbd>G</kbd> for Interactive Galaxy</div>
-        <div class="switch-hint mobile-hint">Tap to Switch Mode</div>
-      `;
-    } else {
-      content.innerHTML = `
-        <div class="current-mode">Foggy Mirror</div>
-        <div class="switch-hint desktop-hint">Press <kbd>S</kbd> for Cosmic Slicer</div>
-        <div class="switch-hint mobile-hint">Tap to Switch Mode</div>
-      `;
-    }
+    const modeName =
+      mode === 'galaxy'
+        ? 'Interactive Galaxy'
+        : mode === 'cosmic-slicer'
+        ? 'Cosmic Slicer'
+        : 'Foggy Mirror';
+
+    content.innerHTML = `
+      <div class="current-mode">${modeName}</div>
+      <div class="switch-hint desktop-hint">Press <kbd>M</kbd> for Main Menu</div>
+      <div class="switch-hint mobile-hint">Tap for Main Menu</div>
+    `;
   }
 
   private createDOM(): void {
