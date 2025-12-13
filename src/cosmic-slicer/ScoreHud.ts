@@ -14,6 +14,7 @@ export class ScoreHud {
 
   private scoreEl: HTMLElement | null = null;
   private deltaEl: HTMLElement | null = null;
+  private comboEl: HTMLElement | null = null;
   private levelTextEl: HTMLElement | null = null;
   private progressCircleEl: SVGCircleElement | null = null;
   private progressCircumference: number = 1;
@@ -21,6 +22,7 @@ export class ScoreHud {
   private displayedScore: number = 0;
   private scoreAnimRaf: number | null = null;
   private deltaHideTimeout: number | null = null;
+  private comboHideTimeout: number | null = null;
 
   private config: Required<ScoreHudConfig>;
 
@@ -51,6 +53,10 @@ export class ScoreHud {
       window.clearTimeout(this.deltaHideTimeout);
       this.deltaHideTimeout = null;
     }
+    if (this.comboHideTimeout !== null) {
+      window.clearTimeout(this.comboHideTimeout);
+      this.comboHideTimeout = null;
+    }
 
     if (this.element?.parentNode) {
       this.element.parentNode.removeChild(this.element);
@@ -59,6 +65,7 @@ export class ScoreHud {
     this.element = null;
     this.scoreEl = null;
     this.deltaEl = null;
+    this.comboEl = null;
     this.levelTextEl = null;
     this.progressCircleEl = null;
   }
@@ -69,6 +76,7 @@ export class ScoreHud {
       !this.element ||
       !this.scoreEl ||
       !this.deltaEl ||
+      !this.comboEl ||
       !this.levelTextEl ||
       !this.progressCircleEl
     )
@@ -93,7 +101,9 @@ export class ScoreHud {
     this.setProgress(state.progressToNextLevel01);
 
     if (event?.type === 'scoreChanged') {
-      this.showDelta(event.delta, event.reason);
+      if (event.reason !== 'boss') {
+        this.showDelta(event.delta, event.reason);
+      }
     }
 
     if (event?.type === 'levelChanged') {
@@ -145,7 +155,10 @@ export class ScoreHud {
     this.scoreAnimRaf = requestAnimationFrame(tick);
   }
 
-  private showDelta(delta: number, reason: 'slice' | 'miss'): void {
+  private showDelta(
+    delta: number,
+    reason: 'slice' | 'miss' | 'combo' | 'boss'
+  ): void {
     if (!this.deltaEl) return;
 
     if (this.deltaHideTimeout !== null) {
@@ -180,6 +193,33 @@ export class ScoreHud {
     this.element.classList.add('level-up');
   }
 
+  showCombo(multiplier: number): void {
+    if (!this.comboEl) return;
+    const m = Math.max(2, Math.min(5, Math.floor(multiplier)));
+
+    if (this.comboHideTimeout !== null) {
+      window.clearTimeout(this.comboHideTimeout);
+      this.comboHideTimeout = null;
+    }
+
+    this.comboEl.textContent = `x${m}`;
+    this.comboEl.classList.remove(
+      'combo-pop',
+      'combo--2',
+      'combo--3',
+      'combo--4',
+      'combo--5'
+    );
+    void this.comboEl.offsetHeight;
+    this.comboEl.classList.add('combo-pop', `combo--${m}`);
+
+    const lifetime = m >= 5 ? 980 : m === 4 ? 880 : m === 3 ? 760 : 640;
+    this.comboHideTimeout = window.setTimeout(() => {
+      this.comboEl?.classList.remove('combo-pop', `combo--${m}`);
+      this.comboHideTimeout = null;
+    }, lifetime);
+  }
+
   private createDOM(): void {
     this.element = document.createElement('div');
     this.element.className = `score-hud score-hud--${this.config.anchor}`;
@@ -189,6 +229,7 @@ export class ScoreHud {
         <div class="score-hud__scoreWrap">
           <div class="score-hud__score" aria-label="Score">0</div>
           <div class="score-hud__delta" aria-label="Score change"></div>
+          <div class="score-hud__combo" aria-label="Combo multiplier"></div>
         </div>
 
         <div class="score-hud__levelWrap" aria-label="Level">
@@ -203,6 +244,7 @@ export class ScoreHud {
 
     this.scoreEl = this.element.querySelector('.score-hud__score');
     this.deltaEl = this.element.querySelector('.score-hud__delta');
+    this.comboEl = this.element.querySelector('.score-hud__combo');
     this.levelTextEl = this.element.querySelector('.score-hud__levelText');
     this.progressCircleEl = this.element.querySelector(
       '.score-hud__ringProgress'
@@ -277,6 +319,47 @@ export class ScoreHud {
       .score-hud__delta.delta-pop {
         opacity: 1;
         transform: translateY(0px);
+      }
+
+      .score-hud__combo {
+        margin-top: 6px;
+        font-size: 0.85rem;
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        opacity: 0;
+        transform: translateY(-4px) scale(0.98);
+        color: rgba(255, 255, 255, 0.92);
+        text-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+        filter: drop-shadow(0 0 0 rgba(255, 255, 255, 0));
+        transition: opacity 150ms ease, transform 150ms ease, filter 200ms ease;
+      }
+
+      .score-hud__combo.combo-pop {
+        opacity: 1;
+        transform: translateY(0px) scale(1);
+      }
+
+      .score-hud__combo.combo--2 {
+        color: rgba(180, 255, 235, 0.96);
+        filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.22));
+      }
+
+      .score-hud__combo.combo--3 {
+        color: rgba(210, 190, 255, 0.98);
+        filter: drop-shadow(0 0 14px rgba(255, 95, 215, 0.22));
+        transform: translateY(0px) scale(1.05);
+      }
+
+      .score-hud__combo.combo--4 {
+        color: rgba(255, 215, 170, 0.98);
+        filter: drop-shadow(0 0 18px rgba(255, 180, 70, 0.26));
+        transform: translateY(0px) scale(1.08);
+      }
+
+      .score-hud__combo.combo--5 {
+        color: rgba(255, 255, 255, 0.99);
+        filter: drop-shadow(0 0 24px rgba(255, 255, 255, 0.22));
+        transform: translateY(0px) scale(1.12);
       }
 
       .score-hud__levelWrap {

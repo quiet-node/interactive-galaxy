@@ -22,6 +22,8 @@ export class ObjectPoolManager {
   private config: ObjectPoolConfig;
   private factory: CosmicObjectFactory;
 
+  private spawningEnabled: boolean = true;
+
   private readonly despawnFadeDistance: number = 1.6;
 
   private baseSpawnRate: number;
@@ -145,6 +147,10 @@ export class ObjectPoolManager {
   }
 
   private trySpawn(currentTime: number): void {
+    if (!this.spawningEnabled) {
+      return;
+    }
+
     if (currentTime - this.lastSpawnTime < this.spawnInterval) {
       return;
     }
@@ -441,6 +447,18 @@ export class ObjectPoolManager {
 
   getTotalSliced(): number {
     return this.totalSliced;
+  }
+
+  setSpawningEnabled(enabled: boolean): void {
+    this.spawningEnabled = enabled;
+  }
+
+  clearActiveObjects(): void {
+    for (const instance of this.pool) {
+      if (instance.state !== CosmicObjectState.ACTIVE) continue;
+      instance.state = CosmicObjectState.POOLED;
+      instance.mesh.visible = false;
+    }
   }
 
   onObjectMissed(handler: (instance: CosmicObjectInstance) => void): void {

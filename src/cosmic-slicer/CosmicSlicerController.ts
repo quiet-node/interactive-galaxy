@@ -28,8 +28,14 @@ import {
   CosmicSlicerConfig,
   DEFAULT_COSMIC_SLICER_CONFIG,
   CosmicSlicerDebugInfo,
+  CosmicObjectInstance,
+  CosmicObjectState,
   CosmicObjectType,
+  COSMIC_OBJECT_CONFIGS,
 } from './types';
+import { BossOverlay } from './BossOverlay';
+import { LevelUpOverlay } from './LevelUpOverlay';
+import { ScreenFlashEffect } from './ScreenFlashEffect';
 
 /**
  * CosmicSlicerController - Main game controller
@@ -57,10 +63,40 @@ export class CosmicSlicerController {
 
   private floatingScoreEffect: FloatingScoreEffect | null = null;
 
+  // Combo scoring
+  private comboWindowMs: number = 450;
+  private comboStartMs: number | null = null;
+  private comboCount: number = 0;
+  private comboBaseSum: number = 0;
+  private comboLastPos: THREE.Vector3 | null = null;
+  private comboResolveTimeout: number | null = null;
+
+  // Boss fights
+  private bossOverlay: BossOverlay | null = null;
+  private bossInstance: CosmicObjectInstance | null = null;
+  private bossType: CosmicObjectType | null = null;
+  private bossRequiredHits: number = 0;
+  private bossHits: number = 0;
+  private bossRewardAccrued: number = 0;
+  private bossRewardTotal: number = 0;
+  private bossSpeed: number = 0;
+  private bossSpawnTimeMs: number = 0;
+  private nextBossLevel: number = 5;
+
+  // Visual effects
+  private levelUpOverlay: LevelUpOverlay | null = null;
+  private screenFlash: ScreenFlashEffect | null = null;
+  private bloomBoostAge: number = 0;
+  private bloomBoostDuration: number = 0;
+  private baseBloomIntensity: number = 1.15;
+  private bossFlashAge: number = 0;
+  private bossFlashDuration: number = 0;
+
   // Scoring
   private scoreManager: ScoreManager | null = null;
   private scoreHud: ScoreHud | null = null;
   private removeScoreListener: (() => void) | null = null;
+  private previousLevel: number = 1; // Track previous level to detect increases only
 
   // Animation
   private animationId: number | null = null;
@@ -236,14 +272,16 @@ export class CosmicSlicerController {
       this.camera,
       {
         ...this.config.objectPool,
-        maxActiveObjects: 5,
-        spawnRate: 1.0,
+        maxActiveObjects: 6,
+        spawnRate: 1.15,
         spawnZPosition: -10,
         despawnZPosition: 3,
         spawnSpread: 9,
       },
       factory
     );
+
+    this.bossOverlay = new BossOverlay(this.scene, this.camera);
 
     this.setupScoring();
 
@@ -283,6 +321,10 @@ export class CosmicSlicerController {
         enableGravitationalLensing: false,
       }
     );
+
+    // Initialize visual effect overlays
+    this.levelUpOverlay = new LevelUpOverlay(this.scene, this.camera);
+    this.screenFlash = new ScreenFlashEffect(this.container);
 
     console.log('[CosmicSlicerController] Initialized');
   }
@@ -335,18 +377,37 @@ export class CosmicSlicerController {
       // Difficulty scaling should meaningfully begin after level 3.
       const k = Math.max(0, state.level - 3);
 
-      const speedMultiplier = state.level <= 3 ? 1 : state.speedMultiplier;
+      const speedMultiplier =
+        state.level <= 3
+          ? 1
+          : Math.min(
+              3.75,
+              state.speedMultiplier * Math.min(1.65, 1 + 0.06 * k)
+            );
       this.objectPool?.setSpeedMultiplier(speedMultiplier);
 
       const spawnRateMultiplier =
-        state.level <= 3 ? 1 : Math.min(3.6, 1 + 0.22 * k);
+        state.level <= 3 ? 1 : Math.min(5.4, 1 + 0.34 * k);
       const maxActiveMultiplier =
-        state.level <= 3 ? 1 : Math.min(3.0, 1 + 0.18 * k);
+        state.level <= 3 ? 1 : Math.min(4.8, 1 + 0.32 * k);
 
       this.objectPool?.setDifficultyScaling({
         spawnRateMultiplier,
         maxActiveMultiplier,
       });
+
+      // Boss fights every 5 levels (5, 10, 15, ...).
+      // If the player skips past the threshold, still trigger the boss.
+      while (state.level >= this.nextBossLevel && !this.bossInstance) {
+        this.startBossFight(this.nextBossLevel);
+        this.nextBossLevel += 5;
+      }
+
+      // Trigger level-up celebration ONLY on level increase (not decrease)
+      if (event?.type === 'levelChanged' && state.level > this.previousLevel) {
+        this.triggerLevelUpCelebration(state.level);
+      }
+      this.previousLevel = state.level;
     });
 
     this.objectPool.onObjectMissed((instance) => {
@@ -484,6 +545,9 @@ export class CosmicSlicerController {
     // Update 3D object pool
     this.objectPool?.update(deltaTime, timestamp);
 
+    // Update boss (if active)
+    this.updateBoss(deltaTime, timestamp);
+
     // Update background
     this.background?.update(deltaTime);
 
@@ -495,6 +559,26 @@ export class CosmicSlicerController {
 
     // Update floating score labels
     this.floatingScoreEffect?.update(deltaTime);
+
+    // Update visual effect overlays
+    this.levelUpOverlay?.update(deltaTime);
+    this.screenFlash?.update(deltaTime);
+
+    // Update bloom boost animation (subtle intensity for boss hits)
+    if (this.bloomBoostAge < this.bloomBoostDuration) {
+      this.bloomBoostAge += deltaTime;
+      const t = this.bloomBoostAge / this.bloomBoostDuration;
+      const boost = Math.max(0, 1 - t) * 0.4; // Reduced from 0.8 for subtlety
+      this.postProcessing?.setBloomIntensity(this.baseBloomIntensity + boost);
+    }
+
+    // Update boss flash animation
+    if (this.bossFlashAge < this.bossFlashDuration) {
+      this.bossFlashAge += deltaTime;
+      const t = this.bossFlashAge / this.bossFlashDuration;
+      const intensity = Math.max(0, 1 - t * t);
+      this.flashBossMaterial(intensity);
+    }
   }
 
   /**
@@ -515,6 +599,9 @@ export class CosmicSlicerController {
 
     // Get active objects
     const activeObjects = this.objectPool.getActiveObjects();
+    if (this.bossInstance) {
+      activeObjects.push(this.bossInstance);
+    }
 
     // Detect collisions
     const collisions = this.collisionDetector.detectCollisions(
@@ -534,10 +621,17 @@ export class CosmicSlicerController {
   private handleSlice(collision: CollisionEvent): void {
     const { object, velocity } = collision;
 
+    if (this.bossInstance && object.id === this.bossInstance.id) {
+      this.handleBossHit(velocity);
+      return;
+    }
+
     // Mark object as sliced
     this.objectPool?.sliceObject(object);
 
     const appliedDelta = this.scoreManager?.applySlice(object.config.type) ?? 0;
+
+    this.registerComboSlice(appliedDelta, object.position.clone());
 
     // Trigger explosion at object's 3D position
     const velocityMultiplier = Math.min(2.5, Math.max(0.7, velocity / 300));
@@ -557,6 +651,463 @@ export class CosmicSlicerController {
       baseColor: object.config.color,
       glowColor: object.config.emissiveColor,
       velocityMultiplier,
+    });
+  }
+
+  private registerComboSlice(
+    appliedDelta: number,
+    position: THREE.Vector3
+  ): void {
+    if (!Number.isFinite(appliedDelta) || appliedDelta <= 0) return;
+
+    const now = performance.now();
+    if (
+      this.comboStartMs === null ||
+      now - this.comboStartMs > this.comboWindowMs
+    ) {
+      this.flushCombo();
+      this.comboStartMs = now;
+      this.comboCount = 0;
+      this.comboBaseSum = 0;
+    }
+
+    this.comboCount += 1;
+    this.comboBaseSum += appliedDelta;
+    this.comboLastPos = position;
+
+    if (this.comboResolveTimeout !== null) {
+      window.clearTimeout(this.comboResolveTimeout);
+      this.comboResolveTimeout = null;
+    }
+
+    const remaining = Math.max(
+      0,
+      this.comboWindowMs - (now - (this.comboStartMs ?? now))
+    );
+    this.comboResolveTimeout = window.setTimeout(() => {
+      this.flushCombo();
+    }, remaining);
+  }
+
+  private flushCombo(): void {
+    if (this.comboResolveTimeout !== null) {
+      window.clearTimeout(this.comboResolveTimeout);
+      this.comboResolveTimeout = null;
+    }
+
+    const count = this.comboCount;
+    const base = this.comboBaseSum;
+    const lastPos = this.comboLastPos?.clone() ?? null;
+
+    this.comboStartMs = null;
+    this.comboCount = 0;
+    this.comboBaseSum = 0;
+    this.comboLastPos = null;
+
+    if (!this.scoreManager || !this.scoreHud) return;
+    if (count < 2 || base <= 0) return;
+
+    const multiplier = Math.max(2, Math.min(5, count));
+    const bonus = Math.floor(base * (multiplier - 1));
+    if (bonus <= 0) return;
+
+    this.scoreManager.applyBonus(bonus, 'combo');
+    this.scoreHud.showCombo(multiplier);
+
+    if (lastPos) {
+      const intensity01 = Math.max(
+        0.45,
+        Math.min(1, 0.55 + 0.12 * (multiplier - 2))
+      );
+      this.floatingScoreEffect?.trigger(lastPos, bonus, {
+        intensity01,
+        durationSec: 1.15,
+      });
+    }
+  }
+
+  private startBossFight(level: number): void {
+    if (!this.objectPool || this.bossInstance || !this.assetLibrary) return;
+
+    this.flushCombo();
+
+    // Freeze regular spawns while boss is active.
+    this.objectPool.setSpawningEnabled(false);
+    this.objectPool.clearActiveObjects();
+
+    const bossIndex = Math.max(1, Math.floor(level / 5));
+    this.bossRequiredHits = 10 * bossIndex;
+    this.bossHits = 0;
+    this.bossRewardAccrued = 0;
+    this.bossRewardTotal = Math.round(
+      360 * bossIndex * bossIndex + 220 * bossIndex
+    );
+
+    // Faster early bosses; more-hit bosses are slower (gives time to slice).
+    // Level 5 should feel urgent.
+    this.bossSpeed = Math.max(0.28, 1.05 - 0.18 * (bossIndex - 1));
+    this.bossSpawnTimeMs = performance.now();
+
+    const bossTypes: CosmicObjectType[] = [
+      CosmicObjectType.STAR,
+      CosmicObjectType.CRYSTAL,
+      CosmicObjectType.METEOR,
+      CosmicObjectType.VOID_PEARL,
+      CosmicObjectType.NEBULA_CORE,
+      CosmicObjectType.ANCIENT_RELIC,
+      CosmicObjectType.COMET_EMBER,
+    ];
+    const type = bossTypes[Math.floor(Math.random() * bossTypes.length)];
+    this.bossType = type;
+
+    const baseConfig = COSMIC_OBJECT_CONFIGS[type];
+    // Noticeably larger than normal objects (0.58-0.72 scale range).
+    // Bosses scale from 3x to 4x regular size based on difficulty progression.
+    const scaleMult = 3.0 + 0.5 * (bossIndex - 1);
+    const bossConfig = {
+      ...baseConfig,
+      scale: baseConfig.scale * scaleMult,
+      collisionRadius: baseConfig.collisionRadius,
+    };
+
+    const bossFactory = new HybridCosmicObjectFactory(this.assetLibrary);
+    const mesh = bossFactory.createObject(type);
+
+    const startZ = -18 - bossIndex * 2.0;
+    mesh.position.set(0, 0, startZ);
+    mesh.scale.setScalar(bossConfig.scale);
+    mesh.visible = true;
+    mesh.renderOrder = 12;
+    this.scene.add(mesh);
+
+    const instance: CosmicObjectInstance = {
+      id: -Math.floor(Math.random() * 1_000_000) - 1,
+      state: CosmicObjectState.ACTIVE,
+      config: bossConfig,
+      mesh,
+      position: new THREE.Vector3(0, 0, startZ),
+      velocity: new THREE.Vector3(0, 0, this.bossSpeed),
+      rotationSpeed: new THREE.Vector3(0.15, 0.22, 0.12),
+      activatedAt: performance.now(),
+      boundingSphere: new THREE.Sphere(new THREE.Vector3(0, 0, startZ), 1),
+    };
+
+    instance.boundingSphere.center.copy(instance.position);
+    instance.boundingSphere.radius =
+      bossConfig.collisionRadius * bossConfig.scale;
+
+    this.bossInstance = instance;
+
+    this.bossOverlay?.show();
+    this.bossOverlay?.setAnchor(instance.position, instance.mesh.scale.x);
+    this.bossOverlay?.setText(`0/${this.bossRequiredHits}`, `0`, 0.35);
+    this.bossOverlay?.pulse(0.55);
+  }
+
+  private updateBoss(deltaTime: number, timestamp: number): void {
+    if (!this.bossInstance) return;
+
+    const t = (timestamp - this.bossSpawnTimeMs) * 0.001;
+
+    // Slow approach from the center with a subtle drift.
+    this.bossInstance.position.z += this.bossSpeed * deltaTime;
+    this.bossInstance.position.x = Math.sin(t * 0.75) * 0.55;
+    this.bossInstance.position.y = Math.cos(t * 0.62) * 0.26;
+    this.bossInstance.mesh.position.copy(this.bossInstance.position);
+
+    const rotationRoot =
+      (this.bossInstance.mesh.userData.rotationRoot as
+        | THREE.Object3D
+        | undefined) ??
+      (this.bossInstance.mesh.userData.coreMesh as
+        | THREE.Object3D
+        | undefined) ??
+      this.bossInstance.mesh;
+
+    rotationRoot.rotation.x += this.bossInstance.rotationSpeed.x * deltaTime;
+    rotationRoot.rotation.y += this.bossInstance.rotationSpeed.y * deltaTime;
+    rotationRoot.rotation.z += this.bossInstance.rotationSpeed.z * deltaTime;
+
+    this.bossInstance.boundingSphere.center.copy(this.bossInstance.position);
+
+    this.bossOverlay?.setAnchor(
+      this.bossInstance.position,
+      this.bossInstance.mesh.scale.x
+    );
+    this.bossOverlay?.update(deltaTime);
+
+    // Escaped: no penalty, resume normal spawning.
+    if (this.bossInstance.position.z > 3.2) {
+      this.endBossFight(false);
+    }
+  }
+
+  private handleBossHit(velocity: number): void {
+    if (!this.bossInstance || !this.bossType || !this.scoreManager) return;
+
+    this.bossHits += 1;
+    this.bossHits = Math.min(this.bossRequiredHits, this.bossHits);
+
+    // Visual feedback: subtle bloom boost only (no screen flash - too jarring)
+    this.bloomBoostAge = 0;
+    this.bloomBoostDuration = 0.2;
+
+    // Flash boss material for clear hit confirmation
+    this.bossFlashAge = 0;
+    this.bossFlashDuration = 0.2;
+    this.flashBossMaterial(1.0);
+
+    // Per-hit reward increases as you get closer to the final burst.
+    const progress01 =
+      this.bossRequiredHits > 0 ? this.bossHits / this.bossRequiredHits : 1;
+    const targetAccrued = Math.round(
+      this.bossRewardTotal * Math.pow(progress01, 2.05)
+    );
+    const delta = Math.max(0, targetAccrued - this.bossRewardAccrued);
+    this.bossRewardAccrued = targetAccrued;
+    // Note: Score accumulates but is NOT added to main score during fight
+    // It will be awarded only when boss is defeated
+    if (delta > 0) {
+      this.floatingScoreEffect?.trigger(
+        this.bossInstance.position.clone(),
+        delta,
+        {
+          intensity01: 0.6,
+          durationSec: 1.05,
+        }
+      );
+    }
+
+    const excitement01 = Math.max(
+      0,
+      Math.min(
+        1,
+        this.bossRequiredHits > 0 ? this.bossHits / this.bossRequiredHits : 1
+      )
+    );
+
+    this.bossOverlay?.setText(
+      `${this.bossHits}/${this.bossRequiredHits}`,
+      `${Math.max(0, Math.floor(this.bossRewardAccrued)).toLocaleString()}`,
+      excitement01
+    );
+    this.bossOverlay?.pulse(Math.min(1, 0.6 + 0.6 * excitement01));
+
+    const velMult = Math.min(1.35, Math.max(0.8, velocity / 350));
+    const cfg = COSMIC_OBJECT_CONFIGS[this.bossType];
+    this.sliceEffect?.trigger(this.bossInstance.position.clone(), {
+      type: this.bossType,
+      baseColor: cfg.color,
+      glowColor: cfg.emissiveColor,
+      velocityMultiplier: velMult,
+    });
+
+    if (this.bossHits >= this.bossRequiredHits) {
+      this.endBossFight(true);
+    }
+  }
+
+  private endBossFight(defeated: boolean): void {
+    if (!this.bossInstance) {
+      this.bossOverlay?.hide();
+      this.objectPool?.setSpawningEnabled(true);
+      return;
+    }
+
+    if (defeated) {
+      // Award the full accumulated reward on boss defeat
+      const totalReward = this.bossRewardAccrued;
+      if (totalReward > 0) {
+        this.scoreManager?.applyBonus(totalReward, 'boss');
+        // Position main score well above boss center to be visible above explosion
+        const scorePos = this.bossInstance.position.clone();
+        scorePos.y += 2.5;
+        this.floatingScoreEffect?.trigger(scorePos, totalReward, {
+          intensity01: 1,
+          durationSec: 2.0,
+        });
+
+        const pos = this.bossInstance.position.clone();
+        for (let i = 0; i < 4; i++) {
+          const jitter = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.6,
+            (Math.random() - 0.5) * 0.45,
+            (Math.random() - 0.5) * 0.35
+          );
+          this.floatingScoreEffect?.trigger(
+            pos.clone().add(jitter),
+            Math.round(totalReward / 4),
+            {
+              intensity01: 1,
+              durationSec: 1.75,
+            }
+          );
+        }
+      }
+
+      const cfg =
+        this.bossType !== null
+          ? COSMIC_OBJECT_CONFIGS[this.bossType]
+          : COSMIC_OBJECT_CONFIGS[CosmicObjectType.METEOR];
+
+      const basePos = this.bossInstance.position.clone();
+      const burstCount = 18;
+      for (let i = 0; i < burstCount; i++) {
+        const ring = i < 10;
+        const theta = (i / Math.max(1, burstCount - 1)) * Math.PI * 2;
+        const radius = ring ? 2.15 + Math.random() * 0.7 : Math.random() * 1.4;
+        const offset = new THREE.Vector3(
+          Math.cos(theta) * radius + (Math.random() - 0.5) * 0.35,
+          Math.sin(theta) * radius + (Math.random() - 0.5) * 0.35,
+          (Math.random() - 0.5) * 0.65
+        );
+
+        const mult = 5.0 + i * 0.42;
+        this.sliceEffect?.trigger(basePos.clone().add(offset), {
+          type: cfg.type,
+          baseColor: cfg.color,
+          glowColor: cfg.emissiveColor,
+          velocityMultiplier: mult,
+        });
+      }
+
+      // A couple of core bursts to sell the "boss shattered" moment.
+      this.sliceEffect?.trigger(basePos.clone(), {
+        type: cfg.type,
+        baseColor: cfg.color,
+        glowColor: cfg.emissiveColor,
+        velocityMultiplier: 7.2,
+      });
+      this.sliceEffect?.trigger(basePos.clone(), {
+        type: cfg.type,
+        baseColor: cfg.color,
+        glowColor: cfg.emissiveColor,
+        velocityMultiplier: 8.4,
+      });
+    }
+
+    this.scene.remove(this.bossInstance.mesh);
+    this.disposeThreeObject(this.bossInstance.mesh);
+
+    this.bossInstance = null;
+    this.bossType = null;
+    this.bossRequiredHits = 0;
+    this.bossHits = 0;
+    this.bossRewardAccrued = 0;
+    this.bossRewardTotal = 0;
+    this.bossSpeed = 0;
+
+    this.bossOverlay?.hide();
+
+    // Resume regular spawns.
+    this.objectPool?.setSpawningEnabled(true);
+  }
+
+  /**
+   * Trigger subtle level-up celebration
+   */
+  private triggerLevelUpCelebration(level: number): void {
+    // Show subtle level-up banner at top
+    this.levelUpOverlay?.show(level);
+
+    // Gentle bloom pulse (reduced from 1.2s)
+    this.bloomBoostAge = 0;
+    this.bloomBoostDuration = 0.6;
+
+    // No screen flash - too distracting during gameplay
+
+    // Small particle burst at camera center (subtle celebration)
+    const cameraDir = new THREE.Vector3(0, 0, -1);
+    cameraDir.applyQuaternion(this.camera.quaternion);
+    const celebrationPos = this.camera.position
+      .clone()
+      .add(cameraDir.multiplyScalar(2.5));
+
+    // Reduced particle count from 12 to 6 for subtlety
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2;
+      const radius = 1.0;
+      const offset = new THREE.Vector3(
+        Math.cos(angle) * radius,
+        Math.sin(angle) * radius,
+        (Math.random() - 0.5) * 0.3
+      );
+
+      const types = Object.values(CosmicObjectType);
+      const type = types[Math.floor(Math.random() * types.length)];
+      const cfg = COSMIC_OBJECT_CONFIGS[type];
+
+      this.sliceEffect?.trigger(celebrationPos.clone().add(offset), {
+        type,
+        baseColor: cfg.color,
+        glowColor: cfg.emissiveColor,
+        velocityMultiplier: 2.5, // Reduced from 3.5
+      });
+    }
+  }
+
+  /**
+   * Flash boss material for hit feedback
+   * Works consistently across all boss types by modifying both emissive and base color
+   */
+  private flashBossMaterial(intensity: number): void {
+    if (!this.bossInstance || !this.bossType) return;
+
+    const cfg = COSMIC_OBJECT_CONFIGS[this.bossType];
+    const mesh = this.bossInstance.mesh;
+
+    mesh.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+
+      const materials = Array.isArray(child.material)
+        ? child.material
+        : [child.material];
+
+      for (const mat of materials) {
+        if (!mat) continue;
+
+        // Flash emissive intensity if available
+        if ('emissiveIntensity' in mat) {
+          const baseIntensity = cfg.emissiveIntensity;
+          const flashBoost = intensity * 2.8;
+          (mat as THREE.MeshStandardMaterial).emissiveIntensity =
+            baseIntensity + flashBoost;
+        }
+
+        // Flash emissive color brightness if available
+        if ('emissive' in mat && mat.emissive instanceof THREE.Color) {
+          const flashFactor = 1 + intensity * 1.5;
+          const baseBrightness =
+            cfg.emissiveColor.r + cfg.emissiveColor.g + cfg.emissiveColor.b;
+          const targetBrightness = Math.min(3, baseBrightness * flashFactor);
+          const scale =
+            baseBrightness > 0 ? targetBrightness / baseBrightness : 1;
+          (mat as THREE.MeshStandardMaterial).emissive
+            .copy(cfg.emissiveColor)
+            .multiplyScalar(scale);
+        }
+
+        // For materials without emissive, flash the base color
+        if ('color' in mat && mat.color instanceof THREE.Color) {
+          const flashFactor = 1 + intensity * 0.4;
+          (mat as THREE.MeshStandardMaterial).color
+            .copy(cfg.color)
+            .multiplyScalar(flashFactor);
+        }
+      }
+    });
+  }
+
+  private disposeThreeObject(object: THREE.Object3D): void {
+    object.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      child.geometry?.dispose();
+      const mats = Array.isArray(child.material)
+        ? child.material
+        : [child.material];
+      for (const m of mats) {
+        if (m instanceof THREE.Material) m.dispose();
+      }
     });
   }
 
@@ -687,6 +1238,11 @@ export class CosmicSlicerController {
       spawnRateMultiplier: 1,
       maxActiveMultiplier: 1,
     });
+
+    this.flushCombo();
+    this.endBossFight(false);
+    this.nextBossLevel = 5;
+    this.previousLevel = 1; // Reset level tracking
     this.isPaused = false;
     console.log('[CosmicSlicerController] Reset');
   }
@@ -707,11 +1263,19 @@ export class CosmicSlicerController {
     this.background?.dispose();
     this.postProcessing?.dispose();
     this.assetLibrary?.dispose();
+    this.levelUpOverlay?.dispose();
+    this.screenFlash?.dispose();
+    this.bossOverlay?.dispose();
 
     this.removeScoreListener?.();
     this.removeScoreListener = null;
     this.scoreHud?.dispose();
     this.scoreHud = null;
+    this.bossOverlay?.dispose();
+    this.bossOverlay = null;
+
+    this.flushCombo();
+    this.endBossFight(false);
     this.scoreManager = null;
     this.floatingScoreEffect = null;
 

@@ -242,8 +242,16 @@ export class App {
       }
 
       // Mode specific shortcuts
-      if (this.currentMode === 'foggy-mirror' && key === 'r') {
-        this.resetFoggyMirror();
+      if (key === 'r') {
+        // Restart current mode
+        if (this.currentMode === 'foggy-mirror') {
+          this.resetFoggyMirror();
+        } else if (this.currentMode === 'cosmic-slicer') {
+          this.cosmicSlicerController?.reset();
+        } else if (this.currentMode === 'galaxy') {
+          this.controller?.reset();
+        }
+        return;
       }
     });
   }

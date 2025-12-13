@@ -30,7 +30,7 @@ export class HintComponent {
     if (mode === 'galaxy') {
       content.innerHTML = `
         <div class="hint-header">
-          <span class="hint-title">Gesture Guide</span>
+          <span class="hint-title">Guide</span>
         </div>
         <div class="hint-list">
           <div class="hint-item">Show both hands to spawn</div>
@@ -43,19 +43,19 @@ export class HintComponent {
     } else if (mode === 'cosmic-slicer') {
       content.innerHTML = `
         <div class="hint-header">
-          <span class="hint-title">Gesture Guide</span>
+          <span class="hint-title">Guide</span>
         </div>
         <div class="hint-list">
-          <div class="hint-item">Raise your hands to reveal the trails</div>
           <div class="hint-item">Swipe through objects to score points</div>
           <div class="hint-item">Fast swipes for bigger explosions</div>
           <div class="hint-item">Press <kbd>Space</kbd> to pause/resume</div>
+          <div class="hint-item">Press <kbd>R</kbd> to restart</div>
         </div>
       `;
     } else {
       content.innerHTML = `
         <div class="hint-header">
-          <span class="hint-title">Gesture Guide</span>
+          <span class="hint-title">Guide</span>
         </div>
         <div class="hint-list">
           <div class="hint-item">Wave your hand to wipe away the fog</div>
@@ -327,7 +327,7 @@ export class HintComponent {
         border-top: 1px solid rgba(255, 255, 255, 0.05);
         font-size: 0.75rem;
         color: rgba(255, 255, 255, 0.4);
-        text-align: right;
+        text-align: center;
         text-transform: uppercase;
         letter-spacing: 0.05em;
       }

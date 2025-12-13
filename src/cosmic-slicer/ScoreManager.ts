@@ -5,8 +5,8 @@ export type ScoreChangeEvent =
   | {
       type: 'scoreChanged';
       delta: number;
-      reason: 'slice' | 'miss';
-      objectType: CosmicObjectType;
+      reason: 'slice' | 'miss' | 'combo' | 'boss';
+      objectType?: CosmicObjectType;
     }
   | { type: 'levelChanged'; previousLevel: number; newLevel: number };
 
@@ -129,10 +129,14 @@ export class ScoreManager {
     return this.applyScoreDelta(-Math.abs(penalty), 'miss', objectType);
   }
 
+  applyBonus(delta: number, reason: 'combo' | 'boss'): number {
+    return this.applyScoreDelta(delta, reason);
+  }
+
   private applyScoreDelta(
     delta: number,
-    reason: 'slice' | 'miss',
-    objectType: CosmicObjectType
+    reason: 'slice' | 'miss' | 'combo' | 'boss',
+    objectType?: CosmicObjectType
   ): number {
     if (!Number.isFinite(delta) || delta === 0) return 0;
 
