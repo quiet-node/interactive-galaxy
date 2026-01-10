@@ -22,10 +22,6 @@ import {
   HologramConfig,
   HologramDebugInfo,
   DEFAULT_HOLOGRAM_CONFIG,
-  LimbAxis,
-  LimbSide,
-  GrabTarget,
-  LimbUserData,
 } from './types';
 
 // Components
@@ -39,9 +35,9 @@ import {
   updateHologramPanels,
 } from './components/HologramPanels';
 import {
-  createHologramSchematic,
-  updateHologramSchematic,
-} from './components/HologramSchematic';
+  loadHologramModel,
+  updateHologramModelCached,
+} from './components/HologramModel';
 import { HandLandmarkOverlay } from './components/HandLandmarkOverlay';
 
 /**
@@ -83,10 +79,7 @@ export class HologramController {
     number,
     {
       isGrabbing: boolean;
-      grabTarget: GrabTarget | null;
-      grabbedLimbPivot: THREE.Group | null;
-      limbAxis: LimbAxis | null;
-      limbSide: LimbSide | null; // Track which side for direction
+      grabTarget: 'body' | null;
       grabStartHandPosition: THREE.Vector3 | null;
       grabStartRotation: THREE.Euler;
       lastHandPosition: THREE.Vector3 | null; // For incremental delta
@@ -95,24 +88,20 @@ export class HologramController {
       cachedIntersects: THREE.Intersection[];
     }
   > = new Map();
-  private schematicTargetRotation: THREE.Euler = new THREE.Euler();
+  private schematicTargetRotation: THREE.Euler = new THREE.Euler(
+    0,
+    -Math.PI / 2, // Start facing camera
+    0
+  );
 
   // Hover state for visual feedback
   private isHoveringSchematic: boolean = false;
   private hoverIntensity: number = 0; // 0-1, used for smooth glow transition
 
-  // Limb hover state (per-limb tracking for multi-hand support)
-  private limbHighlightStates: Map<THREE.Mesh, { intensity: number }> =
-    new Map();
-
   // Inertia state
   private rotationVelocity: { x: number; y: number } = { x: 0, y: 0 };
 
   private raycaster: THREE.Raycaster = new THREE.Raycaster();
-
-  // Reset animation state
-  private isResetting: boolean = false;
-  private resettingLimbPivots: Map<THREE.Group, THREE.Euler> = new Map(); // Maps pivot to target rotation
 
   // Performance optimization: Raycaster throttling
   private readonly RAYCAST_INTERVAL_MS: number = 100; // 10Hz raycasting
@@ -267,16 +256,35 @@ export class HologramController {
     });
     this.scene.add(this.panels);
 
-    // Central schematic
-    this.schematic = createHologramSchematic({
+    // Central holographic model (GLB)
+    const scale = 3.0;
+    const { group: modelGroup, loadPromise } = loadHologramModel({
       color: secondaryColor,
-      scale: 1.2,
+      scale,
     });
+    this.schematic = modelGroup;
+    this.schematic.userData.initialScale = scale;
     this.schematic.position.y = 0;
+    this.schematic.rotation.y = -Math.PI / 2; // Face camera
     this.scene.add(this.schematic);
 
-    // Performance optimization: Cache all shader meshes for fast iteration
-    // Avoids repeated traverse() calls in render loop
+    // Cache shader meshes after model loads
+    loadPromise
+      .then(() => {
+        this.cacheSchematicShaderMeshes();
+      })
+      .catch((error) => {
+        console.error('[HologramController] Model load failed:', error);
+      });
+  }
+
+  /**
+   * Cache all shader meshes from schematic for fast iteration
+   * Called after model loads to avoid repeated traverse() calls
+   */
+  private cacheSchematicShaderMeshes(): void {
+    if (!this.schematic) return;
+
     this.schematicShaderMeshes = [];
     this.schematic.traverse((child) => {
       if (
@@ -290,6 +298,9 @@ export class HologramController {
         );
       }
     });
+    console.log(
+      `[HologramController] Cached ${this.schematicShaderMeshes.length} shader meshes`
+    );
   }
 
   /**
@@ -365,9 +376,10 @@ export class HologramController {
       updateHologramPanels(this.panels, time);
     }
 
-    // Update schematic animation
-    if (this.schematic) {
-      updateHologramSchematic(this.schematic, time, deltaTime);
+    // Update schematic model animation (shader time uniforms)
+    // Performance: Use cached meshes to avoid traverse() every frame
+    if (this.schematicShaderMeshes.length > 0) {
+      updateHologramModelCached(this.schematicShaderMeshes, time);
     }
 
     // Hand tracking for manipulation
@@ -418,54 +430,13 @@ export class HologramController {
       // Keep position centered
       this.schematic.position.set(0, 0, 0);
     }
-
-    // Animate limb pivots that are resetting back to rest position
-    if (this.isResetting && this.resettingLimbPivots.size > 0) {
-      const LIMB_RESET_SPEED = 0.06; // Same smoothing factor as body
-      const RESET_THRESHOLD = 0.001;
-      const completedPivots: THREE.Group[] = [];
-
-      for (const [pivot, targetRotation] of this.resettingLimbPivots) {
-        // Interpolate toward target
-        pivot.rotation.x +=
-          (targetRotation.x - pivot.rotation.x) * LIMB_RESET_SPEED;
-        pivot.rotation.y +=
-          (targetRotation.y - pivot.rotation.y) * LIMB_RESET_SPEED;
-        pivot.rotation.z +=
-          (targetRotation.z - pivot.rotation.z) * LIMB_RESET_SPEED;
-
-        // Check if close enough to target
-        const dx = Math.abs(pivot.rotation.x - targetRotation.x);
-        const dy = Math.abs(pivot.rotation.y - targetRotation.y);
-        const dz = Math.abs(pivot.rotation.z - targetRotation.z);
-
-        if (
-          dx < RESET_THRESHOLD &&
-          dy < RESET_THRESHOLD &&
-          dz < RESET_THRESHOLD
-        ) {
-          // Snap to exact target and mark as complete
-          pivot.rotation.copy(targetRotation);
-          completedPivots.push(pivot);
-        }
-      }
-
-      // Remove completed pivots from tracking
-      for (const pivot of completedPivots) {
-        this.resettingLimbPivots.delete(pivot);
-      }
-
-      // Check if all limbs finished resetting
-      if (this.resettingLimbPivots.size === 0) {
-        this.isResetting = false;
-      }
-    }
   }
 
   /**
    * Update hand tracking and manipulate schematic based on gestures
    * Supports multiple hands - each hand can independently grab and rotate
-   * Limb grabs move individual limbs; body grabs rotate the whole schematic
+   * Only supports body grabs (rotating the whole schematic) as detailed limb manipulation
+   * is not supported by the current GLB model.
    */
   private updateHandTracking(deltaTime: number): void {
     const result = this.handTracker.detectHands(performance.now());
@@ -474,29 +445,19 @@ export class HologramController {
     this.handLandmarkOverlay?.update(result);
 
     // Pinch thresholds with hysteresis to prevent false releases during manipulation
-    // - PINCH_START_THRESHOLD: Distance to START a pinch (strict)
-    // - PINCH_RELEASE_THRESHOLD: Distance to END a pinch (lenient, 63% higher)
-    // This creates a "buffer zone" where the pinch stays active during natural hand movement
     const PINCH_START_THRESHOLD = 0.04;
     const PINCH_RELEASE_THRESHOLD = 0.065;
 
-    // Leg rotation constraints
-    const LEG_ROTATION_MIN = -Math.PI / 4; // -45 degrees
-    const LEG_ROTATION_MAX = Math.PI / 4; // +45 degrees
-
-    // Track which hands are currently detected
-    const detectedHandIndices = new Set<number>();
-
     // Reset hover states each frame
     let anyHandHovering = false;
-    const currentlyHoveredLimbs = new Set<THREE.Mesh>();
-    const currentlyGrabbedLimbMeshes: Set<THREE.Mesh> = new Set();
+
+    // Keep track of detected hand indices to clean up old states
+    const detectedHandIndices = new Set<number>();
 
     if (!result || result.landmarks.length === 0) {
       // No hands detected - reset all hand states
       this.handStates.clear();
       this.updateHoverState(false, deltaTime);
-      this.updateLimbHighlights(new Set(), deltaTime);
       return;
     }
 
@@ -535,34 +496,28 @@ export class HologramController {
         handState = {
           isGrabbing: false,
           grabTarget: null,
-          grabbedLimbPivot: null,
-          limbAxis: null,
-          limbSide: null,
           grabStartHandPosition: null,
           grabStartRotation: new THREE.Euler(),
-          lastHandPosition: null,
+          lastHandPosition: null, // For incremental delta
           lastRaycastTime: 0,
           cachedIntersects: [],
         };
         this.handStates.set(handIndex, handState);
       }
 
-      // Hysteresis: use stricter threshold for starting, lenient for releasing
-      // This prevents false releases when finger distance momentarily increases during manipulation
+      // Hysteresis calculation
       const isPinching = handState.isGrabbing
-        ? pinchDistance < PINCH_RELEASE_THRESHOLD // Already grabbing: use lenient threshold
-        : pinchDistance < PINCH_START_THRESHOLD; // Not grabbing: use strict threshold
+        ? pinchDistance < PINCH_RELEASE_THRESHOLD
+        : pinchDistance < PINCH_START_THRESHOLD;
 
       if (isPinching) {
         if (!handState.isGrabbing) {
-          // === GRAB START: Determine what was hit ===
+          // === GRAB START ===
           if (this.schematic) {
-            // Calculate pinch midpoint (between thumb and index tips)
+            // Calculate pinch midpoint
             const pinchMidX = (thumbTip.x + indexTip.x) / 2;
             const pinchMidY = (thumbTip.y + indexTip.y) / 2;
 
-            // Convert normalized screen coordinates (0-1) to NDC (-1 to +1)
-            // x is mirrored because webcam is horizontally flipped
             const ndcX = (1 - pinchMidX) * 2 - 1;
             const ndcY = -(pinchMidY * 2 - 1);
 
@@ -571,69 +526,33 @@ export class HologramController {
               this.camera
             );
 
-            // Check intersection with schematic (including all children)
+            // Check intersection with schematic
             const intersects = this.raycaster.intersectObject(
               this.schematic,
               true
             );
 
+            // Check if we hit the body
+            let foundTarget = false;
             if (intersects.length > 0) {
-              // Iterate through all intersections to find what was hit
-              // Priority: 1) Limb grab, 2) Body grab (explicit body parts only)
-              let foundTarget = false;
               for (const intersection of intersects) {
                 const hitObject = intersection.object;
                 const userData = hitObject.userData as
-                  | (LimbUserData & { isHitVolume?: boolean })
+                  | { isHitVolume?: boolean; limbType?: string }
                   | undefined;
 
-                // Check if we hit a limb (has limbType in userData)
-                if (userData?.limbType && hitObject.parent) {
-                  // === LIMB GRAB ===
-                  // The parent is the pivot group
-                  const limbPivot = hitObject.parent as THREE.Group;
-
-                  handState.isGrabbing = true;
-                  handState.grabTarget = 'limb';
-                  handState.grabbedLimbPivot = limbPivot;
-                  handState.limbAxis = userData.axis;
-                  handState.limbSide = userData.limbSide;
-                  handState.grabStartHandPosition = handPosition.clone();
-                  handState.grabStartRotation.copy(limbPivot.rotation);
-                  handState.lastHandPosition = handPosition.clone();
-
-                  // Find and set the visible mesh for hover highlighting during grab
-                  limbPivot.traverse((child) => {
-                    if (
-                      child instanceof THREE.Mesh &&
-                      child.material instanceof THREE.ShaderMaterial
-                    ) {
-                      currentlyGrabbedLimbMeshes.add(child);
-                    }
-                  });
-
-                  console.log(
-                    `[HologramController] Hand ${handIndex} grabbed ${userData.limbSide} ${userData.limbType} (${userData.axis} axis)`
-                  );
-                  foundTarget = true;
-                  break; // Stop searching once we find a limb
-                }
-
-                // Check if we hit a body part (main hit volume or body mesh)
-                // Body parts: isHitVolume=true without limbType, or direct child meshes (torso, head)
+                // Body grab if we hit hitVolume or schematic child (without limbType)
+                // Note: limbType check is legacy/safety, but new model won't have it
                 const isBodyHitVolume =
                   userData?.isHitVolume === true && !userData?.limbType;
                 const isBodyMesh =
                   hitObject instanceof THREE.Mesh &&
-                  hitObject.parent === this.schematic &&
-                  !userData?.limbType;
+                  hitObject.parent === this.schematic;
 
                 if (isBodyHitVolume || isBodyMesh) {
-                  // === BODY GRAB (explicit body part hit) ===
+                  // === BODY GRAB ===
                   handState.isGrabbing = true;
                   handState.grabTarget = 'body';
-                  handState.grabbedLimbPivot = null;
-                  handState.limbAxis = null;
                   handState.grabStartHandPosition = handPosition.clone();
                   handState.grabStartRotation.copy(this.schematic.rotation);
                   // Reset velocity on new grab
@@ -647,131 +566,67 @@ export class HologramController {
                   break;
                 }
               }
+            }
 
-              if (foundTarget) {
-                anyHandHovering = true;
-              }
+            if (foundTarget) {
+              anyHandHovering = true;
             }
           }
         } else {
           // === CONTINUE GRABBING ===
-          if (handState.grabStartHandPosition) {
+          if (
+            handState.grabTarget === 'body' &&
+            handState.grabStartHandPosition
+          ) {
             const deltaX = handPosition.x - handState.grabStartHandPosition.x;
             const deltaY = handPosition.y - handState.grabStartHandPosition.y;
 
-            if (handState.grabTarget === 'limb' && handState.grabbedLimbPivot) {
-              // === LIMB MANIPULATION (incremental delta with smoothing) ===
-              const lastPos = handState.lastHandPosition ?? handPosition;
-              const deltaX = handPosition.x - lastPos.x;
-              const deltaY = handPosition.y - lastPos.y;
-              handState.lastHandPosition = handPosition.clone();
+            // === BODY ROTATION ===
+            // Save previous target to calculate instantaneous velocity
+            const prevTargetX = this.schematicTargetRotation.x;
+            const prevTargetY = this.schematicTargetRotation.y;
 
-              const currentRotation = handState.grabbedLimbPivot.rotation.z;
-              let targetRotation = currentRotation;
+            // Map hand movement to rotation
+            this.schematicTargetRotation.y =
+              handState.grabStartRotation.y + deltaX * 2;
+            this.schematicTargetRotation.x =
+              handState.grabStartRotation.x - deltaY * 1.5;
 
-              if (handState.limbAxis === 'vertical') {
-                // Arms: up/down movement controls rotation around Z axis
-                // Left arm: negative rotation = outward (away from body)
-                // Right arm: positive rotation = outward (mirror)
-                const ARM_SENSITIVITY = 3.0;
-                const directionMultiplier =
-                  handState.limbSide === 'right' ? 1 : -1;
-                targetRotation =
-                  currentRotation +
-                  directionMultiplier * deltaY * ARM_SENSITIVITY;
+            // Clamp X rotation to prevent flipping
+            this.schematicTargetRotation.x = Math.max(
+              -Math.PI / 3,
+              Math.min(Math.PI / 3, this.schematicTargetRotation.x)
+            );
 
-                // Per-arm clamping for symmetric behavior:
-                // Left arm: rotates negative to raise outward (-120°), positive to go inward (+30°)
-                // Right arm: rotates positive to raise outward (+120°), negative to go inward (-30°)
-                const ARM_OUTWARD_MAX = (2 * Math.PI) / 3; // 120 degrees outward
-                const ARM_INWARD_MAX = Math.PI / 6; // 30 degrees inward (crossing body)
+            // Calculate velocity (change in rotation per second)
+            if (deltaTime > 0) {
+              const currentVelX =
+                (this.schematicTargetRotation.x - prevTargetX) / deltaTime;
+              const currentVelY =
+                (this.schematicTargetRotation.y - prevTargetY) / deltaTime;
 
-                if (handState.limbSide === 'left') {
-                  // Left arm: outward is negative, inward is positive
-                  targetRotation = THREE.MathUtils.clamp(
-                    targetRotation,
-                    -ARM_OUTWARD_MAX, // -120° (raised outward)
-                    ARM_INWARD_MAX // +30° (inward)
-                  );
-                } else {
-                  // Right arm: outward is positive, inward is negative
-                  targetRotation = THREE.MathUtils.clamp(
-                    targetRotation,
-                    -ARM_INWARD_MAX, // -30° (inward)
-                    ARM_OUTWARD_MAX // +120° (raised outward)
-                  );
-                }
-              } else if (handState.limbAxis === 'horizontal') {
-                // Legs: left/right movement controls rotation around Z axis
-                const LEG_SENSITIVITY = 2.5;
-                targetRotation = currentRotation + deltaX * LEG_SENSITIVITY;
-                targetRotation = THREE.MathUtils.clamp(
-                  targetRotation,
-                  LEG_ROTATION_MIN,
-                  LEG_ROTATION_MAX
-                );
-              }
-
-              // Apply smoothing for stable, jitter-free rotation
-              const LIMB_SMOOTHING = 0.25;
-              handState.grabbedLimbPivot.rotation.z +=
-                (targetRotation - handState.grabbedLimbPivot.rotation.z) *
-                LIMB_SMOOTHING;
-
-              // Keep the limb highlighted while being grabbed
-              handState.grabbedLimbPivot.traverse((child) => {
-                if (
-                  child instanceof THREE.Mesh &&
-                  child.material instanceof THREE.ShaderMaterial
-                ) {
-                  currentlyGrabbedLimbMeshes.add(child);
-                }
-              });
-            } else if (handState.grabTarget === 'body') {
-              // === BODY ROTATION (existing logic) ===
-              // Save previous target to calculate instantaneous velocity
-              const prevTargetX = this.schematicTargetRotation.x;
-              const prevTargetY = this.schematicTargetRotation.y;
-
-              // Map hand movement to rotation
-              this.schematicTargetRotation.y =
-                handState.grabStartRotation.y + deltaX * 2;
-              this.schematicTargetRotation.x =
-                handState.grabStartRotation.x - deltaY * 1.5;
-
-              // Clamp X rotation to prevent flipping
-              this.schematicTargetRotation.x = Math.max(
-                -Math.PI / 3,
-                Math.min(Math.PI / 3, this.schematicTargetRotation.x)
-              );
-
-              // Calculate velocity (change in rotation per second)
-              if (deltaTime > 0) {
-                const currentVelX =
-                  (this.schematicTargetRotation.x - prevTargetX) / deltaTime;
-                const currentVelY =
-                  (this.schematicTargetRotation.y - prevTargetY) / deltaTime;
-
-                // Smooth velocity slightly to reduce jitter
-                this.rotationVelocity.x =
-                  this.rotationVelocity.x * 0.7 + currentVelX * 0.3;
-                this.rotationVelocity.y =
-                  this.rotationVelocity.y * 0.7 + currentVelY * 0.3;
-              }
+              // Smooth velocity slightly
+              this.rotationVelocity.x =
+                this.rotationVelocity.x * 0.7 + currentVelX * 0.3;
+              this.rotationVelocity.y =
+                this.rotationVelocity.y * 0.7 + currentVelY * 0.3;
             }
           }
         }
       } else {
-        // Not pinching - check for hover (pre-pinch visual feedback)
+        // Not pinching - release grab
+        handState.isGrabbing = false;
+        handState.grabTarget = null;
+        handState.grabStartHandPosition = null;
+
+        // Check for hover
         if (this.schematic) {
-          // Use index finger tip for hover detection
           const ndcX = (1 - indexTip.x) * 2 - 1;
           const ndcY = -(indexTip.y * 2 - 1);
 
-          // Performance optimization: Throttle raycasting to 10Hz
-          // Raycast results change slowly relative to 60Hz render loop
+          // Simple throttle for hover raycast
           const now = performance.now();
-          if (now - handState.lastRaycastTime >= this.RAYCAST_INTERVAL_MS) {
+          if (now - handState.lastRaycastTime > this.RAYCAST_INTERVAL_MS) {
             this.raycaster.setFromCamera(
               new THREE.Vector2(ndcX, ndcY),
               this.camera
@@ -784,59 +639,25 @@ export class HologramController {
           }
 
           if (handState.cachedIntersects.length > 0) {
-            // Check if we're hovering a limb or body
-            for (const intersection of handState.cachedIntersects) {
-              const hitObject = intersection.object;
-              const userData = hitObject.userData as
-                | (LimbUserData & { isHitVolume?: boolean })
-                | undefined;
-
-              if (userData?.limbType && hitObject.parent) {
-                // Found a limb!
-                // Find visible mesh in the pivot group to apply glow
-                // The hit object might be the invisible hit volume
-                const limbPivot = hitObject.parent as THREE.Group;
-
-                // Look for the mesh with ShaderMaterial (the visible limb)
-                limbPivot.traverse((child) => {
-                  if (
-                    child instanceof THREE.Mesh &&
-                    child.material instanceof THREE.ShaderMaterial
-                  ) {
-                    currentlyHoveredLimbs.add(child);
-                  }
-                });
-
-                break; // Prioritize limb hover
+            // Check if any intersection is with the main schematic body
+            const isHoveringBody = handState.cachedIntersects.some(
+              (intersection) => {
+                const hitObject = intersection.object;
+                const userData = hitObject.userData as
+                  | { isHitVolume?: boolean; limbType?: string }
+                  | undefined;
+                const isBodyHitVolume =
+                  userData?.isHitVolume === true && !userData?.limbType;
+                const isBodyMesh =
+                  hitObject instanceof THREE.Mesh &&
+                  hitObject.parent === this.schematic;
+                return isBodyHitVolume || isBodyMesh;
               }
-
-              // Check if we hit a body part (main hit volume or body mesh)
-              const isBodyHitVolume =
-                userData?.isHitVolume === true && !userData?.limbType;
-              const isBodyMesh =
-                hitObject instanceof THREE.Mesh &&
-                hitObject.parent === this.schematic &&
-                !userData?.limbType;
-
-              if (isBodyHitVolume || isBodyMesh) {
-                // Hovering over body - trigger body glow
-                anyHandHovering = true;
-                break;
-              }
+            );
+            if (isHoveringBody) {
+              anyHandHovering = true;
             }
           }
-        }
-
-        // Reset grab state if was grabbing
-        if (handState.isGrabbing) {
-          console.log(`[HologramController] Hand ${handIndex} grab released`);
-          handState.isGrabbing = false;
-          handState.grabTarget = null;
-          handState.grabbedLimbPivot = null;
-          handState.limbAxis = null;
-          handState.limbSide = null;
-          handState.grabStartHandPosition = null;
-          handState.lastHandPosition = null;
         }
       }
     }
@@ -850,13 +671,6 @@ export class HologramController {
 
     // Update hover visual state
     this.updateHoverState(anyHandHovering, deltaTime);
-
-    // Combine grabbed limbs and hovered limbs for highlighting
-    const limbsToHighlight = new Set(currentlyGrabbedLimbMeshes);
-    for (const limb of currentlyHoveredLimbs) {
-      limbsToHighlight.add(limb);
-    }
-    this.updateLimbHighlights(limbsToHighlight, deltaTime);
   }
 
   /**
@@ -874,10 +688,11 @@ export class HologramController {
 
     // Apply visual feedback to schematic
     if (this.schematic) {
+      const baseScale = this.schematic.userData.initialScale || 15.0; // Default if not set
+
       if (this.hoverIntensity > 0.01) {
         // Scale up slightly when hovered
         const hoverScale = 1 + this.hoverIntensity * 0.08;
-        const baseScale = 1.2;
         this.schematic.scale.setScalar(baseScale * hoverScale);
 
         // Performance optimization: Use cached meshes instead of traverse()
@@ -891,10 +706,9 @@ export class HologramController {
         }
       } else {
         // Check if we fully settled to avoid constant updates
-        const scaleDiff = Math.abs(this.schematic.scale.x - 1.2);
+        const scaleDiff = Math.abs(this.schematic.scale.x - baseScale);
         if (scaleDiff > 0.001) {
           // Reset to base state
-          const baseScale = 1.2;
           this.schematic.scale.setScalar(baseScale);
 
           // Performance optimization: Use cached meshes instead of traverse()
@@ -906,74 +720,6 @@ export class HologramController {
           }
         }
       }
-    }
-  }
-
-  /**
-   * Update hover visual feedback on specific limbs (supports multiple concurrent limbs)
-   */
-  private updateLimbHighlights(
-    limbsToHighlight: Set<THREE.Mesh>,
-    deltaTime: number
-  ): void {
-    const HOVER_COLOR = new THREE.Color(0xffab00); // Amber
-    const TRANSITION_SPEED = 10; // Faster than body hover for snappier feedback
-    const baseColor = new THREE.Color(this.config.secondaryColor);
-
-    // Update intensity for limbs that SHOULD be highlighted
-    for (const limb of limbsToHighlight) {
-      if (!(limb.material instanceof THREE.ShaderMaterial)) continue;
-
-      let state = this.limbHighlightStates.get(limb);
-      if (!state) {
-        state = { intensity: 0 };
-        this.limbHighlightStates.set(limb, state);
-      }
-
-      // Animate towards full intensity
-      state.intensity += (1 - state.intensity) * TRANSITION_SPEED * deltaTime;
-
-      // Apply visual effect
-      const baseOpacity = limb.userData.baseOpacity ?? 0.4;
-      limb.material.uniforms.uOpacity.value =
-        baseOpacity + state.intensity * 0.1;
-      const currentColor = baseColor.clone().lerp(HOVER_COLOR, state.intensity);
-      limb.material.uniforms.uColor.value.copy(currentColor);
-    }
-
-    // Fade out limbs that should NO LONGER be highlighted
-    const limbsToRemove: THREE.Mesh[] = [];
-    for (const [limb, state] of this.limbHighlightStates) {
-      if (limbsToHighlight.has(limb)) continue; // Still active, skip
-      if (!(limb.material instanceof THREE.ShaderMaterial)) {
-        limbsToRemove.push(limb);
-        continue;
-      }
-
-      // Animate towards zero intensity
-      state.intensity += (0 - state.intensity) * TRANSITION_SPEED * deltaTime;
-
-      if (state.intensity < 0.01) {
-        // Fully faded, reset to original and remove from tracking
-        const baseOpacity = limb.userData.baseOpacity ?? 0.4;
-        limb.material.uniforms.uOpacity.value = baseOpacity;
-        limb.material.uniforms.uColor.value.copy(baseColor);
-        limbsToRemove.push(limb);
-      } else {
-        // Still fading, apply intermediate state
-        const baseOpacity = limb.userData.baseOpacity ?? 0.4;
-        limb.material.uniforms.uOpacity.value =
-          baseOpacity + state.intensity * 0.1;
-        const currentColor = baseColor
-          .clone()
-          .lerp(HOVER_COLOR, state.intensity);
-        limb.material.uniforms.uColor.value.copy(currentColor);
-      }
-    }
-
-    // Clean up fully-faded limbs
-    for (const limb of limbsToRemove) {
-      this.limbHighlightStates.delete(limb);
     }
   }
 
@@ -1024,14 +770,6 @@ export class HologramController {
         anyHandGrabbing = true;
         if (state.grabTarget === 'body') {
           grabTargetStr = 'body';
-        } else if (
-          state.grabTarget === 'limb' &&
-          state.limbSide &&
-          state.limbAxis
-        ) {
-          // Determine limb type from axis (vertical = arm, horizontal = leg)
-          const limbType = state.limbAxis === 'vertical' ? 'arm' : 'leg';
-          grabTargetStr = `${state.limbSide} ${limbType}`;
         }
         break;
       }
@@ -1074,27 +812,18 @@ export class HologramController {
 
   /**
    * Reset the holographic display to original pose
-   * Resets body rotation and all limb positions
+   * Resets body rotation only
    */
   reset(): void {
     if (this.schematic) {
-      // Set body target rotation to zero - the update() interpolation will animate it
-      this.schematicTargetRotation.set(0, 0, 0);
+      // Set body target rotation to original orientation (facing camera)
+      this.schematicTargetRotation.set(0, -Math.PI / 2, 0);
 
       // Stop any inertia so the schematic smoothly decelerates to rest
       this.rotationVelocity = { x: 0, y: 0 };
 
-      // Collect all limb pivots for animated reset
-      this.resettingLimbPivots.clear();
-      this.schematic.traverse((child) => {
-        if (child instanceof THREE.Group && child.userData.isLimbPivot) {
-          // Store target rotation (rest pose) for each limb pivot
-          this.resettingLimbPivots.set(child, new THREE.Euler(0, 0, 0));
-        }
-      });
-
-      // Start the reset animation
-      this.isResetting = true;
+      // Stop any reset animation
+      // this.isResetting = false;
 
       console.log('[HologramController] Animating reset to original pose');
     }
