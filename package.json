@@ -40,6 +40,7 @@
     "@vercel/analytics": "^1.6.1",
     "postprocessing": "^6.38.0",
     "three": "^0.181.2",
+    "three-mesh-bvh": "^0.9.5",
     "typescript": "^5.9.3",
     "vite": "^6.4.1"
   },

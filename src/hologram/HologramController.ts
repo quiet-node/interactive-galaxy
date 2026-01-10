@@ -141,7 +141,7 @@ export class HologramController {
       powerPreference: 'high-performance',
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.setClearColor(0x000000, 0); // Transparent background
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
@@ -526,11 +526,14 @@ export class HologramController {
               this.camera
             );
 
-            // Check intersection with schematic
-            const intersects = this.raycaster.intersectObject(
-              this.schematic,
-              true
-            );
+            // Performance optimization: Raycast against hit volume only (not full model)
+            // This avoids expensive recursive triangle intersection tests on complex GLB
+            const hitVolume = this.schematic.userData.hitVolume as
+              | THREE.Mesh
+              | undefined;
+            const intersects = hitVolume
+              ? this.raycaster.intersectObject(hitVolume, false)
+              : [];
 
             // Check if we hit the body
             let foundTarget = false;
@@ -631,10 +634,14 @@ export class HologramController {
               new THREE.Vector2(ndcX, ndcY),
               this.camera
             );
-            handState.cachedIntersects = this.raycaster.intersectObject(
-              this.schematic,
-              true
-            );
+            // Performance optimization: Raycast against hit volume only
+            // This avoids O(n) triangle tests on complex GLB model
+            const hitVolume = this.schematic.userData.hitVolume as
+              | THREE.Mesh
+              | undefined;
+            handState.cachedIntersects = hitVolume
+              ? this.raycaster.intersectObject(hitVolume, false)
+              : [];
             handState.lastRaycastTime = now;
           }
 

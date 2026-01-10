@@ -13,7 +13,18 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import {
+  computeBoundsTree,
+  disposeBoundsTree,
+  acceleratedRaycast,
+} from 'three-mesh-bvh';
 import { createHologramMaterial } from '../materials/HologramMaterial';
+
+// Register BVH extension methods on Three.js prototypes (once at module load)
+// This enables accelerated raycasting for all meshes that have a boundsTree
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
+THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
+THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
 // Import optimized GLB model
 import modelUrl from '../mark-vi-schematic.glb?url';
@@ -64,11 +75,11 @@ export function loadHologramModel(
         const edgeMaterial = new THREE.LineBasicMaterial({
           color,
           transparent: true,
-          opacity: 0.95,
+          opacity: 1,
           blending: THREE.AdditiveBlending,
         });
 
-        // Apply holographic material to all meshes
+        // Apply holographic material to all meshes and compute BVH for raycasting
         model.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             // Store original material info for potential restoration
@@ -77,7 +88,7 @@ export function loadHologramModel(
             // Apply holographic shader material for background volume
             child.material = createHologramMaterial({
               color,
-              opacity: 0.15,
+              opacity: 0.1,
               fresnelPower: 2.5,
               scanlineFrequency: 60,
               enableScanlines: true,
@@ -91,6 +102,10 @@ export function loadHologramModel(
               edgeMaterial.clone()
             );
             child.add(wireframe);
+
+            // Compute BVH for accelerated raycasting (10-100x faster)
+            // This is a one-time cost at load time
+            child.geometry.computeBoundsTree();
           }
         });
 
@@ -115,6 +130,8 @@ export function loadHologramModel(
         });
         const hitVolume = new THREE.Mesh(hitGeometry, hitMaterial);
         hitVolume.userData = { isHitVolume: true };
+        // Store reference for direct access (avoids recursive traversal in raycasting)
+        group.userData.hitVolume = hitVolume;
         group.add(hitVolume);
 
         console.log('[HologramModel] GLB model loaded successfully');
