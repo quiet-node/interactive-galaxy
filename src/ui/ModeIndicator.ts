@@ -19,7 +19,9 @@ export class ModeIndicator {
     }
   }
 
-  update(mode: 'galaxy' | 'foggy-mirror' | 'cosmic-slash' | 'hologram'): void {
+  update(
+    mode: 'galaxy' | 'foggy-mirror' | 'cosmic-slash' | 'iron-man-workshop'
+  ): void {
     if (!this.element) {
       this.createDOM();
     }
@@ -34,8 +36,8 @@ export class ModeIndicator {
         ? 'Interactive Galaxy'
         : mode === 'cosmic-slash'
         ? 'Cosmic Slash'
-        : mode === 'hologram'
-        ? 'Iron Man Hologram'
+        : mode === 'iron-man-workshop'
+        ? 'Iron Man Workshop'
         : 'Foggy Mirror';
 
     content.innerHTML = `

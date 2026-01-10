@@ -1,5 +1,5 @@
 /**
- * HologramController
+ * WorkshopController
  * Main controller for the Iron Man holographic interface mode
  *
  * Architecture:
@@ -19,34 +19,34 @@ import {
 
 import { HandTracker } from '../shared/HandTracker';
 import {
-  HologramConfig,
-  HologramDebugInfo,
-  DEFAULT_HOLOGRAM_CONFIG,
+  WorkshopConfig,
+  WorkshopDebugInfo,
+  DEFAULT_WORKSHOP_CONFIG,
 } from './types';
 
 // Components
-import { createHologramGrid } from './components/HologramGrid';
+import { createWorkshopGrid } from './components/WorkshopGrid';
 import {
-  createHologramRings,
-  updateHologramRings,
-} from './components/HologramRings';
+  createWorkshopRings,
+  updateWorkshopRings,
+} from './components/WorkshopRings';
 import {
-  createHologramPanels,
-  updateHologramPanels,
-} from './components/HologramPanels';
+  createWorkshopPanels,
+  updateWorkshopPanels,
+} from './components/WorkshopPanels';
 import {
-  loadHologramModel,
-  updateHologramModelCached,
-} from './components/HologramModel';
+  loadMarkVIModel,
+  updateMarkVIModelCached,
+} from './components/MarkVIModel';
 import { HandLandmarkOverlay } from './components/HandLandmarkOverlay';
 
 /**
- * HologramController - Main controller for holographic mode
+ * WorkshopController - Main controller for holographic mode
  */
-export class HologramController {
+export class WorkshopController {
   private handTracker: HandTracker;
   private container: HTMLElement;
-  private config: HologramConfig;
+  private config: WorkshopConfig;
 
   // Three.js core
   private scene: THREE.Scene;
@@ -69,7 +69,7 @@ export class HologramController {
   private isRunning: boolean = false;
 
   // Debug
-  private debugCallback: ((info: HologramDebugInfo) => void) | null = null;
+  private debugCallback: ((info: WorkshopDebugInfo) => void) | null = null;
   private fpsFrames: number = 0;
   private fpsLastTime: number = 0;
   private currentFps: number = 0;
@@ -115,11 +115,11 @@ export class HologramController {
   constructor(
     handTracker: HandTracker,
     container: HTMLElement,
-    config: Partial<HologramConfig> = {}
+    config: Partial<WorkshopConfig> = {}
   ) {
     this.handTracker = handTracker;
     this.container = container;
-    this.config = { ...DEFAULT_HOLOGRAM_CONFIG, ...config };
+    this.config = { ...DEFAULT_WORKSHOP_CONFIG, ...config };
 
     // Initialize Three.js
     this.scene = new THREE.Scene();
@@ -186,7 +186,7 @@ export class HologramController {
     // MediaPipe detectForVideo is synchronous and expensive; 30Hz is smooth for interaction
     this.handTracker.setDetectionIntervalMs(33);
 
-    console.log('[HologramController] Initialized with 30Hz hand detection');
+    console.log('[WorkshopController] Initialized with 30Hz hand detection');
   }
 
   /**
@@ -231,7 +231,7 @@ export class HologramController {
     const secondaryColor = new THREE.Color(this.config.secondaryColor);
 
     // Grid floor
-    this.grid = createHologramGrid({
+    this.grid = createWorkshopGrid({
       color: primaryColor,
       size: 12,
       divisions: 24,
@@ -240,7 +240,7 @@ export class HologramController {
     this.scene.add(this.grid);
 
     // Rotating rings
-    this.rings = createHologramRings({
+    this.rings = createWorkshopRings({
       color: primaryColor,
       innerRadius: 1.8,
       outerRadius: 2.0,
@@ -249,7 +249,7 @@ export class HologramController {
     this.scene.add(this.rings);
 
     // Floating panels
-    this.panels = createHologramPanels({
+    this.panels = createWorkshopPanels({
       color: primaryColor,
       width: 1.8,
       height: 1.2,
@@ -258,7 +258,7 @@ export class HologramController {
 
     // Central holographic model (GLB)
     const scale = 3.0;
-    const { group: modelGroup, loadPromise } = loadHologramModel({
+    const { group: modelGroup, loadPromise } = loadMarkVIModel({
       color: secondaryColor,
       scale,
     });
@@ -274,7 +274,7 @@ export class HologramController {
         this.cacheSchematicShaderMeshes();
       })
       .catch((error) => {
-        console.error('[HologramController] Model load failed:', error);
+        console.error('[WorkshopController] Model load failed:', error);
       });
   }
 
@@ -299,7 +299,7 @@ export class HologramController {
       }
     });
     console.log(
-      `[HologramController] Cached ${this.schematicShaderMeshes.length} shader meshes`
+      `[WorkshopController] Cached ${this.schematicShaderMeshes.length} shader meshes`
     );
   }
 
@@ -314,7 +314,7 @@ export class HologramController {
     this.fpsLastTime = this.lastTimestamp;
     this.animate();
 
-    console.log('[HologramController] Started');
+    console.log('[WorkshopController] Started');
   }
 
   /**
@@ -328,7 +328,7 @@ export class HologramController {
       this.animationFrameId = null;
     }
 
-    console.log('[HologramController] Stopped');
+    console.log('[WorkshopController] Stopped');
   }
 
   /**
@@ -368,18 +368,18 @@ export class HologramController {
   private update(time: number, deltaTime: number): void {
     // Update rings animation
     if (this.rings) {
-      updateHologramRings(this.rings, deltaTime, time);
+      updateWorkshopRings(this.rings, deltaTime, time);
     }
 
     // Update panels animation
     if (this.panels) {
-      updateHologramPanels(this.panels, time);
+      updateWorkshopPanels(this.panels, time);
     }
 
     // Update schematic model animation (shader time uniforms)
     // Performance: Use cached meshes to avoid traverse() every frame
     if (this.schematicShaderMeshes.length > 0) {
-      updateHologramModelCached(this.schematicShaderMeshes, time);
+      updateMarkVIModelCached(this.schematicShaderMeshes, time);
     }
 
     // Hand tracking for manipulation
@@ -761,7 +761,7 @@ export class HologramController {
   /**
    * Get debug information
    */
-  private getDebugInfo(): HologramDebugInfo {
+  private getDebugInfo(): WorkshopDebugInfo {
     let activeElements = 0;
     if (this.grid) activeElements++;
     if (this.rings) activeElements += this.rings.children.length;
@@ -804,7 +804,7 @@ export class HologramController {
   /**
    * Enable debug mode
    */
-  enableDebug(callback: (info: HologramDebugInfo) => void): void {
+  enableDebug(callback: (info: WorkshopDebugInfo) => void): void {
     this.debugCallback = callback;
     this.handLandmarkOverlay?.setEnabled(true);
   }
@@ -832,7 +832,7 @@ export class HologramController {
       // Stop any reset animation
       // this.isResetting = false;
 
-      console.log('[HologramController] Animating reset to original pose');
+      console.log('[WorkshopController] Animating reset to original pose');
     }
   }
 
@@ -877,6 +877,6 @@ export class HologramController {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
     }
 
-    console.log('[HologramController] Disposed');
+    console.log('[WorkshopController] Disposed');
   }
 }

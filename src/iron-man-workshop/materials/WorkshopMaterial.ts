@@ -8,7 +8,7 @@ import * as THREE from 'three';
 /**
  * Configuration for the hologram material
  */
-export interface HologramMaterialConfig {
+export interface WorkshopMaterialConfig {
   /** Primary color */
   color: THREE.Color;
   /** Opacity (0-1) */
@@ -23,7 +23,7 @@ export interface HologramMaterialConfig {
   enableScanlines: boolean;
 }
 
-const DEFAULT_CONFIG: HologramMaterialConfig = {
+const DEFAULT_CONFIG: WorkshopMaterialConfig = {
   color: new THREE.Color(0x00ffff),
   opacity: 0.6,
   fresnelPower: 2.0,
@@ -101,8 +101,8 @@ const fragmentShader = `
 /**
  * Creates a holographic ShaderMaterial
  */
-export function createHologramMaterial(
-  config: Partial<HologramMaterialConfig> = {}
+export function createWorkshopMaterial(
+  config: Partial<WorkshopMaterialConfig> = {}
 ): THREE.ShaderMaterial {
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
 

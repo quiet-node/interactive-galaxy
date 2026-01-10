@@ -4,16 +4,16 @@
  */
 
 import * as THREE from 'three';
-import { createHologramMaterial } from '../materials/HologramMaterial';
+import { createWorkshopMaterial } from '../materials/WorkshopMaterial';
 
-export interface HologramRingsConfig {
+export interface WorkshopRingsConfig {
   innerRadius: number;
   outerRadius: number;
   thetaSegments: number;
   color: THREE.Color;
 }
 
-const DEFAULT_CONFIG: HologramRingsConfig = {
+const DEFAULT_CONFIG: WorkshopRingsConfig = {
   innerRadius: 1.5,
   outerRadius: 1.7,
   thetaSegments: 64,
@@ -23,8 +23,8 @@ const DEFAULT_CONFIG: HologramRingsConfig = {
 /**
  * Creates a set of animated holographic rings
  */
-export function createHologramRings(
-  config: Partial<HologramRingsConfig> = {}
+export function createWorkshopRings(
+  config: Partial<WorkshopRingsConfig> = {}
 ): THREE.Group {
   const { innerRadius, outerRadius, thetaSegments, color } = {
     ...DEFAULT_CONFIG,
@@ -47,7 +47,7 @@ export function createHologramRings(
       arcAngle
     );
 
-    const material = createHologramMaterial({
+    const material = createWorkshopMaterial({
       color,
       opacity: 0.5 - i * 0.1,
       fresnelPower: 1.5,
@@ -67,7 +67,7 @@ export function createHologramRings(
     8,
     64
   );
-  const innerMaterial = createHologramMaterial({
+  const innerMaterial = createWorkshopMaterial({
     color,
     opacity: 0.7,
     enableScanlines: false,
@@ -83,7 +83,7 @@ export function createHologramRings(
 /**
  * Updates ring animations
  */
-export function updateHologramRings(
+export function updateWorkshopRings(
   rings: THREE.Group,
   deltaTime: number,
   time: number

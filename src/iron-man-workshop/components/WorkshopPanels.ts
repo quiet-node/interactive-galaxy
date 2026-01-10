@@ -4,15 +4,15 @@
  */
 
 import * as THREE from 'three';
-import { createHologramMaterial } from '../materials/HologramMaterial';
+import { createWorkshopMaterial } from '../materials/WorkshopMaterial';
 
-export interface HologramPanelConfig {
+export interface WorkshopPanelConfig {
   width: number;
   height: number;
   color: THREE.Color;
 }
 
-const DEFAULT_CONFIG: HologramPanelConfig = {
+const DEFAULT_CONFIG: WorkshopPanelConfig = {
   width: 1.5,
   height: 1.0,
   color: new THREE.Color(0x00ffff),
@@ -21,15 +21,15 @@ const DEFAULT_CONFIG: HologramPanelConfig = {
 /**
  * Creates a set of floating holographic panels
  */
-export function createHologramPanels(
-  config: Partial<HologramPanelConfig> = {}
+export function createWorkshopPanels(
+  config: Partial<WorkshopPanelConfig> = {}
 ): THREE.Group {
   const { width, height, color } = { ...DEFAULT_CONFIG, ...config };
   const group = new THREE.Group();
 
   // Create main panel
   const panelGeometry = new THREE.PlaneGeometry(width, height);
-  const panelMaterial = createHologramMaterial({
+  const panelMaterial = createWorkshopMaterial({
     color,
     opacity: 0.3,
     fresnelPower: 1.2,
@@ -113,7 +113,7 @@ function addCornerBrackets(
 /**
  * Updates panel animations
  */
-export function updateHologramPanels(panels: THREE.Group, time: number): void {
+export function updateWorkshopPanels(panels: THREE.Group, time: number): void {
   panels.children.forEach((child) => {
     if (child instanceof THREE.Mesh) {
       // Gentle floating animation

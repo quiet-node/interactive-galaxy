@@ -1,7 +1,7 @@
 /**
  * HandLandmarkOverlay
  * High-performance hand landmark rendering using direct canvas drawing
- * Visible only in debug mode for the Hologram interface
+ * Visible only in debug mode for the Workshop interface
  */
 
 import type { HandLandmarkerResult } from '@mediapipe/tasks-vision';

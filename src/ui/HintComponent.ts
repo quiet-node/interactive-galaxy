@@ -17,7 +17,9 @@ export class HintComponent {
     this.actionHandler = handler;
   }
 
-  update(mode: 'galaxy' | 'foggy-mirror' | 'cosmic-slash' | 'hologram'): void {
+  update(
+    mode: 'galaxy' | 'foggy-mirror' | 'cosmic-slash' | 'iron-man-workshop'
+  ): void {
     if (!this.element) {
       this.createDOM();
     }
@@ -53,7 +55,7 @@ export class HintComponent {
           <div class="hint-item">Press <kbd>R</kbd> to restart</div>
         </div>
       `;
-    } else if (mode === 'hologram') {
+    } else if (mode === 'iron-man-workshop') {
       content.innerHTML = `
         <div class="hint-header">
           <span class="hint-title">Guide</span>

@@ -18,7 +18,7 @@ import {
   disposeBoundsTree,
   acceleratedRaycast,
 } from 'three-mesh-bvh';
-import { createHologramMaterial } from '../materials/HologramMaterial';
+import { createWorkshopMaterial } from '../materials/WorkshopMaterial';
 
 // Register BVH extension methods on Three.js prototypes (once at module load)
 // This enables accelerated raycasting for all meshes that have a boundsTree
@@ -27,21 +27,21 @@ THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
 // Import optimized GLB model
-import modelUrl from '../mark-vi-schematic.glb?url';
+import modelUrl from '../assets/mark-vi-schematic.glb?url';
 
-export interface HologramModelConfig {
+export interface MarkVIModelConfig {
   /** Primary hologram color */
   color: THREE.Color;
   /** Scale multiplier for the model */
   scale: number;
 }
 
-const DEFAULT_CONFIG: HologramModelConfig = {
+const DEFAULT_CONFIG: MarkVIModelConfig = {
   color: new THREE.Color(0x00ff88),
   scale: 1.0,
 };
 
-export interface HologramModelResult {
+export interface MarkVIModelResult {
   /** The Three.js group containing the loaded model */
   group: THREE.Group;
   /** Promise that resolves when the model is fully loaded */
@@ -54,9 +54,9 @@ export interface HologramModelResult {
  * @param config - Configuration options for the hologram appearance
  * @returns Object containing the group (can be added to scene immediately) and load promise
  */
-export function loadHologramModel(
-  config: Partial<HologramModelConfig> = {}
-): HologramModelResult {
+export function loadMarkVIModel(
+  config: Partial<MarkVIModelConfig> = {}
+): MarkVIModelResult {
   const { color, scale } = { ...DEFAULT_CONFIG, ...config };
   const group = new THREE.Group();
   group.scale.setScalar(scale);
@@ -86,7 +86,7 @@ export function loadHologramModel(
             child.userData.originalMaterial = child.material;
 
             // Apply holographic shader material for background volume
-            child.material = createHologramMaterial({
+            child.material = createWorkshopMaterial({
               color,
               opacity: 0.1,
               fresnelPower: 2.5,
@@ -134,18 +134,18 @@ export function loadHologramModel(
         group.userData.hitVolume = hitVolume;
         group.add(hitVolume);
 
-        console.log('[HologramModel] GLB model loaded successfully');
+        console.log('[MarkVIModel] GLB model loaded successfully');
         resolve();
       },
       (progress) => {
         // Loading progress callback
         if (progress.lengthComputable) {
           const percent = (progress.loaded / progress.total) * 100;
-          console.log(`[HologramModel] Loading: ${percent.toFixed(1)}%`);
+          console.log(`[MarkVIModel] Loading: ${percent.toFixed(1)}%`);
         }
       },
       (error) => {
-        console.error('[HologramModel] Failed to load GLB model:', error);
+        console.error('[MarkVIModel] Failed to load GLB model:', error);
         reject(error);
       }
     );
@@ -166,7 +166,7 @@ export type ShaderMesh = THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
  * @param cachedMeshes - Pre-cached array of shader meshes (from cacheSchematicShaderMeshes)
  * @param time - Current animation time
  */
-export function updateHologramModelCached(
+export function updateMarkVIModelCached(
   cachedMeshes: ShaderMesh[],
   time: number
 ): void {
@@ -180,7 +180,7 @@ export function updateHologramModelCached(
  * Updates hologram model shader uniforms by traversing the scene graph
  * This is kept for backwards compatibility but should be avoided in hot paths
  */
-export function updateHologramModel(model: THREE.Group, time: number): void {
+export function updateMarkVIModel(model: THREE.Group, time: number): void {
   model.traverse((child) => {
     if (
       child instanceof THREE.Mesh &&

@@ -1,12 +1,12 @@
 /**
- * Hologram Mode Types
+ * Workshop Mode Types
  * Type definitions for the Iron Man holographic interface
  */
 
 /**
- * Configuration for the hologram mode
+ * Configuration for the workshop mode
  */
-export interface HologramConfig {
+export interface WorkshopConfig {
   /** Enable debug mode */
   debug: boolean;
   /** Bloom intensity (0-3) */
@@ -24,7 +24,7 @@ export interface HologramConfig {
 /**
  * Default configuration values
  */
-export const DEFAULT_HOLOGRAM_CONFIG: HologramConfig = {
+export const DEFAULT_WORKSHOP_CONFIG: WorkshopConfig = {
   debug: false,
   bloomStrength: 1.5,
   bloomRadius: 0.4,
@@ -34,9 +34,9 @@ export const DEFAULT_HOLOGRAM_CONFIG: HologramConfig = {
 };
 
 /**
- * Debug information for the hologram mode
+ * Debug information for the workshop mode
  */
-export interface HologramDebugInfo {
+export interface WorkshopDebugInfo {
   fps: number;
   handsDetected: number;
   activeElements: number;

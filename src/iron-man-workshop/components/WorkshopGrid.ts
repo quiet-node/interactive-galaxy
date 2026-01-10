@@ -4,16 +4,16 @@
  */
 
 import * as THREE from 'three';
-import { createWireframeMaterial } from '../materials/HologramMaterial';
+import { createWireframeMaterial } from '../materials/WorkshopMaterial';
 
-export interface HologramGridConfig {
+export interface WorkshopGridConfig {
   size: number;
   divisions: number;
   color: THREE.Color;
   opacity: number;
 }
 
-const DEFAULT_CONFIG: HologramGridConfig = {
+const DEFAULT_CONFIG: WorkshopGridConfig = {
   size: 10,
   divisions: 20,
   color: new THREE.Color(0x00ffff),
@@ -23,8 +23,8 @@ const DEFAULT_CONFIG: HologramGridConfig = {
 /**
  * Creates a holographic grid floor
  */
-export function createHologramGrid(
-  config: Partial<HologramGridConfig> = {}
+export function createWorkshopGrid(
+  config: Partial<WorkshopGridConfig> = {}
 ): THREE.Group {
   const { size, divisions, color, opacity } = { ...DEFAULT_CONFIG, ...config };
   const group = new THREE.Group();

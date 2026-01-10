@@ -13,8 +13,8 @@ import {
 } from './interactive-galaxy/HandGalaxyController';
 import { CosmicSlashController } from './cosmic-slash/CosmicSlashController';
 import { CosmicSlashDebugInfo } from './cosmic-slash/types';
-import { HologramController } from './hologram/HologramController';
-import { HologramDebugInfo } from './hologram/types';
+import { WorkshopController } from './iron-man-workshop/WorkshopController';
+import { WorkshopDebugInfo } from './iron-man-workshop/types';
 import { HandTracker } from './shared/HandTracker';
 import { DebugComponent } from './ui/DebugComponent';
 import { Footer } from './ui/Footer';
@@ -58,7 +58,7 @@ export class App {
   private controller: HandGalaxyController | null = null;
   private foggyMirrorController: FoggyMirrorController | null = null;
   private cosmicSlashController: CosmicSlashController | null = null;
-  private hologramController: HologramController | null = null;
+  private workshopController: WorkshopController | null = null;
   private config: AppConfig;
   private currentMode: InteractionMode | null = null;
 
@@ -169,8 +169,8 @@ export class App {
         this.switchToFoggyMirrorMode();
       } else if (mode === 'cosmic-slash') {
         this.switchToCosmicSlashMode();
-      } else if (mode === 'hologram') {
-        this.switchToHologramMode();
+      } else if (mode === 'iron-man-workshop') {
+        this.switchToWorkshopMode();
       }
     });
 
@@ -242,7 +242,7 @@ export class App {
         this.switchToCosmicSlashMode();
         return;
       } else if (key === 'i') {
-        this.switchToHologramMode();
+        this.switchToWorkshopMode();
         return;
       }
 
@@ -255,8 +255,8 @@ export class App {
           this.cosmicSlashController?.reset();
         } else if (this.currentMode === 'galaxy') {
           this.controller?.reset();
-        } else if (this.currentMode === 'hologram') {
-          this.hologramController?.reset();
+        } else if (this.currentMode === 'iron-man-workshop') {
+          this.workshopController?.reset();
         }
         return;
       }
@@ -313,12 +313,12 @@ export class App {
       this.cosmicSlashController = null;
     }
 
-    // Stop hologram controller
-    if (this.hologramController) {
-      this.hologramController.stop();
-      this.hologramController.disableDebug();
-      this.hologramController.dispose();
-      this.hologramController = null;
+    // Stop workshop controller
+    if (this.workshopController) {
+      this.workshopController.stop();
+      this.workshopController.disableDebug();
+      this.workshopController.dispose();
+      this.workshopController = null;
     }
 
     this.showLandingPage();
@@ -407,9 +407,12 @@ export class App {
       this.cosmicSlashController.enableDebug((info) =>
         this.updateCosmicSlashDebugPanel(info)
       );
-    } else if (this.currentMode === 'hologram' && this.hologramController) {
-      this.hologramController.enableDebug((info) =>
-        this.updateHologramDebugPanel(info)
+    } else if (
+      this.currentMode === 'iron-man-workshop' &&
+      this.workshopController
+    ) {
+      this.workshopController.enableDebug((info) =>
+        this.updateWorkshopDebugPanel(info)
       );
     }
   }
@@ -506,8 +509,8 @@ export class App {
       } else if (this.currentMode === 'cosmic-slash') {
         const handCount = this.cosmicSlashController?.getHandCount() ?? 0;
         this.updateHandStatus(handCount);
-      } else if (this.currentMode === 'hologram') {
-        const handCount = this.hologramController?.getHandCount() ?? 0;
+      } else if (this.currentMode === 'iron-man-workshop') {
+        const handCount = this.workshopController?.getHandCount() ?? 0;
         this.updateHandStatus(handCount);
       }
       // Note: foggy-mirror mode has its own update loop in FoggyMirrorController
@@ -540,7 +543,7 @@ export class App {
       this.controller?.disableDebug();
       this.foggyMirrorController?.disableDebug();
       this.cosmicSlashController?.disableDebug();
-      this.hologramController?.disableDebug();
+      this.workshopController?.disableDebug();
     } else {
       if (this.currentMode === 'galaxy' && this.controller) {
         this.controller.enableDebug((info) =>
@@ -560,9 +563,12 @@ export class App {
         this.cosmicSlashController.enableDebug((info) =>
           this.updateCosmicSlashDebugPanel(info)
         );
-      } else if (this.currentMode === 'hologram' && this.hologramController) {
-        this.hologramController.enableDebug((info) =>
-          this.updateHologramDebugPanel(info)
+      } else if (
+        this.currentMode === 'iron-man-workshop' &&
+        this.workshopController
+      ) {
+        this.workshopController.enableDebug((info) =>
+          this.updateWorkshopDebugPanel(info)
         );
       }
     }
@@ -601,8 +607,8 @@ export class App {
       // Dim video for cosmic slash (cosmic background effect)
       this.videoElement.style.cssText =
         baseStyles + 'filter: brightness(0.25) contrast(0.7) saturate(0.8);';
-    } else if (mode === 'hologram') {
-      // Slight dim for hologram mode to make glowing elements more visible
+    } else if (mode === 'iron-man-workshop') {
+      // Slight dim for workshop mode to make glowing elements more visible
       this.videoElement.style.cssText =
         baseStyles + 'filter: brightness(0.4) contrast(0.9) saturate(0.8);';
     } else {
@@ -841,12 +847,12 @@ export class App {
   }
 
   /**
-   * Switch to hologram interaction mode
+   * Switch to workshop interaction mode
    */
-  switchToHologramMode(): void {
-    if (this.currentMode === 'hologram') return;
+  switchToWorkshopMode(): void {
+    if (this.currentMode === 'iron-man-workshop') return;
 
-    console.log('[App] Switching to hologram mode');
+    console.log('[App] Switching to workshop mode');
 
     // Hide landing page
     this.landingPage?.hide();
@@ -878,50 +884,50 @@ export class App {
       this.cosmicSlashController = null;
     }
 
-    // Initialize hologram controller if needed
-    if (!this.hologramController) {
-      this.updateStatus('Loading Hologram...', 'loading');
-      this.hologramController = new HologramController(
+    // Initialize workshop controller if needed
+    if (!this.workshopController) {
+      this.updateStatus('Loading Workshop...', 'loading');
+      this.workshopController = new WorkshopController(
         this.handTracker,
         this.container,
         { debug: this.config.debug }
       );
-      this.hologramController.initialize();
+      this.workshopController.initialize();
     }
 
-    // Start hologram controller
-    this.hologramController.start();
+    // Start workshop controller
+    this.workshopController.start();
 
     // Apply video styles - show webcam behind hologram
-    this.applyVideoStyles('hologram');
+    this.applyVideoStyles('iron-man-workshop');
 
     // Update mode
-    this.currentMode = 'hologram';
+    this.currentMode = 'iron-man-workshop';
     this.state = 'running';
     this.updateHandStatus(0);
 
     // Show UI elements
     this.statusIndicator?.show();
     this.footer?.show();
-    this.hintComponent?.update('hologram');
+    this.hintComponent?.update('iron-man-workshop');
     this.hintComponent?.show();
-    this.modeIndicator?.update('hologram');
+    this.modeIndicator?.update('iron-man-workshop');
 
     // Start loop
     this.startAnimationLoop();
 
     // Re-enable debug if it was active
     if (this.debugComponent?.isVisibleState()) {
-      this.hologramController.enableDebug((info) =>
-        this.updateHologramDebugPanel(info)
+      this.workshopController.enableDebug((info) =>
+        this.updateWorkshopDebugPanel(info)
       );
     }
   }
 
   /**
-   * Update hologram debug panel with current info
+   * Update workshop debug panel with current info
    */
-  private updateHologramDebugPanel(info: HologramDebugInfo): void {
+  private updateWorkshopDebugPanel(info: WorkshopDebugInfo): void {
     if (!this.debugComponent) return;
 
     this.debugComponent.update(`
@@ -952,7 +958,7 @@ export class App {
     this.controller?.dispose();
     this.foggyMirrorController?.dispose();
     this.cosmicSlashController?.dispose();
-    this.hologramController?.dispose();
+    this.workshopController?.dispose();
     this.handTracker.dispose();
     this.galaxyRenderer?.dispose();
 
