@@ -11,7 +11,7 @@ export default defineConfig({
   },
 
   // Asset handling
-  assetsInclude: ['**/*.glsl'],
+  assetsInclude: ['**/*.glsl', '**/*.glb'],
 
   // Build configuration
   build: {
