@@ -26,8 +26,8 @@ THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
-// Import optimized GLB model
-import modelUrl from '../assets/mark-vi-schematic.glb?url';
+// Import articulated GLB model
+import modelUrl from '../assets/mark-vi-articulated.glb?url';
 
 export interface MarkVIModelConfig {
   /** Primary hologram color */
@@ -71,6 +71,19 @@ export function loadMarkVIModel(
       (gltf) => {
         const model = gltf.scene;
 
+        // List of specific mesh names to attach hit volumes to
+        const articulatedLimbs = [
+          'head',
+          'torso',
+          'arm_left',
+          'arm_right',
+          'leg_left',
+          'leg_right',
+        ];
+
+        // Store all hit volumes for efficient raycasting
+        const hitVolumes: THREE.Mesh[] = [];
+
         // Create material for wireframe rendering
         const edgeMaterial = new THREE.LineBasicMaterial({
           color,
@@ -79,7 +92,18 @@ export function loadMarkVIModel(
           blending: THREE.AdditiveBlending,
         });
 
+        // Hit volume material (invisible)
+        const hitMaterial = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        });
+
         // Apply holographic material to all meshes and compute BVH for raycasting
+        const limbMeshes: THREE.Mesh[] = [];
+
         model.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             // Store original material info for potential restoration
@@ -106,7 +130,48 @@ export function loadMarkVIModel(
             // Compute BVH for accelerated raycasting (10-100x faster)
             // This is a one-time cost at load time
             child.geometry.computeBoundsTree();
+
+            // Check if this is one of our articulated limbs
+            if (articulatedLimbs.includes(child.name)) {
+              limbMeshes.push(child);
+            }
           }
+        });
+
+        // Create hit volumes for identified limbs
+        // Done in a separate pass to ensure they don't get wireframes or holographic materials
+        // if the traversal loop were to inadvertently visit them.
+        limbMeshes.forEach((limb) => {
+          // Create a simplified hit volume for this limb
+          // Using a Box3 to approximate the bounding volume
+          limb.geometry.computeBoundingBox();
+          const bbox = limb.geometry.boundingBox!;
+          const size = new THREE.Vector3();
+          bbox.getSize(size);
+
+          // Inflate slightly to make grabbing easier
+          size.multiplyScalar(1.2);
+
+          // For arms and legs, a capsule or cylinder might be better, but a box is efficient
+          // and sufficient for general grabbing.
+          const hitGeometry = new THREE.BoxGeometry(size.x, size.y, size.z);
+          const hitVolume = new THREE.Mesh(hitGeometry, hitMaterial.clone());
+
+          // Center the hit volume
+          const center = new THREE.Vector3();
+          bbox.getCenter(center);
+          hitVolume.position.copy(center);
+
+          hitVolume.userData = {
+            isHitVolume: true,
+            limbType: limb.name,
+          };
+
+          // Parent to the limb so it moves with it
+          limb.add(hitVolume);
+          hitVolumes.push(hitVolume);
+
+          console.log(`[MarkVIModel] Attached hit volume to ${limb.name}`);
         });
 
         // Center the model at origin
@@ -117,22 +182,23 @@ export function loadMarkVIModel(
         // Add the model to our group
         group.add(model);
 
-        // Create invisible hit volume for interaction raycasting
-        // Size it to encompass the entire model
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const hitGeometry = new THREE.SphereGeometry(maxDim * 0.6, 8, 8);
-        const hitMaterial = new THREE.MeshBasicMaterial({
-          color: 0xffffff,
-          transparent: true,
-          opacity: 0,
-          depthWrite: false,
-        });
-        const hitVolume = new THREE.Mesh(hitGeometry, hitMaterial);
-        hitVolume.userData = { isHitVolume: true };
-        // Store reference for direct access (avoids recursive traversal in raycasting)
-        group.userData.hitVolume = hitVolume;
-        group.add(hitVolume);
+        // Store reference to hit volumes on the group for easy access
+        group.userData.hitVolumes = hitVolumes;
+
+        // Fallback: If no specific limbs were found (e.g. naming mismatch),
+        // create a global hit volume like before to prevent breakage.
+        if (hitVolumes.length === 0) {
+          console.warn(
+            '[MarkVIModel] No named limbs found. Creating fallback global hit volume.'
+          );
+          const size = box.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const hitGeometry = new THREE.SphereGeometry(maxDim * 0.6, 8, 8);
+          const hitVolume = new THREE.Mesh(hitGeometry, hitMaterial);
+          hitVolume.userData = { isHitVolume: true, limbType: 'torso' }; // Default to torso/body
+          group.add(hitVolume);
+          group.userData.hitVolumes = [hitVolume];
+        }
 
         console.log('[MarkVIModel] GLB model loaded successfully');
         resolve();

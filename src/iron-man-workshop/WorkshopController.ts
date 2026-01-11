@@ -528,46 +528,61 @@ export class WorkshopController {
 
             // Performance optimization: Raycast against hit volume only (not full model)
             // This avoids expensive recursive triangle intersection tests on complex GLB
+            const hitVolumes = this.schematic.userData.hitVolumes as
+              | THREE.Mesh[]
+              | undefined;
             const hitVolume = this.schematic.userData.hitVolume as
               | THREE.Mesh
               | undefined;
-            const intersects = hitVolume
-              ? this.raycaster.intersectObject(hitVolume, false)
-              : [];
 
-            // Check if we hit the body
+            // Support both new (array) and legacy (single) hit volume structures
+            let targets: THREE.Object3D[] = [];
+            if (hitVolumes && hitVolumes.length > 0) {
+              targets = hitVolumes;
+            } else if (hitVolume) {
+              targets = [hitVolume];
+            }
+
+            const intersects =
+              targets.length > 0
+                ? this.raycaster.intersectObjects(targets, false)
+                : [];
+
+            // Check what we hit
             let foundTarget = false;
+
             if (intersects.length > 0) {
-              for (const intersection of intersects) {
-                const hitObject = intersection.object;
-                const userData = hitObject.userData as
-                  | { isHitVolume?: boolean; limbType?: string }
-                  | undefined;
+              // Get the closest intersection
+              const intersection = intersects[0];
+              const hitObject = intersection.object;
+              const userData = hitObject.userData as
+                | { isHitVolume?: boolean; limbType?: string }
+                | undefined;
 
-                // Body grab if we hit hitVolume or schematic child (without limbType)
-                // Note: limbType check is legacy/safety, but new model won't have it
-                const isBodyHitVolume =
-                  userData?.isHitVolume === true && !userData?.limbType;
-                const isBodyMesh =
-                  hitObject instanceof THREE.Mesh &&
-                  hitObject.parent === this.schematic;
+              // Check for valid grab target
+              if (userData?.isHitVolume === true) {
+                // === GRAB START ===
+                handState.isGrabbing = true;
 
-                if (isBodyHitVolume || isBodyMesh) {
-                  // === BODY GRAB ===
-                  handState.isGrabbing = true;
-                  handState.grabTarget = 'body';
-                  handState.grabStartHandPosition = handPosition.clone();
-                  handState.grabStartRotation.copy(this.schematic.rotation);
-                  // Reset velocity on new grab
-                  this.rotationVelocity = { x: 0, y: 0 };
+                // Determine what was grabbed
+                // For now, treat everything as 'body' regarding rotation behavior
+                // In the future, we can check userData.limbType for specific limb manipulation
+                handState.grabTarget = 'body';
 
-                  console.log(
-                    `[HologramController] Hand ${handIndex} grabbed body`
-                  );
-                  foundTarget = true;
-                  anyHandHovering = true;
-                  break;
-                }
+                // Store the specific limb we grabbed for potential future use
+                console.log(
+                  `[WorkshopController] Hand ${handIndex} grabbed ${
+                    userData.limbType || 'body'
+                  }`
+                );
+
+                handState.grabStartHandPosition = handPosition.clone();
+                handState.grabStartRotation.copy(this.schematic.rotation);
+                // Reset velocity on new grab
+                this.rotationVelocity = { x: 0, y: 0 };
+
+                foundTarget = true;
+                anyHandHovering = true;
               }
             }
 
@@ -634,34 +649,42 @@ export class WorkshopController {
               new THREE.Vector2(ndcX, ndcY),
               this.camera
             );
-            // Performance optimization: Raycast against hit volume only
-            // This avoids O(n) triangle tests on complex GLB model
+
+            // Performance optimization: Raycast against hit volumes
+            const hitVolumes = this.schematic.userData.hitVolumes as
+              | THREE.Mesh[]
+              | undefined;
             const hitVolume = this.schematic.userData.hitVolume as
               | THREE.Mesh
               | undefined;
-            handState.cachedIntersects = hitVolume
-              ? this.raycaster.intersectObject(hitVolume, false)
-              : [];
+
+            let targets: THREE.Object3D[] = [];
+            if (hitVolumes && hitVolumes.length > 0) {
+              targets = hitVolumes;
+            } else if (hitVolume) {
+              targets = [hitVolume];
+            }
+
+            handState.cachedIntersects =
+              targets.length > 0
+                ? this.raycaster.intersectObjects(targets, false)
+                : [];
+
             handState.lastRaycastTime = now;
           }
 
           if (handState.cachedIntersects.length > 0) {
-            // Check if any intersection is with the main schematic body
-            const isHoveringBody = handState.cachedIntersects.some(
+            // Check if any intersection is with a valid hit volume
+            const isHoveringValid = handState.cachedIntersects.some(
               (intersection) => {
                 const hitObject = intersection.object;
                 const userData = hitObject.userData as
                   | { isHitVolume?: boolean; limbType?: string }
                   | undefined;
-                const isBodyHitVolume =
-                  userData?.isHitVolume === true && !userData?.limbType;
-                const isBodyMesh =
-                  hitObject instanceof THREE.Mesh &&
-                  hitObject.parent === this.schematic;
-                return isBodyHitVolume || isBodyMesh;
+                return userData?.isHitVolume === true;
               }
             );
-            if (isHoveringBody) {
+            if (isHoveringValid) {
               anyHandHovering = true;
             }
           }
