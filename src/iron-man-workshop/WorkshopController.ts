@@ -142,6 +142,14 @@ export class WorkshopController {
   private leftHandGestureCooldownMs: number = 800;
   private lastLeftHandGestureTime: number = 0;
 
+  // Stability Buffer State
+  // We require N consecutive frames of the same pose to confirm it
+  // This prevents fleeting glitches (e.g. hand leaving frame) from causing triggers
+  private currentStablePose: 'open' | 'fist' | 'unknown' = 'unknown';
+  private potentialPose: 'open' | 'fist' | 'unknown' = 'unknown';
+  private poseConsistencyCounter: number = 0;
+  private readonly POSE_STABILITY_THRESHOLD: number = 8; // ~250ms at 30Hz
+
   // Left-hand wrist rotation state for twist-to-rotate in exploded view
   // Roll (twist) controls Y-axis, palm Y position controls X-axis
   private leftHandLastRoll: number | null = null;
@@ -627,40 +635,43 @@ export class WorkshopController {
    * Closed fist on left hand = assemble (fingers curled)
    *
    * Uses MediaPipe handedness detection to identify left hand specifically.
+   * Includes input stability buffering/debouncing to prevent false positives.
    */
   private detectLeftHandGesture(): void {
     const result = this.handTracker.getLastResult();
+
+    // 1. Hand Existence Check
+    // If no results at all, RESET everything immediately.
+    // This is critical: if the hand leaves the frame, we must not hold onto stale state.
     if (!result || result.landmarks.length === 0) {
+      this.resetLeftHandState();
       return;
     }
 
-    // Find the left hand using handedness info
+    // 2. Find the SPECIFIC left hand
     let leftHandIndex = -1;
     if (result.handedness) {
       for (let i = 0; i < result.handedness.length; i++) {
         // MediaPipe returns actual anatomical handedness: "Left" = user's left hand
-        if (result.handedness[i]?.[0]?.categoryName === 'Left') {
+        // Confidence check is usually good practice too
+        const hand = result.handedness[i]?.[0];
+        if (hand?.categoryName === 'Left' && (hand.score ?? 0) > 0.8) {
           leftHandIndex = i;
           break;
         }
       }
     }
 
+    // If existing results do NOT contain a Left hand using strict checking
     if (leftHandIndex === -1) {
-      // No left hand detected
+      this.resetLeftHandState();
       return;
     }
 
     const landmarks = result.landmarks[leftHandIndex];
 
+    // 3. Pose Classification
     // Calculate if hand is open (fingers extended) or closed (fist)
-    // We measure the distance from fingertips to palm center
-    // For a fist, fingertips are close to palm; for open palm, they're far
-
-    // Key landmarks:
-    // 0: wrist, 5: index MCP (palm), 9: middle MCP (palm)
-    // 8: index tip, 12: middle tip, 16: ring tip, 20: pinky tip
-
     const palmCenter = {
       x: (landmarks[5].x + landmarks[9].x + landmarks[0].x) / 3,
       y: (landmarks[5].y + landmarks[9].y + landmarks[0].y) / 3,
@@ -681,52 +692,90 @@ export class WorkshopController {
     }
     const avgFingerDistance = totalDistance / fingerTips.length;
 
-    // Thresholds (in normalized coordinates)
-    // Open palm: fingers far from palm (> 0.15)
-    // Closed fist: fingers close to palm (< 0.08)
     const OPEN_THRESHOLD = 0.12;
     const CLOSED_THRESHOLD = 0.08;
 
-    let currentPose: 'open' | 'fist' | 'unknown' = 'unknown';
+    let instantaneousPose: 'open' | 'fist' | 'unknown' = 'unknown';
     if (avgFingerDistance > OPEN_THRESHOLD) {
-      currentPose = 'open';
+      instantaneousPose = 'open';
     } else if (avgFingerDistance < CLOSED_THRESHOLD) {
-      currentPose = 'fist';
+      instantaneousPose = 'fist';
     }
 
-    // Check for state transition
-    const now = performance.now();
-    if (now - this.lastLeftHandGestureTime < this.leftHandGestureCooldownMs) {
-      // Still in cooldown
-      return;
+    // 4. Stability Buffer Implementation
+    if (instantaneousPose === this.potentialPose) {
+      // Pose matches our candidate, increment counter
+      this.poseConsistencyCounter++;
+    } else {
+      // Pose changed, reset counter and start tracking new candidate
+      this.potentialPose = instantaneousPose;
+      this.poseConsistencyCounter = 1;
     }
 
-    // Trigger based on pose change
-    if (currentPose !== this.lastLeftHandPose && currentPose !== 'unknown') {
+    // 5. Trigger Logic (only if stable)
+    if (this.poseConsistencyCounter >= this.POSE_STABILITY_THRESHOLD) {
+      const newStablePose = this.potentialPose;
+
+      // Only trigger if the STABLE pose has changed
       if (
-        currentPose === 'open' &&
-        this.explodedViewManager?.getState() === 'assembled'
+        newStablePose !== 'unknown' &&
+        newStablePose !== this.currentStablePose
       ) {
-        console.log('[WorkshopController] Left hand OPEN PALM -> EXPLODE');
-        this.lastLeftHandGestureTime = now;
-        this.explodedViewManager.explode();
-      } else if (
-        currentPose === 'fist' &&
-        this.explodedViewManager?.getState() === 'exploded'
-      ) {
-        console.log('[WorkshopController] Left hand CLOSED FIST -> ASSEMBLE');
-        this.lastLeftHandGestureTime = now;
-        this.explodedViewManager.assemble();
+        // Prepare for action
+        const now = performance.now();
+        if (
+          now - this.lastLeftHandGestureTime >=
+          this.leftHandGestureCooldownMs
+        ) {
+          // Perform Action
+          if (
+            newStablePose === 'open' &&
+            this.explodedViewManager?.getState() === 'assembled'
+          ) {
+            console.log(
+              '[WorkshopController] Left hand STABLE OPEN -> EXPLODE'
+            );
+            this.lastLeftHandGestureTime = now;
+            this.explodedViewManager.explode();
+          } else if (
+            newStablePose === 'fist' &&
+            this.explodedViewManager?.getState() === 'exploded'
+          ) {
+            console.log(
+              '[WorkshopController] Left hand STABLE FIST -> ASSEMBLE'
+            );
+            this.lastLeftHandGestureTime = now;
+            this.explodedViewManager.assemble();
 
-        // Reset rotation to original facing (animated via smooth interpolation in update loop)
-        this.schematicTargetRotation.set(0, -Math.PI / 2, 0);
-        this.rotationVelocity = { x: 0, y: 0 };
+            // Reset rotation
+            this.schematicTargetRotation.set(0, -Math.PI / 2, 0);
+            this.rotationVelocity = { x: 0, y: 0 };
+          }
+        }
+
+        // Update our known stable state
+        this.currentStablePose = newStablePose;
       }
     }
 
-    if (currentPose !== 'unknown') {
-      this.lastLeftHandPose = currentPose;
+    // Always update lastLeftHandPose for other consumers if needed (like wrist rotation)
+    // Though wrist rotation should ideally use stable pose too, keeping this for now
+    this.lastLeftHandPose = instantaneousPose;
+  }
+
+  /**
+   * Reset all left-hand associated state.
+   * Called when left hand is lost or tracking quality drops.
+   */
+  private resetLeftHandState(): void {
+    // If we had a valid pose, log that we lost it
+    if (this.currentStablePose !== 'unknown') {
+      // console.log('[WorkshopController] Left hand signal lost - resetting state');
     }
+    this.currentStablePose = 'unknown';
+    this.potentialPose = 'unknown';
+    this.poseConsistencyCounter = 0;
+    this.lastLeftHandPose = 'unknown';
   }
 
   /**
