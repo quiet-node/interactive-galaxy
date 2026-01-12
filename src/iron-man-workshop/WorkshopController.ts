@@ -39,8 +39,12 @@ import {
   updateMarkVIModelCached,
 } from './components/MarkVIModel';
 import { HandLandmarkOverlay } from './components/HandLandmarkOverlay';
-import { ExplodedViewManager } from './components/ExplodedViewManager';
+import {
+  ExplodedViewManager,
+  LimbType,
+} from './components/ExplodedViewManager';
 import { ParticleTrailSystem } from './components/ParticleTrailEmitter';
+import { PartInfoPanel } from './components/PartInfoPanel';
 import { calculateHandRoll } from '../utils/math';
 import gsap from 'gsap';
 
@@ -63,6 +67,7 @@ export class WorkshopController {
   private rings: THREE.Group | null = null;
   private panels: THREE.Group | null = null;
   private schematic: THREE.Group | null = null;
+  private partInfoPanel: PartInfoPanel | null = null;
 
   // Debug overlay for hand tracking visualization
   private handLandmarkOverlay: HandLandmarkOverlay | null = null;
@@ -101,6 +106,10 @@ export class WorkshopController {
   // Hover state for visual feedback
   private isHoveringSchematic: boolean = false;
   private hoverIntensity: number = 0; // 0-1, used for smooth glow transition
+
+  // Per-limb hover state for exploded view
+  private hoveredLimbTypes: Set<LimbType> = new Set();
+  private limbHoverIntensities: Map<LimbType, number> = new Map();
 
   // Inertia state
   private rotationVelocity: { x: number; y: number } = { x: 0, y: 0 };
@@ -302,6 +311,10 @@ export class WorkshopController {
       .catch((error) => {
         console.error('[WorkshopController] Model load failed:', error);
       });
+
+    // Info Panel (initially hidden)
+    this.partInfoPanel = new PartInfoPanel();
+    this.scene.add(this.partInfoPanel.getObject());
   }
 
   /**
@@ -578,6 +591,11 @@ export class WorkshopController {
 
       // Keep position centered
       this.schematic.position.set(0, 0, 0);
+    }
+
+    // Update Info Panel
+    if (this.partInfoPanel) {
+      this.partInfoPanel.update(time, this.camera);
     }
 
     // Update particle trail system
@@ -860,7 +878,7 @@ export class WorkshopController {
   private animateRingsVisibility(visible: boolean): void {
     if (!this.rings) return;
 
-    this.rings.children.forEach((child) => {
+    this.rings.children.forEach((child: THREE.Object3D) => {
       if (child instanceof THREE.Mesh && child.material) {
         const material = child.material;
 
@@ -915,6 +933,7 @@ export class WorkshopController {
 
     // Reset hover states each frame
     let anyHandHovering = false;
+    const currentlyHoveredLimbs = new Set<LimbType>();
 
     // Keep track of detected hand indices to clean up old states
     const detectedHandIndices = new Set<number>();
@@ -987,6 +1006,62 @@ export class WorkshopController {
       const isPinching = handState.isGrabbing
         ? pinchDistance < PINCH_RELEASE_THRESHOLD
         : pinchDistance < PINCH_START_THRESHOLD;
+
+      // === INFO PANEL HOVER LOGIC ===
+      // Only for Right Hand, and only if NOT grabbing
+      // Check specifically for index finger pointing (not pinching)
+      if (isRightHand) {
+        if (!handState.isGrabbing && !isPinching) {
+          // Calculate index finger extension for stability
+          // (Similar to left hand open palm check but just for index)
+          // Ensure index is extended and not curled
+          // const isIndexExtended = true; // TODO: Add better pose check if needed
+
+          // We use the index tip for the raycast origin
+          const ndcX = (1 - indexTip.x) * 2 - 1;
+          const ndcY = -(indexTip.y * 2 - 1);
+
+          // Raycast specific to info panel (different interval perhaps?)
+          // Reuse the existing raycaster
+          this.raycaster.setFromCamera(
+            new THREE.Vector2(ndcX, ndcY),
+            this.camera
+          );
+
+          // Raycast against hit volumes
+          if (this.schematic) {
+            const hitVolumes = this.schematic.userData.hitVolumes as
+              | THREE.Mesh[]
+              | undefined;
+
+            if (hitVolumes && hitVolumes.length > 0) {
+              const intersects = this.raycaster.intersectObjects(
+                hitVolumes,
+                false
+              );
+
+              if (intersects.length > 0) {
+                // Found a part!
+                const hitObject = intersects[0].object;
+                const partName = hitObject.userData.limbType;
+
+                if (partName && this.partInfoPanel) {
+                  // Convert intersection point to world space for the panel anchor
+                  // The intersection point is already in world space
+                  this.partInfoPanel.show(partName, intersects[0].point);
+                  anyHandHovering = true; // Keep schematic glow effect too
+                }
+              } else {
+                // No hit, hide panel
+                this.partInfoPanel?.hide();
+              }
+            }
+          }
+        } else {
+          // If pinching or grabbing, hide the panel immediately
+          this.partInfoPanel?.hide();
+        }
+      }
 
       if (isPinching) {
         if (!handState.isGrabbing) {
@@ -1152,18 +1227,19 @@ export class WorkshopController {
           }
 
           if (handState.cachedIntersects.length > 0) {
-            // Check if any intersection is with a valid hit volume
-            const isHoveringValid = handState.cachedIntersects.some(
-              (intersection) => {
-                const hitObject = intersection.object;
-                const userData = hitObject.userData as
-                  | { isHitVolume?: boolean; limbType?: string }
-                  | undefined;
-                return userData?.isHitVolume === true;
+            // Check if any intersection is with a valid hit volume and collect hovered limbs
+            for (const intersection of handState.cachedIntersects) {
+              const hitObject = intersection.object;
+              const userData = hitObject.userData as
+                | { isHitVolume?: boolean; limbType?: string }
+                | undefined;
+              if (userData?.isHitVolume === true) {
+                anyHandHovering = true;
+                // Track which specific limb is being hovered
+                if (userData.limbType) {
+                  currentlyHoveredLimbs.add(userData.limbType as LimbType);
+                }
               }
-            );
-            if (isHoveringValid) {
-              anyHandHovering = true;
             }
           }
         }
@@ -1177,6 +1253,9 @@ export class WorkshopController {
       }
     }
 
+    // Update tracked hovered limbs
+    this.hoveredLimbTypes = currentlyHoveredLimbs;
+
     // Update hover visual state
     this.updateHoverState(anyHandHovering, deltaTime);
   }
@@ -1184,13 +1263,37 @@ export class WorkshopController {
   /**
    * Update hover visual feedback on schematic (Body)
    * Smoothly interpolates glow intensity for premium feel
+   *
+   * Behavior differs based on exploded state:
+   * - Assembled: Scale the entire schematic as one unit
+   * - Exploded: Scale only the individually hovered limb(s)
    */
   private updateHoverState(isHovering: boolean, deltaTime: number): void {
     this.isHoveringSchematic = isHovering;
 
-    // Smooth transition for hover intensity
-    const targetIntensity = isHovering ? 1 : 0;
     const transitionSpeed = 8; // Higher = faster transition
+    const isExploded = this.explodedViewManager?.getState() === 'exploded';
+
+    // Update per-limb hover intensities
+    const allLimbs: LimbType[] = [
+      'head',
+      'torso',
+      'arm_left',
+      'arm_right',
+      'leg_left',
+      'leg_right',
+    ];
+    for (const limbType of allLimbs) {
+      const targetLimbIntensity = this.hoveredLimbTypes.has(limbType) ? 1 : 0;
+      const currentIntensity = this.limbHoverIntensities.get(limbType) ?? 0;
+      const newIntensity =
+        currentIntensity +
+        (targetLimbIntensity - currentIntensity) * transitionSpeed * deltaTime;
+      this.limbHoverIntensities.set(limbType, newIntensity);
+    }
+
+    // Smooth transition for global hover intensity
+    const targetIntensity = isHovering ? 1 : 0;
     this.hoverIntensity +=
       (targetIntensity - this.hoverIntensity) * transitionSpeed * deltaTime;
 
@@ -1198,32 +1301,83 @@ export class WorkshopController {
     if (this.schematic) {
       const baseScale = this.schematic.userData.initialScale || 15.0; // Default if not set
 
-      if (this.hoverIntensity > 0.01) {
-        // Scale up slightly when hovered
-        const hoverScale = 1 + this.hoverIntensity * 0.08;
-        this.schematic.scale.setScalar(baseScale * hoverScale);
+      if (isExploded) {
+        // === EXPLODED STATE: Per-limb scaling ===
+        // Keep schematic group at base scale
+        this.schematic.scale.setScalar(baseScale);
 
-        // Performance optimization: Use cached meshes instead of traverse()
+        // Apply scale to individual limb meshes
+        this.schematic.traverse((child) => {
+          if (child instanceof THREE.Mesh && allLimbs.includes(child.name as LimbType)) {
+            const limbType = child.name as LimbType;
+            const limbIntensity = this.limbHoverIntensities.get(limbType) ?? 0;
+
+            // Store original scale if not already stored
+            if (child.userData.originalLimbScale === undefined) {
+              child.userData.originalLimbScale = child.scale.x;
+            }
+            const originalScale = child.userData.originalLimbScale as number;
+
+            if (limbIntensity > 0.01) {
+              // Scale up the hovered limb
+              const hoverScale = 1 + limbIntensity * 0.08;
+              child.scale.setScalar(originalScale * hoverScale);
+            } else {
+              // Reset to original scale
+              child.scale.setScalar(originalScale);
+            }
+          }
+        });
+
+        // Update shader opacity for hovered limbs
         for (const mesh of this.schematicShaderMeshes) {
-          // Boost opacity for hover feedback
           if (mesh.material.uniforms.uOpacity) {
             const baseOpacity = mesh.userData.baseOpacity ?? 0.4;
+            // Check if this mesh is a hovered limb
+            const meshLimbType = mesh.name as LimbType;
+            const limbIntensity = allLimbs.includes(meshLimbType)
+              ? (this.limbHoverIntensities.get(meshLimbType) ?? 0)
+              : 0;
             mesh.material.uniforms.uOpacity.value =
-              baseOpacity + this.hoverIntensity * 0.15;
+              baseOpacity + limbIntensity * 0.15;
           }
         }
       } else {
-        // Check if we fully settled to avoid constant updates
-        const scaleDiff = Math.abs(this.schematic.scale.x - baseScale);
-        if (scaleDiff > 0.001) {
-          // Reset to base state
-          this.schematic.scale.setScalar(baseScale);
+        // === ASSEMBLED STATE: Whole schematic scaling ===
+        // Reset individual limb scales to original
+        this.schematic.traverse((child) => {
+          if (child instanceof THREE.Mesh && child.userData.originalLimbScale !== undefined) {
+            child.scale.setScalar(child.userData.originalLimbScale as number);
+          }
+        });
+
+        if (this.hoverIntensity > 0.01) {
+          // Scale up the whole schematic when hovered
+          const hoverScale = 1 + this.hoverIntensity * 0.08;
+          this.schematic.scale.setScalar(baseScale * hoverScale);
 
           // Performance optimization: Use cached meshes instead of traverse()
           for (const mesh of this.schematicShaderMeshes) {
+            // Boost opacity for hover feedback
             if (mesh.material.uniforms.uOpacity) {
               const baseOpacity = mesh.userData.baseOpacity ?? 0.4;
-              mesh.material.uniforms.uOpacity.value = baseOpacity;
+              mesh.material.uniforms.uOpacity.value =
+                baseOpacity + this.hoverIntensity * 0.15;
+            }
+          }
+        } else {
+          // Check if we fully settled to avoid constant updates
+          const scaleDiff = Math.abs(this.schematic.scale.x - baseScale);
+          if (scaleDiff > 0.001) {
+            // Reset to base state
+            this.schematic.scale.setScalar(baseScale);
+
+            // Performance optimization: Use cached meshes instead of traverse()
+            for (const mesh of this.schematicShaderMeshes) {
+              if (mesh.material.uniforms.uOpacity) {
+                const baseOpacity = mesh.userData.baseOpacity ?? 0.4;
+                mesh.material.uniforms.uOpacity.value = baseOpacity;
+              }
             }
           }
         }

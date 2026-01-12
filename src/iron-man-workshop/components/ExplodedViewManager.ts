@@ -131,21 +131,21 @@ const LIMB_EXPLOSION_CONFIG: Record<LimbType, LimbExplosionConfig> = {
     targetOffset: new THREE.Vector3(-0.9, 0.2, 0.5),
     controlOffset: new THREE.Vector3(0.4, 0.7, -0.3),
     rotation: new THREE.Euler(0.5, -0.8, 1.2),
-    staggerDelay: 0.1,
+    staggerDelay: 0.25,
   },
   arm_right: {
     // TOP LEFT (Cross-over), Random rotation
     targetOffset: new THREE.Vector3(0.9, 0.5, -0.9),
     controlOffset: new THREE.Vector3(-0.4, 0.7, -0.2),
     rotation: new THREE.Euler(0.3, 0.5, 0.5),
-    staggerDelay: 0.1,
+    staggerDelay: 0.15,
   },
   leg_left: {
     // Bottom Left - Rotated to show profile/feet clearly
     targetOffset: new THREE.Vector3(-0.7, -0.9, 0.4),
     controlOffset: new THREE.Vector3(-0.5, -0.5, 0.6),
     rotation: new THREE.Euler(0.1, -0.8, 1.5),
-    staggerDelay: 0.2,
+    staggerDelay: 0.1,
   },
   leg_right: {
     // Bottom Right - Rotated to show profile/feet clearly
