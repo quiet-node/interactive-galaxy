@@ -1,15 +1,27 @@
 /**
- * HologramGrid
- * Creates a holographic floor grid with glowing lines
+ * @fileoverview Holographic floor grid for the workshop environment.
+ *
+ * Creates a glowing grid floor effect inspired by Tony Stark's workshop,
+ * consisting of a standard grid helper with custom wireframe material
+ * and a decorative outer ring.
+ *
+ * @module iron-man-workshop/components/WorkshopGrid
  */
 
 import * as THREE from 'three';
 import { createWireframeMaterial } from '../materials/WorkshopMaterial';
 
+/**
+ * Configuration options for the workshop grid appearance.
+ */
 export interface WorkshopGridConfig {
+  /** Overall grid size (width and depth) */
   size: number;
+  /** Number of grid divisions */
   divisions: number;
+  /** Grid line color */
   color: THREE.Color;
+  /** Grid line opacity */
   opacity: number;
 }
 
@@ -21,7 +33,14 @@ const DEFAULT_CONFIG: WorkshopGridConfig = {
 };
 
 /**
- * Creates a holographic grid floor
+ * Creates a holographic floor grid with outer ring decoration.
+ *
+ * Grid structure:
+ * - THREE.GridHelper with custom additive wireframe material
+ * - Outer ring geometry positioned at floor level
+ *
+ * @param config - Configuration options for grid appearance
+ * @returns THREE.Group containing the grid and ring meshes
  */
 export function createWorkshopGrid(
   config: Partial<WorkshopGridConfig> = {}

@@ -1,6 +1,11 @@
 /**
- * HologramPanels
- * Floating holographic UI panels with technical readouts
+ * @fileoverview Floating holographic UI panels with technical readout styling.
+ *
+ * Creates decorative plane meshes positioned around the schematic that simulate
+ * the floating holographic displays from Tony Stark's workshop. Includes animated
+ * hover effects and corner bracket decorations.
+ *
+ * @module iron-man-workshop/components/WorkshopPanels
  */
 
 import * as THREE from 'three';
@@ -19,7 +24,21 @@ const DEFAULT_CONFIG: WorkshopPanelConfig = {
 };
 
 /**
- * Creates a set of floating holographic panels
+ * Creates a group of floating holographic UI panels.
+ *
+ * Panel layout:
+ * - Left panel: Angled inward at -2.5 X
+ * - Right panel: Angled inward at +2.5 X
+ * - Top panel: Centered above, tilted down
+ *
+ * Each panel includes:
+ * - Holographic shader material with scanlines
+ * - Edge border lines
+ * - Corner bracket decorations
+ * - Float animation offset for organic movement
+ *
+ * @param config - Configuration options for panel appearance
+ * @returns THREE.Group containing all panel meshes
  */
 export function createWorkshopPanels(
   config: Partial<WorkshopPanelConfig> = {}
@@ -75,7 +94,15 @@ export function createWorkshopPanels(
 }
 
 /**
- * Adds decorative corner brackets to a panel
+ * Adds decorative L-shaped corner brackets to a panel.
+ *
+ * Creates four corner bracket lines using additive blending for
+ * the characteristic holographic UI aesthetic.
+ *
+ * @param panel - The panel mesh to attach brackets to
+ * @param width - Panel width for bracket positioning
+ * @param height - Panel height for bracket positioning
+ * @param color - Bracket line color
  */
 function addCornerBrackets(
   panel: THREE.Mesh,
@@ -111,7 +138,13 @@ function addCornerBrackets(
 }
 
 /**
- * Updates panel animations
+ * Updates panel float animations and shader time uniforms.
+ *
+ * Applies gentle sinusoidal Y-axis oscillation based on stored
+ * `userData.floatOffset` values for asynchronous movement.
+ *
+ * @param panels - The panel group created by {@link createWorkshopPanels}
+ * @param time - Current animation time in seconds
  */
 export function updateWorkshopPanels(panels: THREE.Group, time: number): void {
   panels.children.forEach((child) => {

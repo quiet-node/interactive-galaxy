@@ -1,13 +1,11 @@
 /**
- * HologramModel
- * Loads a GLB 3D model and applies holographic shader effects
+ * @fileoverview GLB model loader with holographic shader application and BVH acceleration.
  *
- * Performance characteristics:
- * - Uses meshopt compression for optimal asset delivery (90% size reduction)
- * - Implements simplified geometry for efficient rendering
- * - Utilizes optimized geometry for selective wireframe rendering
- * - Employs fresnel shaders for performant edge highlighting
- * - Implements O(n) direct iteration for uniform updates
+ * Loads the articulated Mark VI suit model, applies holographic shader materials,
+ * generates wireframe edge geometry, and attaches hit volumes for raycasting.
+ * Uses three-mesh-bvh for 10-100x faster raycasting performance.
+ *
+ * @module iron-man-workshop/components/MarkVIModel
  */
 
 import * as THREE from 'three';
@@ -49,10 +47,29 @@ export interface MarkVIModelResult {
 }
 
 /**
- * Creates a holographic model by loading the GLB file and applying shader effects
+ * Loads and configures the holographic Mark VI suit model.
  *
- * @param config - Configuration options for the hologram appearance
- * @returns Object containing the group (can be added to scene immediately) and load promise
+ * Processing pipeline:
+ * 1. Load compressed GLB via meshopt decoder (90% smaller assets)
+ * 2. Apply holographic shader material to all meshes
+ * 3. Generate structural wireframe edges (20° angle threshold)
+ * 4. Compute BVH bounds trees for accelerated raycasting
+ * 5. Attach invisible hit volumes to articulated limbs
+ * 6. Center model at origin
+ *
+ * @param config - Configuration options for hologram appearance and scale
+ * @returns Object containing the Three.js group (can be added to scene immediately)
+ *          and a promise that resolves when loading completes
+ *
+ * @example
+ * ```typescript
+ * const { group, loadPromise } = loadMarkVIModel({
+ *   color: new THREE.Color(0x00ff88),
+ *   scale: 15,
+ * });
+ * scene.add(group);
+ * await loadPromise;
+ * ```
  */
 export function loadMarkVIModel(
   config: Partial<MarkVIModelConfig> = {}
@@ -221,16 +238,19 @@ export function loadMarkVIModel(
 }
 
 /**
- * Type alias for cached shader meshes
+ * Type alias for meshes using the holographic shader material.
  */
 export type ShaderMesh = THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
 
 /**
- * Updates hologram model shader uniforms using pre-cached mesh array
- * This avoids expensive traverse() calls every frame
+ * Updates shader time uniforms using a pre-cached mesh array.
  *
- * @param cachedMeshes - Pre-cached array of shader meshes (from cacheSchematicShaderMeshes)
- * @param time - Current animation time
+ * This is the performance-optimized update path that avoids expensive
+ * `Object3D.traverse()` calls every frame. The mesh array should be
+ * populated once after model load via traversal.
+ *
+ * @param cachedMeshes - Pre-cached array of shader meshes
+ * @param time - Current animation time in seconds
  */
 export function updateMarkVIModelCached(
   cachedMeshes: ShaderMesh[],
@@ -242,9 +262,14 @@ export function updateMarkVIModelCached(
 }
 
 /**
- * @deprecated Use updateHologramModelCached() with pre-cached meshes for better performance
- * Updates hologram model shader uniforms by traversing the scene graph
- * This is kept for backwards compatibility but should be avoided in hot paths
+ * Updates shader time uniforms by traversing the scene graph.
+ *
+ * @deprecated Use {@link updateMarkVIModelCached} with pre-cached meshes for better performance.
+ *             This function traverses the entire model hierarchy every frame, causing
+ *             unnecessary overhead in the hot path.
+ *
+ * @param model - The hologram model group
+ * @param time - Current animation time in seconds
  */
 export function updateMarkVIModel(model: THREE.Group, time: number): void {
   model.traverse((child) => {

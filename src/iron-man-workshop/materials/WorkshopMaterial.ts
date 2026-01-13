@@ -1,25 +1,30 @@
 /**
- * HologramMaterial
- * Custom ShaderMaterial for holographic effects with Fresnel glow and scanlines
+ * @fileoverview Holographic shader materials for the workshop environment.
+ *
+ * Provides custom Three.js ShaderMaterial implementations featuring fresnel-based
+ * edge glow, animated scanlines, and subtle flicker effects. All materials use
+ * additive blending for the characteristic holographic appearance.
+ *
+ * @module iron-man-workshop/materials/WorkshopMaterial
  */
 
 import * as THREE from 'three';
 
 /**
- * Configuration for the hologram material
+ * Configuration options for the holographic shader material.
  */
 export interface WorkshopMaterialConfig {
-  /** Primary color */
+  /** Primary hologram color */
   color: THREE.Color;
-  /** Opacity (0-1) */
+  /** Base opacity (0-1) */
   opacity: number;
-  /** Fresnel power (higher = sharper edge glow) */
+  /** Fresnel exponent (higher = sharper edge glow falloff) */
   fresnelPower: number;
-  /** Scanline frequency */
+  /** Scanline density (lines per world unit) */
   scanlineFrequency: number;
-  /** Scanline speed */
+  /** Scanline scroll speed */
   scanlineSpeed: number;
-  /** Enable scanlines */
+  /** Whether to render animated scanlines */
   enableScanlines: boolean;
 }
 
@@ -33,7 +38,13 @@ const DEFAULT_CONFIG: WorkshopMaterialConfig = {
 };
 
 /**
- * Vertex shader for holographic effect
+ * Vertex shader for holographic effect.
+ *
+ * Outputs:
+ * - vNormal: View-space normal for fresnel calculation
+ * - vViewPosition: View-space position for fresnel direction
+ * - vWorldPosition: World-space position for scanline sampling
+ * - vUv: UV coordinates (available for future texture effects)
  */
 const vertexShader = `
   varying vec3 vNormal;
@@ -54,7 +65,13 @@ const vertexShader = `
 `;
 
 /**
- * Fragment shader for holographic effect
+ * Fragment shader for holographic effect.
+ *
+ * Visual layers:
+ * 1. Base color with configurable opacity
+ * 2. Fresnel edge glow (view-angle dependent intensity)
+ * 3. Animated horizontal scanlines (world-space Y)
+ * 4. Subtle high-frequency flicker
  */
 const fragmentShader = `
   uniform vec3 uColor;
@@ -99,7 +116,19 @@ const fragmentShader = `
 `;
 
 /**
- * Creates a holographic ShaderMaterial
+ * Creates a holographic ShaderMaterial with fresnel glow and scanlines.
+ *
+ * Material properties:
+ * - Transparent with additive blending
+ * - Double-sided rendering
+ * - Depth write disabled for proper layering
+ *
+ * @param config - Configuration options for material appearance
+ * @returns Configured THREE.ShaderMaterial instance
+ *
+ * @remarks
+ * The `uColor` uniform is cloned from config to prevent shared state
+ * between material instances.
  */
 export function createWorkshopMaterial(
   config: Partial<WorkshopMaterialConfig> = {}
@@ -128,7 +157,13 @@ export function createWorkshopMaterial(
 }
 
 /**
- * Creates a wireframe holographic material (for edges/outlines)
+ * Creates a wireframe material for holographic edges and outlines.
+ *
+ * Uses LineBasicMaterial with additive blending for glowing line effects.
+ *
+ * @param color - Line color (default: cyan)
+ * @param opacity - Line opacity (default: 0.8)
+ * @returns Configured THREE.LineBasicMaterial instance
  */
 export function createWireframeMaterial(
   color: THREE.Color = new THREE.Color(0x00ffff),

@@ -1,15 +1,26 @@
 /**
- * HologramRings
- * Animated rotating holographic rings/arcs
+ * @fileoverview Animated holographic ring arcs for the workshop environment.
+ *
+ * Creates decorative rotating ring segments and torus elements that orbit
+ * around the schematic model, enhancing the Tony Stark workshop aesthetic.
+ *
+ * @module iron-man-workshop/components/WorkshopRings
  */
 
 import * as THREE from 'three';
 import { createWorkshopMaterial } from '../materials/WorkshopMaterial';
 
+/**
+ * Configuration options for workshop ring appearance.
+ */
 export interface WorkshopRingsConfig {
+  /** Inner radius of the arc segments */
   innerRadius: number;
+  /** Outer radius of the arc segments */
   outerRadius: number;
+  /** Number of segments for arc smoothness */
   thetaSegments: number;
+  /** Holographic color for the rings */
   color: THREE.Color;
 }
 
@@ -21,7 +32,16 @@ const DEFAULT_CONFIG: WorkshopRingsConfig = {
 };
 
 /**
- * Creates a set of animated holographic rings
+ * Creates a group of animated holographic ring arcs.
+ *
+ * Ring structure:
+ * - 3 outer arc segments at 120° intervals, rotating on alternating axes
+ * - 1 inner torus ring rotating on the X axis
+ *
+ * Each ring has different rotation speeds and opacity levels for visual depth.
+ *
+ * @param config - Configuration options for ring appearance
+ * @returns THREE.Group containing all ring meshes with rotation metadata
  */
 export function createWorkshopRings(
   config: Partial<WorkshopRingsConfig> = {}
@@ -81,7 +101,15 @@ export function createWorkshopRings(
 }
 
 /**
- * Updates ring animations
+ * Updates ring rotation animations and shader time uniforms.
+ *
+ * Applies per-ring rotation based on stored `userData.rotationSpeed` and
+ * `userData.rotationAxis` properties. Also updates shader time uniforms
+ * for any animated material effects.
+ *
+ * @param rings - The ring group created by {@link createWorkshopRings}
+ * @param deltaTime - Time since last frame in seconds
+ * @param time - Current animation time in seconds (for shader uniforms)
  */
 export function updateWorkshopRings(
   rings: THREE.Group,

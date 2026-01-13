@@ -1,15 +1,11 @@
 /**
- * ExplodedViewManager
+ * @fileoverview Exploded view animation system for the Mark VI holographic model.
  *
- * Orchestrates the exploded view / assembly sequence animation for the Mark VI model.
- * Inspired by the Mark 42/43 prehensile armor from Iron Man 3.
+ * Provides a state machine-driven animation system that separates the Iron Man suit
+ * into individual limb components with cinematic Bezier curve trajectories. Inspired
+ * by the Mark 42/43 prehensile armor from Iron Man 3.
  *
- * Features:
- * - State machine: ASSEMBLED → EXPLODING → EXPLODED → ASSEMBLING → ASSEMBLED
- * - GSAP-powered butter-smooth animations with staggered timing
- * - Bidirectional animation (explode/assemble)
- * - Sound effect integration via Howler.js
- * - Particle trail callbacks for cinematic effects
+ * @module iron-man-workshop/components/ExplodedViewManager
  */
 
 import * as THREE from 'three';
@@ -164,9 +160,32 @@ const LIMB_EXPLOSION_CONFIG: Record<LimbType, LimbExplosionConfig> = {
 };
 
 /**
- * ExplodedViewManager
+ * Orchestrates cinematic exploded view animations for the Iron Man suit schematic.
  *
- * Controls the cinematic exploded view animation for the Iron Man suit.
+ * Implements a state machine with four states:
+ * - `assembled` - Default state, suit is intact
+ * - `exploding` - Transition animation, limbs flying outward
+ * - `exploded` - Limbs separated with levitation animation
+ * - `assembling` - Transition animation, limbs returning to torso
+ *
+ * Animation features:
+ * - Quadratic Bezier curve trajectories for organic movement
+ * - Per-limb velocity multipliers (lighter parts move faster)
+ * - Micro-rotation during flight for "floating in space" effect
+ * - Staggered timing with random jitter for natural feel
+ * - Post-explosion levitation loop with gentle bobbing
+ *
+ * @example
+ * ```typescript
+ * const manager = new ExplodedViewManager({
+ *   animationDuration: 1.2,
+ *   enableSound: true,
+ *   onLimbMoveStart: (limbName, mesh) => particles.startEmitting(mesh),
+ *   onLimbMoveEnd: (limbName, mesh) => particles.stopEmitting(mesh),
+ * });
+ * manager.initialize(schematicGroup);
+ * await manager.explode();
+ * ```
  */
 export class ExplodedViewManager {
   private state: ExplodedViewState = 'assembled';
@@ -199,8 +218,16 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Initialize the manager with limb references from the loaded model
-   * Must be called after model is fully loaded
+   * Initializes the manager with limb references from the loaded 3D model.
+   *
+   * Traverses the schematic group and registers each limb mesh by name,
+   * storing original position and rotation for animation return points.
+   *
+   * @param schematic - The loaded Three.js Group containing named limb meshes
+   *
+   * @remarks
+   * Must be called after the GLB model is fully loaded. Expected limb names:
+   * `head`, `torso`, `arm_left`, `arm_right`, `leg_left`, `leg_right`
    */
   initialize(schematic: THREE.Group): void {
     // Find and store references to each limb mesh
@@ -242,7 +269,15 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Initialize sound effects using Howler.js
+   * Loads sound effects for animation feedback.
+   *
+   * Uses Howler.js to preload audio assets:
+   * - `servo-whir.mp3` - Looped during limb movement
+   * - `metal-click.mp3` - Plays on animation completion
+   * - `power-up.mp3` - Plays on animation start
+   *
+   * @remarks
+   * Gracefully handles missing audio files with console warnings.
    */
   private initializeSounds(): void {
     // Sound effects will be loaded from audio files
@@ -281,30 +316,46 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Get current animation state
+   * Returns the current animation state.
+   *
+   * @returns Current state: `assembled`, `exploding`, `exploded`, or `assembling`
    */
   getState(): ExplodedViewState {
     return this.state;
   }
 
   /**
-   * Check if animation is currently in progress
+   * Checks whether an animation is currently in progress.
+   *
+   * @returns `true` if in `exploding` or `assembling` state
    */
   isAnimating(): boolean {
     return this.state === 'exploding' || this.state === 'assembling';
   }
 
   /**
-   * Get a limb mesh by name
-   * Used by WorkshopController for direct manipulation during exploded grab
+   * Retrieves a limb mesh reference by type.
+   *
+   * Used by WorkshopController for direct manipulation during exploded grab.
+   *
+   * @param limbType - The limb identifier
+   * @returns The limb mesh if registered, or `undefined`
    */
   getLimbMesh(limbType: LimbType): THREE.Object3D | undefined {
     return this.limbMeshes.get(limbType);
   }
 
   /**
-   * Pause levitation for a specific limb (when being grabbed)
-   * This prevents the bobbing animation from conflicting with user manipulation
+   * Pauses the levitation animation for limb manipulation.
+   *
+   * Called when the user grabs a limb to prevent the bobbing animation
+   * from conflicting with hand-controlled movement.
+   *
+   * @param limbType - The limb being grabbed (for logging)
+   *
+   * @remarks
+   * Currently pauses the entire levitation timeline, not just the grabbed limb,
+   * for implementation simplicity.
    */
   pauseLevitationForLimb(limbType: LimbType): void {
     // The levitation timeline animates all limbs together
@@ -318,8 +369,10 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Resume levitation after limb is released
-   * Restarts the levitation animation from current positions to prevent snap-back
+   * Resumes levitation animation after limb release.
+   *
+   * Restarts the levitation timeline from current mesh positions rather than
+   * resuming, which allows user-moved parts to maintain their new positions.
    */
   resumeLevitation(): void {
     // Instead of resuming (which would animate back to old positions),
@@ -336,12 +389,18 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Explode the suit - limbs fly outward from torso
+   * Triggers the explosion animation - limbs fly outward from the torso.
    *
-   * Cinematic 3-phase animation:
-   * 1. Anticipation: Brief "charge" with scale pulse and glow intensification
-   * 2. Burst: Rapid outward motion with micro-rotations and per-frame particle updates
-   * 3. Settle: Overshoot with elastic settle for mechanical "click"
+   * Three-phase cinematic animation:
+   * 1. **Anticipation** (0.15s): Brief pause with glow intensification
+   * 2. **Burst** (1.6s): Rapid outward motion along Bezier curves with micro-rotations
+   * 3. **Settle**: Elastic overshoot handled by `expo.out` easing
+   *
+   * @returns Promise that resolves when animation completes
+   *
+   * @remarks
+   * Only triggers from `assembled` state. Automatically transitions to
+   * `exploded` state and starts levitation loop on completion.
    */
   async explode(): Promise<void> {
     if (this.state !== 'assembled') {
@@ -479,12 +538,18 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Assemble the suit - limbs fly back to torso
+   * Triggers the assembly animation - limbs fly back to the torso.
    *
-   * Cinematic reassembly with:
-   * - Per-frame particle trail updates
-   * - Velocity-based movement timing
-   * - Elastic "click into place" finish
+   * Cinematic reassembly sequence:
+   * - **Phase 1**: Torso returns first (fastest)
+   * - **Phase 2**: Arms and legs follow with staggered timing
+   * - **Phase 3**: Head returns last with 360° spin flourish
+   *
+   * @returns Promise that resolves when animation completes
+   *
+   * @remarks
+   * Only triggers from `exploded` state. Stops levitation animation
+   * and returns all limbs to their original positions.
    */
   async assemble(): Promise<void> {
     if (this.state !== 'exploded') {
@@ -633,7 +698,12 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Toggle between exploded and assembled states
+   * Toggles between exploded and assembled states.
+   *
+   * Calls {@link explode} if currently assembled, or {@link assemble} if exploded.
+   * Ignores input while an animation is in progress.
+   *
+   * @returns Promise that resolves when the triggered animation completes
    */
   async toggle(): Promise<void> {
     if (this.isAnimating()) {
@@ -651,7 +721,10 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Reset limbs to original positions immediately (no animation)
+   * Immediately resets all limbs to their original positions without animation.
+   *
+   * Kills any active timeline, stops levitation, and snaps limbs back to
+   * their registered original transforms.
    */
   reset(): void {
     this.timeline?.kill();
@@ -670,8 +743,15 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Helper: Calculate Quadratic Bezier Point
-   * B(t) = (1-t)^2 * P0 + 2(1-t)t * P1 + t^2 * P2
+   * Calculates a point on a quadratic Bezier curve.
+   *
+   * Formula: B(t) = (1-t)² × P0 + 2(1-t)t × P1 + t² × P2
+   *
+   * @param t - Interpolation parameter (0 = start, 1 = end)
+   * @param p0 - Start point
+   * @param p1 - Control point (defines curve arc)
+   * @param p2 - End point
+   * @param target - Output vector (mutated in place)
    */
   private getBezierPoint(
     t: number,
@@ -693,8 +773,15 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Helper: Calculate Quadratic Bezier Tangent (for velocity)
-   * B'(t) = 2(1-t)(P1 - P0) + 2t(P2 - P1)
+   * Calculates the tangent (velocity direction) at a point on a quadratic Bezier curve.
+   *
+   * Formula: B'(t) = 2(1-t)(P1 - P0) + 2t(P2 - P1)
+   *
+   * @param t - Interpolation parameter (0 = start, 1 = end)
+   * @param p0 - Start point
+   * @param p1 - Control point
+   * @param p2 - End point
+   * @param target - Output vector (mutated in place, normalized)
    */
   private getBezierTangent(
     t: number,
@@ -725,7 +812,17 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Start the levitation loop - parts gently bob and rotate
+   * Starts the levitation loop for exploded limbs.
+   *
+   * Creates an infinite yoyo timeline that gently bobs each limb with:
+   * - Random phase offsets for organic asynchrony
+   * - Subtle Y-axis position oscillation
+   * - Minimal Z-axis rotation drift
+   * - Periodic particle pulse callbacks
+   *
+   * @remarks
+   * Only activates in `exploded` state. Automatically kills any previous
+   * levitation timeline before creating a new one.
    */
   private startLevitation(): void {
     if (this.state !== 'exploded') return;
@@ -775,6 +872,12 @@ export class ExplodedViewManager {
     }
   }
 
+  /**
+   * Stops the levitation animation loop.
+   *
+   * Kills the levitation timeline and emits a move-end callback for the torso
+   * to ensure any continuous particle effects are properly terminated.
+   */
   private stopLevitation(): void {
     if (this.levitationTimeline) {
       this.levitationTimeline.kill();
@@ -789,7 +892,9 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Update state and notify listeners
+   * Updates the internal state and notifies listeners.
+   *
+   * @param newState - The new animation state to transition to
    */
   private setState(newState: ExplodedViewState): void {
     if (this.state !== newState) {
@@ -800,7 +905,9 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Play a sound effect
+   * Plays a sound effect if sound is enabled.
+   *
+   * @param soundName - Key identifying the sound to play
    */
   private playSound(soundName: keyof typeof this.sounds): void {
     if (!this.config.enableSound) return;
@@ -808,7 +915,9 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Stop a sound effect
+   * Stops a currently playing sound effect.
+   *
+   * @param soundName - Key identifying the sound to stop
    */
   private stopSound(soundName: keyof typeof this.sounds): void {
     if (!this.config.enableSound) return;
@@ -816,7 +925,12 @@ export class ExplodedViewManager {
   }
 
   /**
-   * Clean up resources
+   * Disposes all resources held by the manager.
+   *
+   * Cleanup includes:
+   * - Killing active animation timelines
+   * - Stopping and unloading all audio resources
+   * - Clearing limb mesh and original state references
    */
   dispose(): void {
     this.timeline?.kill();

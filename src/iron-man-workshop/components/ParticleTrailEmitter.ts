@@ -1,14 +1,11 @@
 /**
- * ParticleTrailEmitter
+ * @fileoverview GPU-efficient particle trail system for cinematic thruster effects.
  *
- * Creates thruster exhaust particle trails behind moving armor limbs.
- * Inspired by the Mark 42/43 repulsor trails from the MCU.
+ * Provides repulsor exhaust particle trails for moving armor limbs using object
+ * pooling and THREE.Points with custom shaders. Inspired by the Mark 42/43
+ * prehensile armor effects from the MCU.
  *
- * Features:
- * - Particle pooling for performance (no allocation during animation)
- * - Additive blending for glowing effect
- * - Short lifetime with fade-out
- * - Attaches to moving limbs automatically
+ * @module iron-man-workshop/components/ParticleTrailEmitter
  */
 
 import * as THREE from 'three';
@@ -48,10 +45,31 @@ interface Particle {
 }
 
 /**
- * ParticleTrailEmitter
+ * GPU-efficient particle emitter for single thruster exhaust trails.
  *
- * Manages particle trails for cinematic thruster exhaust effects.
- * Uses object pooling and GPU-friendly THREE.Points for performance.
+ * Architecture:
+ * - **Object Pooling**: Pre-allocates all particles to avoid runtime GC pressure
+ * - **Buffer Attributes**: Uses typed arrays for efficient GPU uploads
+ * - **Custom Shader**: Renders soft circular glowing particles with additive blending
+ * - **Velocity-Based Direction**: Particles trail opposite to movement direction
+ *
+ * Performance characteristics:
+ * - Zero allocations during emission/update (pre-allocated pools and temp objects)
+ * - Single draw call per emitter via THREE.Points
+ * - Additive blending with depth write disabled for proper transparency
+ *
+ * @example
+ * ```typescript
+ * const emitter = new ParticleTrailEmitter({
+ *   maxParticles: 120,
+ *   lifetime: 0.7,
+ *   coreColor: new THREE.Color(0x00ffff),
+ * });
+ * scene.add(emitter.getObject3D());
+ * emitter.startEmitting(position, direction);
+ * // In animation loop:
+ * emitter.update(deltaTime);
+ * ```
  */
 export class ParticleTrailEmitter {
   private config: ParticleTrailConfig;
@@ -148,14 +166,20 @@ export class ParticleTrailEmitter {
   }
 
   /**
-   * Get the THREE.Points object to add to scene
+   * Returns the Three.js Points object for scene integration.
+   *
+   * @returns The THREE.Points mesh containing all particles
    */
   getObject3D(): THREE.Points {
     return this.particleSystem;
   }
 
   /**
-   * Start emitting particles at the given position
+   * Begins particle emission at the specified position.
+   *
+   * @param position - World-space emission origin
+   * @param direction - Initial velocity direction (will be normalized)
+   * @param rate - Particles per frame (optional, default: 4)
    */
   startEmitting(
     position: THREE.Vector3,
@@ -171,15 +195,23 @@ export class ParticleTrailEmitter {
   }
 
   /**
-   * Update emit position (call each frame while emitting)
+   * Updates the emission origin position.
+   *
+   * Call each frame while emitting to track a moving object.
+   *
+   * @param position - New world-space emission origin
    */
   updateEmitPosition(position: THREE.Vector3): void {
     this.emitPosition.copy(position);
   }
 
   /**
-   * Update emit direction based on velocity (for trailing particles)
-   * Direction should be OPPOSITE to movement direction for exhaust effect
+   * Updates emission direction based on object velocity.
+   *
+   * The direction is negated internally to create exhaust trailing behind movement.
+   * Only updates if the velocity vector has meaningful magnitude (> 0.001).
+   *
+   * @param direction - Velocity vector (will be normalized and negated)
    */
   updateEmitDirection(direction: THREE.Vector3): void {
     if (direction.lengthSq() > 0.001) {
@@ -189,14 +221,27 @@ export class ParticleTrailEmitter {
   }
 
   /**
-   * Stop emitting new particles (existing ones will fade out)
+   * Stops emitting new particles.
+   *
+   * Existing particles continue updating and will fade out naturally
+   * according to their remaining lifetime.
    */
   stopEmitting(): void {
     this.isEmitting = false;
   }
 
   /**
-   * Update all particles (call each frame)
+   * Updates all particles and emits new ones if active.
+   *
+   * Per-frame update cycle:
+   * 1. Emit new particles based on emission rate (if emitting)
+   * 2. Age each particle and deactivate expired ones
+   * 3. Apply velocity to particle positions
+   * 4. Interpolate color from core to fade based on lifetime
+   * 5. Shrink particle size as it ages
+   * 6. Upload buffer updates to GPU
+   *
+   * @param deltaTime - Time since last frame in seconds
    */
   update(deltaTime: number): void {
     const positions = this.positionAttribute.array as Float32Array;
@@ -272,7 +317,10 @@ export class ParticleTrailEmitter {
   }
 
   /**
-   * Emit a single particle
+   * Emits a single particle from the pool.
+   *
+   * Finds the first inactive particle, initializes it with randomized parameters
+   * (lifetime, size, position offset, velocity spread), and marks it active.
    */
   private emitParticle(): void {
     // Find an inactive particle
@@ -304,7 +352,9 @@ export class ParticleTrailEmitter {
   }
 
   /**
-   * Reset all particles to inactive
+   * Immediately deactivates all particles and stops emission.
+   *
+   * Resets the particle pool to initial state without disposing resources.
    */
   reset(): void {
     this.isEmitting = false;
@@ -318,7 +368,9 @@ export class ParticleTrailEmitter {
   }
 
   /**
-   * Clean up resources
+   * Disposes GPU resources (geometry and material).
+   *
+   * After calling dispose(), the emitter cannot be reused.
    */
   dispose(): void {
     this.geometry.dispose();
@@ -328,10 +380,26 @@ export class ParticleTrailEmitter {
 }
 
 /**
- * ParticleTrailSystem
+ * Manages multiple particle emitters for all armor limbs.
  *
- * Manages multiple particle emitters for all limbs.
- * Provides a simple interface to start/stop trails per limb.
+ * Provides a high-level interface for starting/stopping particle trails per limb,
+ * with automatic emitter creation and lifecycle management.
+ *
+ * @example
+ * ```typescript
+ * const system = new ParticleTrailSystem();
+ * scene.add(system.getObject3D());
+ *
+ * // Create emitter for each limb
+ * system.createEmitter('arm_left');
+ * system.createEmitter('arm_right');
+ *
+ * // Start trail on limb movement
+ * system.startTrail('arm_left', position, velocity);
+ *
+ * // In animation loop:
+ * system.update(deltaTime);
+ * ```
  */
 export class ParticleTrailSystem {
   private emitters: Map<string, ParticleTrailEmitter> = new Map();
@@ -342,14 +410,20 @@ export class ParticleTrailSystem {
   }
 
   /**
-   * Get the THREE.Group containing all particle systems
+   * Returns the container Group for scene integration.
+   *
+   * @returns THREE.Group containing all particle emitter Points meshes
    */
   getObject3D(): THREE.Group {
     return this.group;
   }
 
   /**
-   * Create an emitter for a limb
+   * Creates and registers a particle emitter for a limb.
+   *
+   * @param limbName - Unique identifier for the limb (e.g., 'arm_left')
+   * @param config - Optional configuration overrides for this emitter
+   * @returns The created ParticleTrailEmitter instance
    */
   createEmitter(
     limbName: string,
@@ -362,7 +436,12 @@ export class ParticleTrailSystem {
   }
 
   /**
-   * Start emitting particles for a limb
+   * Starts particle emission for a specific limb.
+   *
+   * @param limbName - The limb identifier
+   * @param position - World-space emission origin
+   * @param direction - Initial velocity direction
+   * @param rate - Optional particles per frame
    */
   startTrail(
     limbName: string,
@@ -377,7 +456,10 @@ export class ParticleTrailSystem {
   }
 
   /**
-   * Update emit position for a limb
+   * Updates the emission position for a limb's emitter.
+   *
+   * @param limbName - The limb identifier
+   * @param position - New world-space emission origin
    */
   updateTrail(limbName: string, position: THREE.Vector3): void {
     const emitter = this.emitters.get(limbName);
@@ -387,8 +469,14 @@ export class ParticleTrailSystem {
   }
 
   /**
-   * Update emit position AND direction for a limb (for velocity-based trailing)
-   * This is the preferred method for cinematic particle trails
+   * Updates both emission position and direction for velocity-based trailing.
+   *
+   * Preferred method for cinematic particle trails that follow object movement.
+   * The direction is automatically negated to create exhaust behind the object.
+   *
+   * @param limbName - The limb identifier
+   * @param position - World-space emission origin
+   * @param velocity - Movement velocity vector (will trail opposite)
    */
   updateTrailWithVelocity(
     limbName: string,
@@ -403,7 +491,9 @@ export class ParticleTrailSystem {
   }
 
   /**
-   * Stop emitting particles for a limb
+   * Stops particle emission for a specific limb.
+   *
+   * @param limbName - The limb identifier
    */
   stopTrail(limbName: string): void {
     const emitter = this.emitters.get(limbName);
@@ -413,7 +503,9 @@ export class ParticleTrailSystem {
   }
 
   /**
-   * Update all emitters
+   * Updates all registered emitters.
+   *
+   * @param deltaTime - Time since last frame in seconds
    */
   update(deltaTime: number): void {
     for (const emitter of this.emitters.values()) {
@@ -422,7 +514,7 @@ export class ParticleTrailSystem {
   }
 
   /**
-   * Reset all emitters
+   * Resets all emitters to their initial state.
    */
   reset(): void {
     for (const emitter of this.emitters.values()) {
@@ -431,7 +523,7 @@ export class ParticleTrailSystem {
   }
 
   /**
-   * Clean up all emitters
+   * Disposes all emitters and clears the registry.
    */
   dispose(): void {
     for (const emitter of this.emitters.values()) {

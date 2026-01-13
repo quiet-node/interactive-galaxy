@@ -1,18 +1,38 @@
 /**
- * PartData
- * Technical specifications and status data for Mark VI components
+ * @fileoverview Technical specifications and status data for Mark VI armor components.
+ *
+ * Provides static data for the holographic info panel, including part names,
+ * subtitles, and status indicators for each armor limb.
+ *
+ * @module iron-man-workshop/data/PartData
  */
 
+/**
+ * Information structure for an armor part displayed in the info panel.
+ */
 export interface PartInfo {
+  /** Part display name (e.g., "MARK VI HELMET") */
   title: string;
+  /** Secondary description line */
   subtitle: string;
+  /** Array of status statistics to display */
   stats: {
+    /** Stat label (e.g., "INTEGRITY") */
     label: string;
+    /** Stat value (e.g., "100%") */
     value: string;
+    /** Status level affecting display color */
     status: 'optimal' | 'warning' | 'critical' | 'normal';
   }[];
 }
 
+/**
+ * Technical specification data for each Mark VI armor component.
+ *
+ * Keys correspond to limb identifiers from the articulated GLB model:
+ * - `head`, `torso`, `arm_left`, `arm_right`, `leg_left`, `leg_right`
+ * - `unknown` serves as a fallback for unrecognized parts
+ */
 export const MARK_VI_PART_DATA: Record<string, PartInfo> = {
   head: {
     title: 'MARK VI HELMET',

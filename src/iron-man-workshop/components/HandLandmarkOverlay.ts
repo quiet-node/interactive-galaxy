@@ -1,14 +1,20 @@
 /**
- * HandLandmarkOverlay
- * High-performance hand landmark rendering using direct canvas drawing
- * Visible only in debug mode for the Workshop interface
+ * @fileoverview High-performance hand landmark debug visualization.
+ *
+ * Renders MediaPipe hand tracking landmarks directly to a 2D canvas overlay,
+ * bypassing MediaPipe's DrawingUtils for maximum performance. Only visible
+ * when debug mode is enabled.
+ *
+ * @module iron-man-workshop/components/HandLandmarkOverlay
  */
 
 import type { HandLandmarkerResult } from '@mediapipe/tasks-vision';
 
 /**
- * Hand connections for drawing the skeletal structure (21 landmarks)
- * Pre-defined as typed tuples for performance (no runtime lookups)
+ * Pre-defined hand skeleton connections (21 landmarks).
+ *
+ * Typed as ReadonlyArray of tuples to enable compile-time validation
+ * and avoid runtime lookups. Connections follow MediaPipe hand topology.
  */
 const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
   // Thumb
@@ -40,7 +46,7 @@ const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
 ];
 
 /**
- * Configuration for the hand landmark overlay
+ * Configuration options for hand landmark rendering appearance.
  */
 export interface HandLandmarkOverlayConfig {
   /** Color for landmark points */
@@ -61,8 +67,22 @@ const DEFAULT_CONFIG: HandLandmarkOverlayConfig = {
 };
 
 /**
- * HandLandmarkOverlay - High-performance hand landmark rendering
- * Uses direct canvas drawing instead of MediaPipe DrawingUtils for maximum FPS
+ * High-performance hand landmark visualization overlay.
+ *
+ * Optimizations:
+ * - Direct canvas drawing (no DrawingUtils dependency overhead)
+ * - Batched path operations (single beginPath/stroke per hand)
+ * - Desynchronized canvas context for reduced latency
+ * - Pre-computed style values (set once, not per-frame)
+ *
+ * @example
+ * ```typescript
+ * const overlay = new HandLandmarkOverlay(container);
+ * overlay.setEnabled(true);
+ *
+ * // In animation loop:
+ * overlay.update(handTracker.getLastResult());
+ * ```
  */
 export class HandLandmarkOverlay {
   private readonly canvas: HTMLCanvasElement;
@@ -113,7 +133,7 @@ export class HandLandmarkOverlay {
   }
 
   /**
-   * Resize canvas to match container
+   * Resizes the canvas to match the parent container dimensions.
    */
   private resize = (): void => {
     const rect = this.canvas.parentElement?.getBoundingClientRect();
@@ -126,7 +146,11 @@ export class HandLandmarkOverlay {
   };
 
   /**
-   * Enable or disable the overlay
+   * Enables or disables the overlay visibility.
+   *
+   * When disabled, the canvas is hidden and cleared to avoid stale rendering.
+   *
+   * @param enabled - Whether to show the overlay
    */
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
@@ -138,8 +162,15 @@ export class HandLandmarkOverlay {
   }
 
   /**
-   * Update the overlay with new hand detection results
-   * Optimized for maximum performance with direct canvas operations
+   * Renders hand landmarks from the latest detection results.
+   *
+   * Drawing strategy:
+   * 1. Clear previous frame
+   * 2. Set styles once (avoids repeated context state changes)
+   * 3. Draw all connection lines in a single batched path
+   * 4. Draw all landmark circles
+   *
+   * @param handResults - MediaPipe hand detection results, or null if none
    */
   update(handResults: HandLandmarkerResult | null): void {
     if (!this.enabled) return;
@@ -184,7 +215,7 @@ export class HandLandmarkOverlay {
   }
 
   /**
-   * Clean up resources
+   * Disposes resources and removes the canvas from the DOM.
    */
   dispose(): void {
     window.removeEventListener('resize', this.resize);

@@ -1,12 +1,14 @@
 /**
- * WorkshopController
- * Main controller for the Iron Man holographic interface mode
+ * @fileoverview WorkshopController - Main controller for the Iron Man holographic interface mode.
  *
- * Architecture:
- * - Three.js scene with transparent background (webcam visible behind)
- * - Post-processing with UnrealBloomPass for holographic glow
- * - Multiple holographic components (grid, rings, panels, schematic)
- * - Hand tracking integration ready for Phase 2
+ * This module orchestrates the holographic workshop experience, managing:
+ * - Three.js scene composition with transparent background overlay
+ * - Post-processing pipeline with bloom effects for holographic aesthetics
+ * - Hand tracking integration for gesture-based interaction
+ * - Component lifecycle (grid, rings, panels, Mark VI schematic)
+ * - Exploded view animation system with particle effects
+ *
+ * @module iron-man-workshop/WorkshopController
  */
 
 import * as THREE from 'three';
@@ -53,7 +55,18 @@ import {
 import gsap from 'gsap';
 
 /**
- * WorkshopController - Main controller for holographic mode
+ * Main controller for the Iron Man holographic workshop interface.
+ *
+ * Manages the complete lifecycle of the holographic display including scene setup,
+ * animation loop, hand tracking input, and component orchestration. Implements
+ * gesture-based manipulation of the Mark VI schematic with exploded view support.
+ *
+ * @example
+ * ```typescript
+ * const controller = new WorkshopController(handTracker, containerElement);
+ * controller.initialize();
+ * controller.start();
+ * ```
  */
 export class WorkshopController {
   private handTracker: HandTracker;
@@ -224,7 +237,10 @@ export class WorkshopController {
   }
 
   /**
-   * Initialize the holographic scene
+   * Initializes the holographic scene and all subsystems.
+   *
+   * Sets up the Three.js renderer, hand tracking overlay, lighting,
+   * holographic components, and event listeners. Must be called before start().
    */
   initialize(): void {
     // Add renderer to container
@@ -259,7 +275,10 @@ export class WorkshopController {
   }
 
   /**
-   * Setup post-processing effects
+   * Configures the post-processing pipeline with bloom effects.
+   *
+   * Creates render pass and bloom effect pass using pmndrs/postprocessing
+   * library for efficient single-pass effect merging.
    */
   private setupPostProcessing(): void {
     // Render pass
@@ -279,7 +298,10 @@ export class WorkshopController {
   }
 
   /**
-   * Setup scene lighting
+   * Configures scene lighting for holographic aesthetics.
+   *
+   * Adds ambient light for base visibility and a cyan-tinted point light
+   * positioned to create highlights on the schematic model.
    */
   private setupLighting(): void {
     // Ambient light for base visibility
@@ -293,7 +315,11 @@ export class WorkshopController {
   }
 
   /**
-   * Create all holographic components
+   * Creates and adds all holographic components to the scene.
+   *
+   * Instantiates the grid floor, rotating rings, floating panels,
+   * Mark VI schematic model, and info panel. Initiates async model
+   * loading with callback for exploded view initialization.
    */
   private createComponents(): void {
     const primaryColor = new THREE.Color(this.config.primaryColor);
@@ -353,8 +379,11 @@ export class WorkshopController {
   }
 
   /**
-   * Initialize the Exploded View system
-   * Sets up ExplodedViewManager, ParticleTrailSystem, and callbacks
+   * Initializes the exploded view animation system.
+   *
+   * Creates the particle trail system with emitters for each limb,
+   * configures the ExplodedViewManager with animation callbacks for
+   * particle effects, glow intensification, and camera zoom.
    */
   private initializeExplodedView(): void {
     if (!this.schematic) return;
@@ -477,8 +506,19 @@ export class WorkshopController {
   }
 
   /**
-   * Cache all shader meshes from schematic for fast iteration
-   * Called after model loads to avoid repeated traverse() calls
+   * Caches references to schematic shader meshes for efficient per-frame updates.
+   *
+   * Traverses the schematic model once and stores references to all meshes using
+   * the holographic shader material. This eliminates the need for expensive
+   * `Object3D.traverse()` calls during the animation loop.
+   *
+   * Cached meshes are used by:
+   * - `updateMarkVIModelCached()` for time-based shader uniform updates
+   * - `updateHoverState()` for per-limb opacity and color transitions
+   * - `intensifyHologramEffect()` for explosion/assembly visual effects
+   *
+   * @remarks
+   * Must be called after the schematic model is loaded but before the animation loop starts.
    */
   private cacheSchematicShaderMeshes(): void {
     if (!this.schematic) return;
@@ -502,7 +542,15 @@ export class WorkshopController {
   }
 
   /**
-   * Start the animation loop
+   * Starts the main animation loop.
+   *
+   * Initializes timing state for delta time calculation and FPS monitoring,
+   * then begins the recursive `requestAnimationFrame` loop. The loop continues
+   * until {@link stop} is called.
+   *
+   * @remarks
+   * Calling `start()` when already running has no effect (early return guard).
+   * This method is idempotent.
    */
   start(): void {
     if (this.isRunning) return;
@@ -516,7 +564,13 @@ export class WorkshopController {
   }
 
   /**
-   * Stop the animation loop
+   * Stops the animation loop.
+   *
+   * Cancels the pending animation frame request and resets the running state.
+   * Safe to call multiple times; subsequent calls have no effect.
+   *
+   * @remarks
+   * Does not dispose resources. Call {@link dispose} for full cleanup.
    */
   stop(): void {
     this.isRunning = false;
@@ -530,7 +584,19 @@ export class WorkshopController {
   }
 
   /**
-   * Main animation loop
+   * Main animation loop callback.
+   *
+   * Executes each frame via `requestAnimationFrame`. Responsibilities include:
+   * 1. Delta time calculation with 50ms cap to prevent physics explosions
+   * 2. FPS counter updates for debug display
+   * 3. Component updates via {@link update}
+   * 4. Post-processing render pass
+   * 5. Debug callback invocation when enabled
+   *
+   * @remarks
+   * The delta time cap (0.05s = 20fps minimum) ensures smooth recovery when
+   * the browser tab is backgrounded and resumed. Without capping, large delta
+   * values would cause physics/animation discontinuities.
    */
   private animate = (): void => {
     if (!this.isRunning) return;
@@ -563,7 +629,20 @@ export class WorkshopController {
   };
 
   /**
-   * Update all holographic components
+   * Updates all holographic components each frame.
+   *
+   * Orchestrates per-frame updates for all subsystems:
+   * - Ring rotation animations
+   * - Panel hover animations
+   * - Shader time uniforms on cached meshes
+   * - Hand tracking and gesture detection
+   * - Schematic rotation interpolation with inertia
+   * - Info panel camera-facing updates
+   * - Particle trail emission
+   * - Camera zoom animation
+   *
+   * @param time - Elapsed time in seconds (for shader animations)
+   * @param deltaTime - Time since last frame in seconds (for physics/interpolation)
    */
   private update(time: number, deltaTime: number): void {
     // Update rings animation
@@ -653,12 +732,22 @@ export class WorkshopController {
   }
 
   /**
-   * Detect left-hand gesture to trigger explode/assemble
-   * Open palm on left hand = explode (fingers extended)
-   * Closed fist on left hand = assemble (fingers curled)
+   * Detects left-hand gestures to trigger explode/assemble animations.
    *
-   * Uses MediaPipe handedness detection to identify left hand specifically.
-   * Includes input stability buffering/debouncing to prevent false positives.
+   * Gesture mapping:
+   * - Open palm (fingers extended) → Trigger explosion if currently assembled
+   * - Closed fist (fingers curled) → Trigger assembly if currently exploded
+   *
+   * The detection pipeline implements input stability buffering:
+   * 1. Hand existence check with immediate reset on signal loss
+   * 2. Left hand identification via MediaPipe handedness with confidence threshold
+   * 3. Pose classification based on fingertip-to-palm distance
+   * 4. Stability buffer requiring consecutive consistent frames before triggering
+   * 5. Cooldown enforcement to prevent rapid toggling
+   *
+   * @remarks
+   * Uses hysteresis thresholds (OPEN_THRESHOLD=0.12, CLOSED_THRESHOLD=0.08)
+   * to create a dead zone preventing oscillation between states.
    */
   private detectLeftHandGesture(): void {
     const result = this.handTracker.getLastResult();
@@ -787,8 +876,11 @@ export class WorkshopController {
   }
 
   /**
-   * Reset all left-hand associated state.
-   * Called when left hand is lost or tracking quality drops.
+   * Resets all left-hand gesture tracking state.
+   *
+   * Called when the left hand is lost from tracking or detection confidence drops.
+   * Clears the stability buffer and pose classification to ensure clean state
+   * when tracking resumes.
    */
   private resetLeftHandState(): void {
     // If we had a valid pose, log that we lost it
@@ -802,14 +894,19 @@ export class WorkshopController {
   }
 
   /**
-   * Detect left-hand wrist twist and palm movement, apply rotation to schematic
+   * Applies left-hand wrist rotation to the schematic in exploded state.
    *
-   * This feature is ONLY active when:
-   * 1. The schematic is in 'exploded' state
-   * 2. The left hand is detected with an open palm
+   * This secondary control scheme is only active when:
+   * - The schematic is in 'exploded' state
+   * - The left hand is detected with an open palm pose
    *
-   * Wrist roll (twist) -> Y-axis rotation (left/right)
-   * Palm Y position (up/down movement) -> X-axis rotation (matching right hand)
+   * Control mapping:
+   * - Wrist roll (twist) → Y-axis rotation (left/right viewing angle)
+   * - Palm Y position (up/down) → X-axis rotation (tilt angle)
+   *
+   * Implements smoothing (SMOOTHING=0.15) and dead zones to reduce jitter
+   * from hand tracking noise. First-frame initialization prevents wild deltas
+   * when tracking begins.
    */
   private updateLeftHandWristRotation(): void {
     // Only active in exploded state
@@ -918,8 +1015,17 @@ export class WorkshopController {
   }
 
   /**
-   * Intensify holographic effects during explosion/assembly animation
-   * Increases scanline frequency and fresnel glow for cinematic shimmer
+   * Modulates holographic shader effects during state transitions.
+   *
+   * Creates cinematic visual feedback during explosion/assembly animations
+   * by temporarily boosting scanline frequency and fresnel glow intensity.
+   *
+   * @param intensify - When `true`, increases effect intensity (1.5x scanlines, 1.3x fresnel);
+   *                    when `false`, returns to base values.
+   *
+   * @remarks
+   * Uses GSAP with `overwrite: true` to prevent animation conflicts when rapidly
+   * toggling between states.
    */
   private intensifyHologramEffect(intensify: boolean): void {
     const targetScanlineMultiplier = intensify ? 1.5 : 1.0;
@@ -953,8 +1059,17 @@ export class WorkshopController {
   }
 
   /**
-   * Animate ring visibility during explosion/assembly
-   * Fades rings out when exploding, back in when assembled
+   * Animates decorative ring visibility during state transitions.
+   *
+   * Fades holographic rings out when entering exploded view to reduce visual
+   * clutter and emphasize the schematic parts, then fades them back in when
+   * returning to assembled state.
+   *
+   * @param visible - Target visibility state (`true` = fade in, `false` = fade out)
+   *
+   * @remarks
+   * Stores original opacity on first call to preserve material-specific values.
+   * Uses GSAP with `overwrite: true` to prevent animation stacking.
    */
   private animateRingsVisibility(visible: boolean): void {
     if (!this.rings) return;
@@ -999,10 +1114,25 @@ export class WorkshopController {
   }
 
   /**
-   * Update hand tracking and manipulate schematic based on gestures
-   * Supports multiple hands - each hand can independently grab and rotate
-   * Only supports body grabs (rotating the whole schematic) as detailed limb manipulation
-   * is not supported by the current GLB model.
+   * Processes hand tracking data to manipulate the schematic.
+   *
+   * Supports multi-hand interaction where each hand maintains independent state.
+   * Processing flow per hand:
+   * 1. Handedness check (only right hand can pinch-to-rotate)
+   * 2. Pinch detection with hysteresis thresholds
+   * 3. Grab target determination via throttled raycasting
+   * 4. Continuous manipulation (position/rotation updates)
+   * 5. Hover state updates for visual feedback
+   *
+   * Manipulation modes:
+   * - **Assembled state**: Pinch anywhere to rotate the whole schematic
+   * - **Exploded state**: Pinch a specific part to manipulate that limb
+   *
+   * @param deltaTime - Time since last frame in seconds (for velocity calculation)
+   *
+   * @remarks
+   * Uses One Euro Filters for limb manipulation to reduce jitter while maintaining
+   * responsiveness. Raycasting is throttled to RAYCAST_INTERVAL_MS for performance.
    */
   private updateHandTracking(deltaTime: number): void {
     const result = this.handTracker.detectHands(performance.now());
@@ -1488,12 +1618,23 @@ export class WorkshopController {
   }
 
   /**
-   * Update hover visual feedback on schematic (Body)
-   * Smoothly interpolates glow intensity for premium feel
+   * Updates hover visual feedback on the schematic.
    *
-   * Behavior differs based on exploded state:
-   * - Assembled: Scale the entire schematic as one unit
-   * - Exploded: Scale only the individually hovered limb(s)
+   * Provides smooth, interpolated hover effects that differ based on state:
+   * - **Assembled state**: Scales the entire schematic as one unit
+   * - **Exploded state**: Scales only the individually hovered limb(s)
+   *
+   * Visual effects include:
+   * - Scale pulse (1.0 → 1.08) on hover
+   * - Opacity boost (+0.15) for better visibility
+   * - Color transition to amber (#FFB347) for hovered elements
+   *
+   * @param isHovering - Whether any hand is currently hovering over the schematic
+   * @param deltaTime - Time since last frame for smooth interpolation
+   *
+   * @remarks
+   * Implements early-exit optimization when fully settled (no active hovers and
+   * all intensities at zero) to avoid unnecessary updates each frame.
    */
   private updateHoverState(isHovering: boolean, deltaTime: number): void {
     // Performance: Early exit if no hover state change and fully settled
@@ -1685,7 +1826,10 @@ export class WorkshopController {
   }
 
   /**
-   * Handle window resize
+   * Handles browser window resize events.
+   *
+   * Updates camera aspect ratio, projection matrix, and renderer/composer
+   * dimensions to match the new viewport size.
    */
   private handleResize(): void {
     const width = window.innerWidth;
@@ -1699,7 +1843,12 @@ export class WorkshopController {
   }
 
   /**
-   * Update FPS counter
+   * Updates the frames-per-second counter.
+   *
+   * Accumulates frame counts and calculates FPS once per second for stable
+   * display values. The result is stored in `currentFps` for debug display.
+   *
+   * @param timestamp - Current timestamp from `performance.now()`
    */
   private updateFps(timestamp: number): void {
     this.fpsFrames++;
@@ -1713,7 +1862,10 @@ export class WorkshopController {
   }
 
   /**
-   * Get debug information
+   * Collects debug information for the debug overlay.
+   *
+   * @returns Current state snapshot including FPS, hand count, element counts,
+   *          and interaction states (grabbing, hovering, grab target).
    */
   private getDebugInfo(): WorkshopDebugInfo {
     let activeElements = 0;
@@ -1748,7 +1900,9 @@ export class WorkshopController {
   }
 
   /**
-   * Get current hand count
+   * Gets the current number of detected hands.
+   *
+   * @returns Number of hands currently tracked by MediaPipe (0-2)
    */
   getHandCount(): number {
     const result = this.handTracker.detectHands(performance.now());
@@ -1756,7 +1910,13 @@ export class WorkshopController {
   }
 
   /**
-   * Enable debug mode
+   * Enables debug mode with visual overlays and info callback.
+   *
+   * When enabled:
+   * - Hand landmark overlay renders MediaPipe landmark positions
+   * - Debug callback receives `WorkshopDebugInfo` each frame
+   *
+   * @param callback - Function invoked each frame with current debug info
    */
   enableDebug(callback: (info: WorkshopDebugInfo) => void): void {
     this.debugCallback = callback;
@@ -1764,7 +1924,7 @@ export class WorkshopController {
   }
 
   /**
-   * Disable debug mode
+   * Disables debug mode and hides visual overlays.
    */
   disableDebug(): void {
     this.debugCallback = null;
@@ -1772,8 +1932,10 @@ export class WorkshopController {
   }
 
   /**
-   * Reset the holographic display to original pose
-   * Resets body rotation only
+   * Resets the schematic to its original viewing orientation.
+   *
+   * Smoothly animates the body rotation back to the default pose (facing camera)
+   * and clears any active rotation velocity. Does not affect exploded/assembled state.
    */
   reset(): void {
     if (this.schematic) {
@@ -1791,7 +1953,20 @@ export class WorkshopController {
   }
 
   /**
-   * Clean up and dispose resources
+   * Disposes all resources and cleans up the controller.
+   *
+   * Cleanup sequence:
+   * 1. Dispose subsystems (ExplodedViewManager, ParticleTrailEmitter, HandLandmarkOverlay)
+   * 2. Stop animation loop
+   * 3. Remove window resize listener
+   * 4. Dispose all Three.js geometries and materials
+   * 5. Dispose post-processing composer
+   * 6. Dispose WebGL renderer
+   * 7. Remove canvas from DOM
+   *
+   * @remarks
+   * After calling dispose(), the controller instance cannot be reused.
+   * Create a new instance if the workshop needs to be restarted.
    */
   dispose(): void {
     // Dispose exploded view system

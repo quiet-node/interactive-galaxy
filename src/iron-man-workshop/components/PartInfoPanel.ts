@@ -1,13 +1,45 @@
 /**
- * PartInfoPanel
- * Holographic information panel that appears near hovered parts.
- * Renders technical specs using a dynamic canvas texture on a plane.
+ * @fileoverview Holographic information panel for displaying armor part specifications.
+ *
+ * Renders technical specs using dynamic canvas texture on a Three.js plane mesh.
+ * Features smart screen-edge positioning, smoothed anchor tracking, and animated
+ * connector line with elbow routing.
+ *
+ * @module iron-man-workshop/components/PartInfoPanel
  */
 
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { PartInfo, MARK_VI_PART_DATA } from '../data/PartData';
 
+/**
+ * Holographic information panel displaying armor part technical specifications.
+ *
+ * Architecture:
+ * - **Canvas Texture**: Dynamically renders UI to 2D canvas, uploaded as GPU texture
+ * - **Billboard Orientation**: Panel always faces camera for readability
+ * - **Smart Positioning**: Detects screen edges and flips offset to stay visible
+ * - **Anchor Smoothing**: Lerps position to reduce jitter from hand tracking noise
+ * - **Connector Line**: Elbow-routed line connecting panel to the hovered part
+ *
+ * Visual design:
+ * - Dark semi-transparent background for text contrast
+ * - Cyan/blue holographic color scheme
+ * - Tech accent corner decorations
+ * - Subtle scanline overlay effect
+ *
+ * @example
+ * ```typescript
+ * const panel = new PartInfoPanel();
+ * scene.add(panel.getObject());
+ *
+ * // Show when hovering a part
+ * panel.show('arm_left', intersectionPoint);
+ *
+ * // In animation loop:
+ * panel.update(time, camera);
+ * ```
+ */
 export class PartInfoPanel {
   private container: THREE.Group;
   private panelMesh: THREE.Mesh;
@@ -86,16 +118,22 @@ export class PartInfoPanel {
   }
 
   /**
-   * Get the Three.js object to add to the scene
+   * Returns the container Group for scene integration.
+   *
+   * @returns The THREE.Group containing the panel mesh and connector line
    */
   getObject(): THREE.Object3D {
     return this.container;
   }
 
   /**
-   * Show the panel for a specific part
-   * @param partName The key of the part (e.g., 'arm_left')
-   * @param anchorPoint World position to anchor the connector line to (the part's position)
+   * Shows the panel for a specific armor part.
+   *
+   * If already showing for the same part, updates only the anchor position.
+   * If showing for a new part, redraws content and triggers enter animation.
+   *
+   * @param partName - Part identifier key (e.g., 'arm_left', 'head')
+   * @param anchorPoint - World-space position to anchor the connector line
    */
   show(partName: string, anchorPoint: THREE.Vector3): void {
     // Update target for smoothing
@@ -151,8 +189,13 @@ export class PartInfoPanel {
   }
 
   /**
-   * Update the panel's position relative to the smoothed anchor point
-   * Uses simple screen-space feedback to flip offset if too close to edge
+   * Updates panel position and connector line geometry.
+   *
+   * Uses camera projection to determine screen-space position of the anchor,
+   * then flips the panel offset if too close to screen edges. Scales the panel
+   * based on distance to maintain readability at varying depths.
+   *
+   * @param camera - Camera for projection and billboard orientation
    */
   private updatePosition(camera: THREE.Camera): void {
     // Determine screen position of the anchor
@@ -216,7 +259,10 @@ export class PartInfoPanel {
   }
 
   /**
-   * Hide the panel
+   * Hides the panel with a fade-out animation.
+   *
+   * Clears the current target and fades opacity to zero before hiding
+   * the container. Safe to call when already hidden.
    */
   hide(): void {
     if (!this.isVisible) return;
@@ -239,7 +285,17 @@ export class PartInfoPanel {
   }
 
   /**
-   * Draw the holographic UI on the canvas
+   * Renders the holographic UI content to the canvas.
+   *
+   * Drawing layers:
+   * 1. Rounded rectangle background with border
+   * 2. Tech accent corner decorations
+   * 3. Title and subtitle text
+   * 4. Horizontal separator line
+   * 5. Stat labels and values with status-based coloring
+   * 6. Scanline overlay effect
+   *
+   * @param data - Part information containing title, subtitle, and stats array
    */
   private drawContent(data: PartInfo): void {
     const ctx = this.context;
@@ -331,9 +387,17 @@ export class PartInfoPanel {
   }
 
   /**
-   * Update loop
-   * @param time Current time in seconds
-   * @param camera Camera reference to make panel billboard
+   * Per-frame update for position smoothing and visual effects.
+   *
+   * Updates:
+   * - Anchor position lerping for smooth tracking
+   * - Panel position and connector line geometry
+   * - Billboard orientation facing camera
+   * - Connector line opacity pulse animation
+   * - Random subtle flicker effect
+   *
+   * @param time - Current animation time in seconds
+   * @param camera - Camera reference for billboard orientation and positioning
    */
   update(time: number, camera: THREE.Camera): void {
     if (!this.isVisible) return;
