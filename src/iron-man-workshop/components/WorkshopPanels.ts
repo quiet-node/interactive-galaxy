@@ -50,7 +50,7 @@ export function createWorkshopPanels(
   const panelGeometry = new THREE.PlaneGeometry(width, height);
   const panelMaterial = createWorkshopMaterial({
     color,
-    opacity: 0.3,
+    opacity: 0.15, // Reduced from 0.3 for better schematic visibility
     fresnelPower: 1.2,
     scanlineFrequency: 80,
     enableScanlines: true,
@@ -60,14 +60,12 @@ export function createWorkshopPanels(
   const panelPositions = [
     { x: -2.5, y: 0.5, z: 0, rotY: Math.PI * 0.15 },
     { x: 2.5, y: 0.5, z: 0, rotY: -Math.PI * 0.15 },
-    { x: 0, y: 1.8, z: -1, rotY: 0, rotX: -Math.PI * 0.1 },
   ];
 
   panelPositions.forEach((pos, index) => {
     const panel = new THREE.Mesh(panelGeometry.clone(), panelMaterial.clone());
     panel.position.set(pos.x, pos.y, pos.z);
     panel.rotation.y = pos.rotY;
-    if (pos.rotX) panel.rotation.x = pos.rotX;
 
     // Add border frame
     const borderGeometry = new THREE.EdgesGeometry(panelGeometry);

@@ -753,6 +753,57 @@ export class ExplodedViewManager {
   }
 
   /**
+   * Immediately places parts in their exploded positions without animation.
+   *
+   * Used for the startup sequence where we want to start "exploded" but hidden,
+   * so we can animate the assembly.
+   *
+   * @param distanceMultiplier - Multiplier for explosion distance (default 1.0).
+   *                             Use larger values (e.g. 10.0) to place parts off-screen.
+   */
+  forceExplodedState(distanceMultiplier: number = 1.0): void {
+    this.timeline?.kill();
+
+    for (const [limbName, mesh] of this.limbMeshes) {
+      const originalState = this.originalStates.get(limbName);
+      const explosionConfig = LIMB_EXPLOSION_CONFIG[limbName];
+
+      if (originalState && explosionConfig) {
+        // Calculate target position (P0 + TargetOffset * distanceMultiplier)
+        const offset = explosionConfig.targetOffset
+          .clone()
+          .multiplyScalar(distanceMultiplier);
+        const targetPos = originalState.position.clone().add(offset);
+
+        // Calculate target rotation
+        const targetRot = new THREE.Euler(
+          originalState.rotation.x + explosionConfig.rotation.x,
+          originalState.rotation.y +
+            explosionConfig.rotation.y +
+            LIMB_FLIGHT_SPIN[limbName],
+          originalState.rotation.z + explosionConfig.rotation.z
+        );
+
+        // Apply immediately
+        mesh.position.copy(targetPos);
+        mesh.rotation.copy(targetRot);
+      }
+    }
+
+    this.setState('exploded');
+    // Only start levitation if we are at normal distance.
+    // If we are way off screen, levitation isn't visible/needed and might look weird when flying in.
+    if (distanceMultiplier <= 1.5) {
+      this.startLevitation();
+    } else {
+      this.stopLevitation();
+    }
+    console.log(
+      `[ExplodedViewManager] Forced exploded state (multiplier: ${distanceMultiplier})`
+    );
+  }
+
+  /**
    * Calculates a point on a quadratic Bezier curve.
    *
    * Formula: B(t) = (1-t)² × P0 + 2(1-t)t × P1 + t² × P2

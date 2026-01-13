@@ -47,6 +47,7 @@ import {
 } from './components/ExplodedViewManager';
 import { ParticleTrailSystem } from './components/ParticleTrailEmitter';
 import { PartInfoPanel } from './components/PartInfoPanel';
+import { LoadingOverlay } from './components/LoadingOverlay';
 import { calculateHandRoll } from '../utils/math';
 import {
   Vector3OneEuroFilter,
@@ -85,6 +86,7 @@ export class WorkshopController {
   private panels: THREE.Group | null = null;
   private schematic: THREE.Group | null = null;
   private partInfoPanel: PartInfoPanel | null = null;
+  private loadingOverlay: LoadingOverlay | null = null;
 
   // Debug overlay for hand tracking visualization
   private handLandmarkOverlay: HandLandmarkOverlay | null = null;
@@ -153,7 +155,9 @@ export class WorkshopController {
   private readonly _tempRawTargetPosition: THREE.Vector3 = new THREE.Vector3();
   private readonly _tempNdc: THREE.Vector2 = new THREE.Vector2();
   private readonly _hoverBaseColor: THREE.Color = new THREE.Color(0x00ff88);
-  private readonly _hoverHighlightColor: THREE.Color = new THREE.Color(0xffbf00);
+  private readonly _hoverHighlightColor: THREE.Color = new THREE.Color(
+    0xffbf00
+  );
 
   // Performance optimization: Info panel raycast throttling
   private lastInfoPanelRaycastTime: number = 0;
@@ -191,8 +195,9 @@ export class WorkshopController {
   private leftHandPalmYSmoothed: number = 0;
 
   // Camera animation state
+  // Camera animation state
   private baseCameraZ: number = 5;
-  private targetCameraZ: number = 5;
+  private targetCameraZ: number = 10; // Start zoomed out
 
   constructor(
     handTracker: HandTracker,
@@ -213,7 +218,7 @@ export class WorkshopController {
       0.1,
       100
     );
-    this.camera.position.set(0, 0.5, 5);
+    this.camera.position.set(0, 0.5, 10); // Start zoomed out
     this.camera.lookAt(0, 0, 0);
 
     // Renderer with transparency
@@ -363,11 +368,18 @@ export class WorkshopController {
     this.schematic.rotation.y = -Math.PI / 2; // Face camera
     this.scene.add(this.schematic);
 
+    // Initial State: Hidden
+    this.schematic.visible = false;
+    if (this.rings) this.rings.visible = false;
+    if (this.panels) this.panels.visible = false;
+
     // Cache shader meshes after model loads
     loadPromise
       .then(() => {
         this.cacheSchematicShaderMeshes();
         this.initializeExplodedView();
+        // Start cinematic sequence
+        this.playStartupSequence();
       })
       .catch((error) => {
         console.error('[WorkshopController] Model load failed:', error);
@@ -376,6 +388,213 @@ export class WorkshopController {
     // Info Panel (initially hidden)
     this.partInfoPanel = new PartInfoPanel();
     this.scene.add(this.partInfoPanel.getObject());
+
+    // Loading Overlay (DOM)
+    this.loadingOverlay = new LoadingOverlay(this.container);
+  }
+
+  /**
+   * Orchestrates the opening cinematic sequence.
+   *
+   * Sequence:
+   * 1. Loading HUD (Premium initialization)
+   * 2. Schematic parts fly in (Assembly animation)
+   * 3. Vertical laser scan validation
+   * 4. Environment reveal (Rings, Panels)
+   */
+  private async playStartupSequence(): Promise<void> {
+    if (!this.schematic || !this.explodedViewManager) return;
+
+    // 1. Setup Initial State (Exploded to off-screen)
+    // Multiplier 100 puts them completely outside the viewport/frustum
+    this.explodedViewManager.forceExplodedState(100.0);
+
+    // Ensure schematic is visible but parts are exploded off-screen
+    this.schematic.visible = true;
+
+    console.log('[WorkshopController] Starting cinematic sequence...');
+
+    // Step 1: Loading Sequence (0.5 - 1s) - AWAIT this before starting timeline
+    if (this.loadingOverlay) {
+      await this.loadingOverlay.startLoading(1000); // 1 second load
+    }
+
+    // Step 2: Begin Cinematic Timeline (Assembly -> Scan -> Reveal)
+    const timeline = gsap.timeline();
+
+    timeline.call(() => {
+      console.log('[WorkshopController] Triggering assembly...');
+      // Zoom back in to normal distance during assembly
+      this.targetCameraZ = this.baseCameraZ;
+      this.explodedViewManager?.assemble();
+    });
+
+    // Wait for assembly to finish (ExplodedViewManager duration is 1.0s)
+    // Reducing wait to 1.5s to start scan IMMEDIATELY after assembly
+    timeline.to({}, { duration: 1.5 });
+
+    // Step 3: Vertical Scan Trigger
+    timeline.call(() => {
+      console.log('[WorkshopController] Triggering scan...');
+      this.triggerScanEffect();
+    });
+
+    // Wait for scan (1.5s) + Surge (~1.0s) to finish before revealing environment
+    timeline.to({}, { duration: 2.3 });
+
+    // Step 4: Reveal Environment
+    timeline.call(() => {
+      console.log('[WorkshopController] Revealing environment...');
+
+      const animateFadeIn = (group: THREE.Group) => {
+        group.visible = true;
+        group.traverse((child) => {
+          if (
+            child instanceof THREE.Mesh ||
+            child instanceof THREE.Line ||
+            child instanceof THREE.LineSegments
+          ) {
+            const material = child.material as
+              | THREE.Material
+              | THREE.ShaderMaterial;
+
+            if (
+              material instanceof THREE.ShaderMaterial &&
+              material.uniforms?.uOpacity
+            ) {
+              // For ShaderMaterial, animate uniform
+              const targetOpacity = 0.6;
+              material.uniforms.uOpacity.value = 0;
+              gsap.to(material.uniforms.uOpacity, {
+                value: targetOpacity,
+                duration: 1.5,
+                ease: 'power2.out',
+              });
+            } else {
+              // For standard materials (LineBasicMaterial)
+              const targetOpacity = material.opacity;
+              material.opacity = 0;
+              gsap.to(material, {
+                opacity: targetOpacity,
+                duration: 1.5,
+                ease: 'power2.out',
+              });
+            }
+          }
+        });
+      };
+
+      if (this.rings) animateFadeIn(this.rings);
+      if (this.panels) animateFadeIn(this.panels);
+    });
+  }
+
+  /**
+   * Triggers the vertical validation scan effect on the schematic.
+   */
+  /**
+   * Triggers the vertical validation scan effect on the schematic.
+   */
+  private triggerScanEffect(): void {
+    // Animate the uScanY uniform from bottom (-2) to top (2)
+    // and uScanIntensity
+
+    const startY = -3.0;
+    const endY = 3.0;
+    const scanDuration = 1.5; // Faster scan (was 2.0)
+
+    const scanObj = { y: startY, intensity: 0 };
+
+    // Initialize uniforms
+    for (const mesh of this.schematicShaderMeshes) {
+      mesh.material.uniforms.uScanY.value = startY;
+      mesh.material.uniforms.uScanIntensity.value = 1.0;
+    }
+
+    gsap.to(scanObj, {
+      y: endY,
+      duration: scanDuration,
+      ease: 'power1.inOut', // Snappier easing (was power2)
+      onUpdate: () => {
+        for (const mesh of this.schematicShaderMeshes) {
+          mesh.material.uniforms.uScanY.value = scanObj.y;
+        }
+      },
+      onComplete: () => {
+        // TRIGGER SURGE IMMEDIATELY (Simultaneous with fade)
+        this.triggerEnergySurge();
+
+        // Fade out scan beam
+        gsap.to(scanObj, {
+          intensity: 0,
+          duration: 0.2, // Faster fade
+          onUpdate: () => {
+            for (const mesh of this.schematicShaderMeshes) {
+              mesh.material.uniforms.uScanIntensity.value = scanObj.intensity;
+            }
+          },
+          onComplete: () => {
+            // Turn off scan beam uniform logic completely to save perf/prevent artifacts
+            for (const mesh of this.schematicShaderMeshes) {
+              mesh.material.uniforms.uScanIntensity.value = 0;
+            }
+          },
+        });
+      },
+    });
+  }
+
+  /**
+   * Triggers a "power up" energy surge effect on the schematic.
+   *
+   * Rapidly boosts opacity and fresnel glow to simulate system readiness/charging.
+   */
+  private triggerEnergySurge(): void {
+    const surgeAttack = 0.1;
+    const surgeDecay = 0.8;
+
+    console.log('[WorkshopController] Triggering energy surge...');
+
+    for (const mesh of this.schematicShaderMeshes) {
+      // Get base values (or default)
+      const baseOpacity = mesh.userData.baseOpacity ?? 0.6;
+      const baseFresnel = mesh.userData.baseFresnelPower ?? 2.5;
+
+      // Kill existing tweens on these properties to avoid conflicts
+      gsap.killTweensOf(mesh.material.uniforms.uOpacity);
+      gsap.killTweensOf(mesh.material.uniforms.uFresnelPower);
+
+      // Sequence: Flash UP -> Fade DOWN
+      const timeline = gsap.timeline();
+
+      // 1. Opacity Surge (Brighten)
+      timeline
+        .to(mesh.material.uniforms.uOpacity, {
+          value: 1.0, // Max opacity
+          duration: surgeAttack,
+          ease: 'power2.out',
+        })
+        .to(mesh.material.uniforms.uOpacity, {
+          value: baseOpacity,
+          duration: surgeDecay,
+          ease: 'power2.out',
+        });
+
+      // 2. Fresnel Surge (Widen glow by reducing power)
+      // Parallel animation for fresnel
+      gsap.to(mesh.material.uniforms.uFresnelPower, {
+        value: 1.0, // Wider, more intense glow
+        duration: surgeAttack,
+        ease: 'power2.out',
+        onComplete: () => {
+          gsap.to(mesh.material.uniforms.uFresnelPower, {
+            value: baseFresnel,
+            duration: surgeDecay,
+            ease: 'power2.out',
+          });
+        },
+      });
+    }
   }
 
   /**
@@ -423,7 +642,11 @@ export class WorkshopController {
         mesh.getWorldPosition(this._tempWorldPos);
         // Initial direction (will be updated per-frame based on velocity)
         this._tempDirection.set(0, -1, 0);
-        this.particleTrailSystem?.startTrail(limbName, this._tempWorldPos, this._tempDirection);
+        this.particleTrailSystem?.startTrail(
+          limbName,
+          this._tempWorldPos,
+          this._tempDirection
+        );
 
         // Intensify glow on moving limb
         if (
@@ -1187,11 +1410,7 @@ export class WorkshopController {
       const palmY = (wrist.y + indexBase.y) / 2;
 
       // Convert normalized coordinates to 3D world space (using pre-allocated temp)
-      this._tempHandPosition.set(
-        (0.5 - palmX) * 6,
-        (0.5 - palmY) * 4,
-        0
-      );
+      this._tempHandPosition.set((0.5 - palmX) * 6, (0.5 - palmY) * 4, 0);
       const handPosition = this._tempHandPosition;
 
       // Calculate pinch distance
@@ -1249,13 +1468,14 @@ export class WorkshopController {
             if (hitVolumes && hitVolumes.length > 0) {
               // Throttle info panel raycasting to RAYCAST_INTERVAL_MS
               const now = performance.now();
-              if (now - this.lastInfoPanelRaycastTime > this.RAYCAST_INTERVAL_MS) {
+              if (
+                now - this.lastInfoPanelRaycastTime >
+                this.RAYCAST_INTERVAL_MS
+              ) {
                 this._tempNdc.set(ndcX, ndcY);
                 this.raycaster.setFromCamera(this._tempNdc, this.camera);
-                this.cachedInfoPanelIntersects = this.raycaster.intersectObjects(
-                  hitVolumes,
-                  false
-                );
+                this.cachedInfoPanelIntersects =
+                  this.raycaster.intersectObjects(hitVolumes, false);
                 this.lastInfoPanelRaycastTime = now;
               }
 
@@ -1268,7 +1488,10 @@ export class WorkshopController {
                 if (partName && this.partInfoPanel) {
                   // Convert intersection point to world space for the panel anchor
                   // The intersection point is already in world space
-                  this.partInfoPanel.show(partName, this.cachedInfoPanelIntersects[0].point);
+                  this.partInfoPanel.show(
+                    partName,
+                    this.cachedInfoPanelIntersects[0].point
+                  );
                   anyHandHovering = true; // Keep schematic glow effect too
                 }
               } else {
@@ -1640,7 +1863,7 @@ export class WorkshopController {
     // Performance: Early exit if no hover state change and fully settled
     const hasHoveredLimbs = this.hoveredLimbTypes.size > 0;
     const isSettled = this.hoverIntensity < 0.001;
-    
+
     // Check if all limb intensities are also settled (near zero)
     let allLimbsSettled = true;
     if (!hasHoveredLimbs) {
@@ -1653,12 +1876,12 @@ export class WorkshopController {
     } else {
       allLimbsSettled = false;
     }
-    
+
     // Skip update if nothing is hovering and all values are settled
     if (!isHovering && !hasHoveredLimbs && isSettled && allLimbsSettled) {
       return;
     }
-    
+
     this.isHoveringSchematic = isHovering;
 
     const transitionSpeed = 8; // Higher = faster transition

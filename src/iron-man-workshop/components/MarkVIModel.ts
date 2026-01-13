@@ -142,6 +142,11 @@ export function loadMarkVIModel(
               edges,
               edgeMaterial.clone()
             );
+
+            // Ensure schematic renders on top of everything (panels, rings, etc.)
+            child.renderOrder = 10;
+            wireframe.renderOrder = 11;
+
             child.add(wireframe);
 
             // Compute BVH for accelerated raycasting (10-100x faster)

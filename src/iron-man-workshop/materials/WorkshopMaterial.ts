@@ -82,6 +82,11 @@ const fragmentShader = `
   uniform float uScanlineSpeed;
   uniform bool uEnableScanlines;
 
+  // Scan uniforms
+  uniform float uScanY;
+  uniform float uScanIntensity;
+  uniform vec3 uScanColor;
+
   varying vec3 vNormal;
   varying vec3 vViewPosition;
   varying vec2 vUv;
@@ -105,6 +110,24 @@ const fragmentShader = `
       float scanline = sin(vWorldPosition.y * uScanlineFrequency + uTime * uScanlineSpeed) * 0.5 + 0.5;
       scanline = smoothstep(0.4, 0.6, scanline);
       alpha *= 0.7 + scanline * 0.3;
+    }
+
+    // Vertical Scan Beam Effect
+    // Width of the beam
+    float scanWidth = 0.15;
+    // Calculate distance from scan plane
+    float dist = abs(vWorldPosition.y - uScanY);
+    // Gaussian falloff for beam
+    float beam = exp(-(dist * dist) / (scanWidth * scanWidth * 0.1));
+    
+    // Add sharp beam core
+    if (uScanIntensity > 0.0) {
+        // Bright beam color
+        vec3 beamColor = uScanColor * uScanIntensity * 2.0;
+        // Add to base color (additive)
+        color += beamColor * beam;
+        // Boost alpha where beam is
+        alpha += beam * uScanIntensity;
     }
     
     // Flickering effect (subtle)
@@ -146,6 +169,10 @@ export function createWorkshopMaterial(
       uScanlineFrequency: { value: finalConfig.scanlineFrequency },
       uScanlineSpeed: { value: finalConfig.scanlineSpeed },
       uEnableScanlines: { value: finalConfig.enableScanlines },
+      // Scan effect uniforms
+      uScanY: { value: -10.0 }, // Start below the model
+      uScanIntensity: { value: 0.0 },
+      uScanColor: { value: new THREE.Color(0xffffff) }, // Cyan/White mix
     },
     vertexShader,
     fragmentShader,
