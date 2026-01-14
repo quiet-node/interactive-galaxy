@@ -59,13 +59,16 @@ https://github.com/user-attachments/assets/4b61baac-f71e-478a-bd0a-2509a7c9e2be
 
 ```bash
 # Install dependencies
-npm install
+bun install
 
 # Start development server
-npm run dev
+bun dev
 
 # Start preview
-npm run build && npm run preview
+bun run build && bun preview
+
+# validate build
+bun validate-build
 ```
 
 ## 🎮 Controls
@@ -80,4 +83,4 @@ npm run build && npm run preview
 
 ---
 
-_Built by [@quiet_node](https://x.com/quiet_node)_
+_Vibed by [@quiet_node](https://x.com/quiet_node)_
