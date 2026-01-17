@@ -88,14 +88,25 @@ export function loadMarkVIModel(
       (gltf) => {
         const model = gltf.scene;
 
-        // List of specific mesh names to attach hit volumes to
+        // List of specific mesh names to attach hit volumes to (17 parts)
         const articulatedLimbs = [
           'head',
-          'torso',
-          'arm_left',
-          'arm_right',
-          'leg_left',
-          'leg_right',
+          'torso_front',
+          'torso_back',
+          'arm_shoulder_left',
+          'arm_upperarm_left',
+          'arm_forearm_left',
+          'arm_hand_left',
+          'arm_shoulder_right',
+          'arm_upperarm_right',
+          'arm_forearm_right',
+          'arm_hand_right',
+          'leg_left_thigh',
+          'leg_left_calf',
+          'leg_left_feet',
+          'leg_right_thigh',
+          'leg_right_calf',
+          'leg_right_feet',
         ];
 
         // Store all hit volumes for efficient raycasting

@@ -100,9 +100,21 @@ graph TD
 A strictly timed, non-interactive sequence to build anticipation.
 
 - **Phase 1: Boot**: `LoadingOverlay` shows progress.
-- **Phase 2: Assemble**: Parts move from `y: 1000` (invisible) to `y: 0` (assembled).
+- **Phase 2: Assemble**: 17 individual armor parts fly in from a void state (y: 1000) in a cascading sequence (Torso -> Arms -> Legs -> Head) to assemble the suit.
 - **Phase 3: Scan**: A Shader-based scan effect passes over the mesh.
 - **Phase 4: Live**: Control is handed to the user.
+
+### 3.1.5 Exploded View Mechanics
+
+- **Configuration**: 17 distinct mesh components:
+  - **Torso**: Front/Back plates.
+  - **Head**: Helmet.
+  - **Arms** (x2): Shoulder, Upper Arm, Forearm, Hand.
+  - **Legs** (x2): Thigh, Calf, Foot.
+- **Visuals**:
+  - **Trails**: Cyan repulsor particle trails emit from _all_ 17 parts during movement.
+  - **Camera**: Dynamic zoom-out (Base Z + 6.5) to capture the wider explosion spread.
+  - **Grid**: Expanded 30x30 holographic floor grid to accommodate the dispersed layout.
 
 ### 3.2 Gesture Controls
 

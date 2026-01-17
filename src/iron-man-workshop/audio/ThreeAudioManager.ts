@@ -52,10 +52,9 @@ export class ThreeAudioManager {
   private listener: THREE.AudioListener;
   private audioLoader: THREE.AudioLoader;
   private buffers: Map<SoundName, AudioBuffer> = new Map();
-  private activeSounds: Set<THREE.Audio<any>> = new Set();
-
+  private activeSounds: Set<THREE.Audio<AudioNode>> = new Set();
   // Track looped sounds to stop them later
-  private loopMap: Map<string, THREE.Audio<any>> = new Map();
+  private loopMap: Map<string, THREE.Audio<AudioNode>> = new Map();
 
   private isEnabled: boolean = true;
 
@@ -101,7 +100,7 @@ export class ThreeAudioManager {
     name: SoundName,
     config: SoundConfig,
     sourceMesh?: THREE.Object3D
-  ): THREE.Audio<any> | null {
+  ): THREE.Audio<AudioNode> | null {
     if (!this.isEnabled) return null;
 
     const buffer = this.buffers.get(name);
@@ -111,7 +110,7 @@ export class ThreeAudioManager {
     }
 
     // Identify if this is a spatial sound
-    let sound: THREE.Audio<any>;
+    let sound: THREE.Audio<AudioNode>;
 
     if (sourceMesh) {
       const positionalSound = new THREE.PositionalAudio(this.listener);
@@ -193,10 +192,7 @@ export class ThreeAudioManager {
   /**
    * Helper to clean up audio nodes and remove from scene.
    */
-  private cleanupSound(
-    sound: THREE.Audio | THREE.PositionalAudio,
-    parent?: THREE.Object3D
-  ) {
+  private cleanupSound(sound: THREE.Audio<AudioNode>, parent?: THREE.Object3D) {
     this.activeSounds.delete(sound);
     if (parent && sound instanceof THREE.PositionalAudio) {
       parent.remove(sound);

@@ -347,8 +347,8 @@ export class WorkshopController {
     // Grid floor
     this.grid = createWorkshopGrid({
       color: primaryColor,
-      size: 12,
-      divisions: 24,
+      size: 15,
+      divisions: 39,
       opacity: 0.25,
     });
     this.scene.add(this.grid);
@@ -650,11 +650,22 @@ export class WorkshopController {
     // Create emitters for each moving limb with spectacular settings
     const limbNames = [
       'head',
-      'arm_left',
-      'arm_right',
-      'leg_left',
-      'leg_right',
-      'torso',
+      'torso_front',
+      'torso_back',
+      'arm_shoulder_left',
+      'arm_upperarm_left',
+      'arm_forearm_left',
+      'arm_hand_left',
+      'arm_shoulder_right',
+      'arm_upperarm_right',
+      'arm_forearm_right',
+      'arm_hand_right',
+      'leg_left_thigh',
+      'leg_left_calf',
+      'leg_left_feet',
+      'leg_right_thigh',
+      'leg_right_calf',
+      'leg_right_feet',
     ];
     limbNames.forEach((name) => {
       this.particleTrailSystem!.createEmitter(name, {
@@ -773,7 +784,7 @@ export class WorkshopController {
 
         // Camera zoom on state change
         if (newState === 'exploding') {
-          this.targetCameraZ = this.baseCameraZ + 3.8; // Zoom out MORE (was 2.5)
+          this.targetCameraZ = this.baseCameraZ + 6.3; // Zoom out even MORE to fit spread out parts (was 3.8)
           this.intensifyHologramEffect(true);
           this.animateRingsVisibility(false); // Fade out rings during explosion
           this.animatePanelsVisibility(false); // Fade out panels during explosion
@@ -2109,14 +2120,25 @@ export class WorkshopController {
     const transitionSpeed = 8; // Higher = faster transition
     const isExploded = this.explodedViewManager?.getState() === 'exploded';
 
-    // Update per-limb hover intensities
+    // Update per-limb hover intensities (all 17 parts)
     const allLimbs: LimbType[] = [
       'head',
-      'torso',
-      'arm_left',
-      'arm_right',
-      'leg_left',
-      'leg_right',
+      'torso_front',
+      'torso_back',
+      'arm_shoulder_left',
+      'arm_upperarm_left',
+      'arm_forearm_left',
+      'arm_hand_left',
+      'arm_shoulder_right',
+      'arm_upperarm_right',
+      'arm_forearm_right',
+      'arm_hand_right',
+      'leg_left_thigh',
+      'leg_left_calf',
+      'leg_left_feet',
+      'leg_right_thigh',
+      'leg_right_calf',
+      'leg_right_feet',
     ];
     for (const limbType of allLimbs) {
       const targetLimbIntensity = this.hoveredLimbTypes.has(limbType) ? 1 : 0;

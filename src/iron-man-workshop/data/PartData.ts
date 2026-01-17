@@ -30,10 +30,12 @@ export interface PartInfo {
  * Technical specification data for each Mark VI armor component.
  *
  * Keys correspond to limb identifiers from the articulated GLB model:
- * - `head`, `torso`, `arm_left`, `arm_right`, `leg_left`, `leg_right`
+ * - 17 parts: head, torso_front, torso_back, arm_shoulder/upperarm/forearm/hand (L/R),
+ *   leg_thigh/calf/feet (L/R)
  * - `unknown` serves as a fallback for unrecognized parts
  */
 export const MARK_VI_PART_DATA: Record<string, PartInfo> = {
+  // HEAD
   head: {
     title: 'MARK VI HELMET',
     subtitle: 'RT-Integrated HUD',
@@ -43,8 +45,10 @@ export const MARK_VI_PART_DATA: Record<string, PartInfo> = {
       { label: 'OXYGEN', value: '98%', status: 'normal' },
     ],
   },
-  torso: {
-    title: 'GENERATION VI CHEST',
+
+  // TORSO
+  torso_front: {
+    title: 'CHEST PLATE FRONT',
     subtitle: 'Vibranium Arc Reactor',
     stats: [
       { label: 'OUTPUT', value: '42.8 GJ/s', status: 'optimal' },
@@ -52,42 +56,150 @@ export const MARK_VI_PART_DATA: Record<string, PartInfo> = {
       { label: 'ARMOR', value: 'Gold-Titanium', status: 'normal' },
     ],
   },
-  arm_left: {
-    title: 'LEFT GAUNTLET',
-    subtitle: 'Repulsor Node 3L',
+  torso_back: {
+    title: 'CHEST PLATE REAR',
+    subtitle: 'Spinal Exoskeleton',
+    stats: [
+      { label: 'COOLING', value: 'ACTIVE', status: 'optimal' },
+      { label: 'SERVOS', value: '24 UNITS', status: 'optimal' },
+      { label: 'POWER BUS', value: 'NOMINAL', status: 'normal' },
+    ],
+  },
+
+  // LEFT ARM
+  arm_shoulder_left: {
+    title: 'LEFT SHOULDER PAD',
+    subtitle: 'Pauldron Assembly 1L',
+    stats: [
+      { label: 'JOINT', value: 'SEALED', status: 'optimal' },
+      { label: 'ROTATION', value: '360°', status: 'optimal' },
+      { label: 'ARMOR', value: '98%', status: 'normal' },
+    ],
+  },
+  arm_upperarm_left: {
+    title: 'LEFT UPPER ARM',
+    subtitle: 'Bicep Actuator 2L',
+    stats: [
+      { label: 'HYDRAULICS', value: 'NOMINAL', status: 'optimal' },
+      { label: 'TORQUE', value: '2400 Nm', status: 'optimal' },
+      { label: 'FLEX', value: 'ACTIVE', status: 'normal' },
+    ],
+  },
+  arm_forearm_left: {
+    title: 'LEFT FOREARM',
+    subtitle: 'Repulsor Conduit 3L',
     stats: [
       { label: 'CHARGE', value: '100%', status: 'optimal' },
-      { label: 'STABILIZERS', value: 'ACTIVE', status: 'optimal' },
+      { label: 'SHIELD', value: 'READY', status: 'optimal' },
+      { label: 'ROTATION', value: '270°', status: 'normal' },
+    ],
+  },
+  arm_hand_left: {
+    title: 'LEFT GAUNTLET',
+    subtitle: 'Repulsor Node 4L',
+    stats: [
+      { label: 'REPULSOR', value: 'ARMED', status: 'optimal' },
+      { label: 'GRIP', value: '1850 PSI', status: 'optimal' },
       { label: 'CALIBRATION', value: '0.002%', status: 'normal' },
     ],
   },
-  arm_right: {
-    title: 'RIGHT GAUNTLET',
-    subtitle: 'Repulsor Node 3R',
+
+  // RIGHT ARM
+  arm_shoulder_right: {
+    title: 'RIGHT SHOULDER PAD',
+    subtitle: 'Pauldron Assembly 1R',
+    stats: [
+      { label: 'JOINT', value: 'SEALED', status: 'optimal' },
+      { label: 'ROTATION', value: '360°', status: 'optimal' },
+      { label: 'ARMOR', value: '99%', status: 'normal' },
+    ],
+  },
+  arm_upperarm_right: {
+    title: 'RIGHT UPPER ARM',
+    subtitle: 'Bicep Actuator 2R',
+    stats: [
+      { label: 'HYDRAULICS', value: 'NOMINAL', status: 'optimal' },
+      { label: 'TORQUE', value: '2400 Nm', status: 'optimal' },
+      { label: 'FLEX', value: 'ACTIVE', status: 'normal' },
+    ],
+  },
+  arm_forearm_right: {
+    title: 'RIGHT FOREARM',
+    subtitle: 'Missile Bay 3R',
     stats: [
       { label: 'CHARGE', value: '100%', status: 'optimal' },
-      { label: 'STABILIZERS', value: 'ACTIVE', status: 'optimal' },
       { label: 'MISSILES', value: 'LOADED', status: 'warning' },
+      { label: 'ROTATION', value: '270°', status: 'normal' },
     ],
   },
-  leg_left: {
-    title: 'LEFT GREAVE',
-    subtitle: 'Turbine Thruster 4L',
+  arm_hand_right: {
+    title: 'RIGHT GAUNTLET',
+    subtitle: 'Repulsor Node 4R',
+    stats: [
+      { label: 'REPULSOR', value: 'ARMED', status: 'optimal' },
+      { label: 'GRIP', value: '1850 PSI', status: 'optimal' },
+      { label: 'LASER', value: 'STANDBY', status: 'normal' },
+    ],
+  },
+
+  // LEFT LEG
+  leg_left_thigh: {
+    title: 'LEFT THIGH PLATE',
+    subtitle: 'Hip Actuator 5L',
+    stats: [
+      { label: 'HYDRAULICS', value: 'NOMINAL', status: 'optimal' },
+      { label: 'THRUST AUX', value: 'READY', status: 'optimal' },
+      { label: 'ROTATION', value: '180°', status: 'normal' },
+    ],
+  },
+  leg_left_calf: {
+    title: 'LEFT CALF GUARD',
+    subtitle: 'Knee Servo 6L',
+    stats: [
+      { label: 'SHOCK ABS', value: 'ACTIVE', status: 'optimal' },
+      { label: 'FLEX', value: '140°', status: 'optimal' },
+      { label: 'ARMOR', value: '97%', status: 'normal' },
+    ],
+  },
+  leg_left_feet: {
+    title: 'LEFT BOOT',
+    subtitle: 'Turbine Thruster 7L',
     stats: [
       { label: 'FUEL', value: 'HYBRID', status: 'normal' },
       { label: 'THRUST', value: 'IDLE', status: 'normal' },
       { label: 'FLAPS', value: 'LOCKED', status: 'optimal' },
     ],
   },
-  leg_right: {
-    title: 'RIGHT GREAVE',
-    subtitle: 'Turbine Thruster 4R',
+
+  // RIGHT LEG
+  leg_right_thigh: {
+    title: 'RIGHT THIGH PLATE',
+    subtitle: 'Hip Actuator 5R',
+    stats: [
+      { label: 'HYDRAULICS', value: 'NOMINAL', status: 'optimal' },
+      { label: 'THRUST AUX', value: 'READY', status: 'optimal' },
+      { label: 'ROTATION', value: '180°', status: 'normal' },
+    ],
+  },
+  leg_right_calf: {
+    title: 'RIGHT CALF GUARD',
+    subtitle: 'Knee Servo 6R',
+    stats: [
+      { label: 'SHOCK ABS', value: 'ACTIVE', status: 'optimal' },
+      { label: 'FLEX', value: '140°', status: 'optimal' },
+      { label: 'ARMOR', value: '98%', status: 'normal' },
+    ],
+  },
+  leg_right_feet: {
+    title: 'RIGHT BOOT',
+    subtitle: 'Turbine Thruster 7R',
     stats: [
       { label: 'FUEL', value: 'HYBRID', status: 'normal' },
       { label: 'THRUST', value: 'IDLE', status: 'normal' },
       { label: 'FLAPS', value: 'LOCKED', status: 'optimal' },
     ],
   },
+
   // Fallback
   unknown: {
     title: 'UNKNOWN COMPONENT',

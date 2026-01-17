@@ -13,14 +13,25 @@ import gsap from 'gsap';
 import { Howl } from 'howler';
 import type { ExplodedViewState } from '../types';
 
-/** Limb types matching the articulated GLB model */
+/** Limb types matching the articulated GLB model (17 parts) */
 export type LimbType =
   | 'head'
-  | 'torso'
-  | 'arm_left'
-  | 'arm_right'
-  | 'leg_left'
-  | 'leg_right';
+  | 'torso_front'
+  | 'torso_back'
+  | 'arm_shoulder_left'
+  | 'arm_upperarm_left'
+  | 'arm_forearm_left'
+  | 'arm_hand_left'
+  | 'arm_shoulder_right'
+  | 'arm_upperarm_right'
+  | 'arm_forearm_right'
+  | 'arm_hand_right'
+  | 'leg_left_thigh'
+  | 'leg_left_calf'
+  | 'leg_left_feet'
+  | 'leg_right_thigh'
+  | 'leg_right_calf'
+  | 'leg_right_feet';
 
 /** Configuration for explosion behavior per limb */
 interface LimbExplosionConfig {
@@ -91,11 +102,25 @@ const CINEMATIC_TIMING = {
  */
 const LIMB_VELOCITY_MULTIPLIER: Record<LimbType, number> = {
   head: 0.85, // Fastest - lightest
-  arm_left: 1.0,
-  arm_right: 1.0,
-  leg_left: 1.15, // Slowest - heaviest
-  leg_right: 1.15,
-  torso: 1.0, // Anchor, doesn't move
+  // Arms: hands fastest, shoulders slowest
+  arm_hand_left: 0.88,
+  arm_hand_right: 0.88,
+  arm_forearm_left: 0.92,
+  arm_forearm_right: 0.92,
+  arm_upperarm_left: 0.98,
+  arm_upperarm_right: 0.98,
+  arm_shoulder_left: 1.02,
+  arm_shoulder_right: 1.02,
+  // Legs: feet fastest, thighs slowest
+  leg_left_feet: 0.9,
+  leg_right_feet: 0.9,
+  leg_left_calf: 0.95,
+  leg_right_calf: 0.95,
+  leg_left_thigh: 1.08,
+  leg_right_thigh: 1.08,
+  // Torso: heaviest
+  torso_front: 1.1,
+  torso_back: 1.12,
 };
 
 /**
@@ -103,63 +128,155 @@ const LIMB_VELOCITY_MULTIPLIER: Record<LimbType, number> = {
  */
 const LIMB_FLIGHT_SPIN: Record<LimbType, number> = {
   head: 0.15, // Subtle wobble
-  arm_left: -0.25, // Counter-rotate
-  arm_right: 0.25,
-  leg_left: -0.2,
-  leg_right: 0.2,
-  torso: 0,
+  // Arms - counter-rotate left/right
+  arm_shoulder_left: -0.12,
+  arm_shoulder_right: 0.12,
+  arm_upperarm_left: -0.18,
+  arm_upperarm_right: 0.18,
+  arm_forearm_left: -0.22,
+  arm_forearm_right: 0.22,
+  arm_hand_left: -0.28,
+  arm_hand_right: 0.28,
+  // Legs - counter-rotate left/right
+  leg_left_thigh: -0.1,
+  leg_right_thigh: 0.1,
+  leg_left_calf: -0.15,
+  leg_right_calf: 0.15,
+  leg_left_feet: -0.2,
+  leg_right_feet: 0.2,
+  // Torso
+  torso_front: 0.05,
+  torso_back: -0.05,
 };
 
 /**
  * Explosion configuration per limb
- * 3D schematic-style arrangement for dramatic visual effect:
- * - Wider spread for clear separation
- * - Noticeable rotations for "floating in space" look
+ * 17-part schematic-style arrangement for dramatic visual effect:
+ * - Spread reduced to keep within viewport bounds
+ * - Randomization added at runtime for unpredictability
+ * - Dramatic rotations for "floating in space" look
  */
 const LIMB_EXPLOSION_CONFIG: Record<LimbType, LimbExplosionConfig> = {
+  // HEAD - Top center, prominent position
   head: {
-    // Center, Closest to user (High Z), slightly up
-    targetOffset: new THREE.Vector3(1.8, -0.1, 0.3),
+    targetOffset: new THREE.Vector3(2.1, 0.2, 0.8),
     controlOffset: new THREE.Vector3(0, 0.6, 0.4),
-    rotation: new THREE.Euler(-0.4, 0.5, -0.1), // Random look
+    rotation: new THREE.Euler(-0.6, 0.8, -0.2),
     staggerDelay: 0.0,
   },
-  arm_left: {
-    // TOP RIGHT (Cross-over), Random rotation
-    targetOffset: new THREE.Vector3(-0.9, 0.2, 0.5),
-    controlOffset: new THREE.Vector3(0.4, 0.7, -0.3),
-    rotation: new THREE.Euler(0.5, -0.8, 1.2),
-    staggerDelay: 0.25,
+
+  // TORSO - Center, split front/back
+  torso_front: {
+    targetOffset: new THREE.Vector3(1.0, -0.15, 1.2),
+    controlOffset: new THREE.Vector3(0, 0.2, 0.4),
+    rotation: new THREE.Euler(0.5, -0.6, 0.2),
+    staggerDelay: 0.03,
   },
-  arm_right: {
-    // TOP LEFT (Cross-over), Random rotation
-    targetOffset: new THREE.Vector3(0.9, 0.5, -0.9),
-    controlOffset: new THREE.Vector3(-0.4, 0.7, -0.2),
-    rotation: new THREE.Euler(0.3, 0.5, 0.5),
-    staggerDelay: 0.15,
-  },
-  leg_left: {
-    // Bottom Left - Rotated to show profile/feet clearly
-    targetOffset: new THREE.Vector3(-0.7, -0.9, 0.4),
-    controlOffset: new THREE.Vector3(-0.5, -0.5, 0.6),
-    rotation: new THREE.Euler(0.1, -0.8, 1.5),
-    staggerDelay: 0.1,
-  },
-  leg_right: {
-    // Bottom Right - Rotated to show profile/feet clearly
-    targetOffset: new THREE.Vector3(0.7, -0.7, -0.5),
-    controlOffset: new THREE.Vector3(0.5, -0.5, -0.4),
-    rotation: new THREE.Euler(0.3, 0.8, 0.3),
-    staggerDelay: 0.2,
-  },
-  torso: {
-    // CENTER, slightly back to let head pop
-    targetOffset: new THREE.Vector3(0.6, -0.3, -0.4),
-    controlOffset: new THREE.Vector3(0, 0.1, -0.2),
-    rotation: new THREE.Euler(0.5, -0.9, 0.1), // Tilted
+  torso_back: {
+    targetOffset: new THREE.Vector3(1.0, -0.3, -1.4),
+    controlOffset: new THREE.Vector3(0, 0.1, -0.5),
+    rotation: new THREE.Euler(0.7, -1.2, 0.15),
     staggerDelay: 0.05,
   },
+
+  // LEFT ARM - Spread to upper-left quadrant (tighter)
+  arm_shoulder_left: {
+    targetOffset: new THREE.Vector3(-0.6, 0.6, 0.5),
+    controlOffset: new THREE.Vector3(0.3, 0.5, -0.2),
+    rotation: new THREE.Euler(0.5, -0.8, 1.2),
+    staggerDelay: 0.08,
+  },
+  arm_upperarm_left: {
+    targetOffset: new THREE.Vector3(-0.9, 0.4, 0.25),
+    controlOffset: new THREE.Vector3(0.4, 0.6, -0.3),
+    rotation: new THREE.Euler(0.6, -1.0, 1.4),
+    staggerDelay: 0.14,
+  },
+  arm_forearm_left: {
+    targetOffset: new THREE.Vector3(-1.2, 0.0, -0.15),
+    controlOffset: new THREE.Vector3(0.5, 0.7, -0.4),
+    rotation: new THREE.Euler(0.7, -1.1, 1.6),
+    staggerDelay: 0.2,
+  },
+  arm_hand_left: {
+    targetOffset: new THREE.Vector3(-1.8, -0.3, -0.5),
+    controlOffset: new THREE.Vector3(0.6, 0.8, -0.5),
+    rotation: new THREE.Euler(0.9, -1.2, 1.8),
+    staggerDelay: 0.28,
+  },
+
+  // RIGHT ARM - Spread to upper-right quadrant (tighter)
+  arm_shoulder_right: {
+    targetOffset: new THREE.Vector3(1.5, 0.6, -0.4),
+    controlOffset: new THREE.Vector3(-0.3, 0.5, -0.2),
+    rotation: new THREE.Euler(0.4, 0.7, 0.5),
+    staggerDelay: 0.06,
+  },
+  arm_upperarm_right: {
+    targetOffset: new THREE.Vector3(1.2, 0.25, -0.7),
+    controlOffset: new THREE.Vector3(-0.4, 0.6, -0.3),
+    rotation: new THREE.Euler(0.5, 0.9, 0.7),
+    staggerDelay: 0.12,
+  },
+  arm_forearm_right: {
+    targetOffset: new THREE.Vector3(1.2, -0.15, -1.0),
+    controlOffset: new THREE.Vector3(-0.5, 0.7, -0.4),
+    rotation: new THREE.Euler(0.55, 1.0, 0.8),
+    staggerDelay: 0.18,
+  },
+  arm_hand_right: {
+    targetOffset: new THREE.Vector3(1.5, -0.5, -1.3),
+    controlOffset: new THREE.Vector3(-0.6, 0.8, -0.4),
+    rotation: new THREE.Euler(0.6, 1.1, 0.9),
+    staggerDelay: 0.26,
+  },
+
+  // LEFT LEG - Spread to lower-left quadrant (tighter)
+  leg_left_thigh: {
+    targetOffset: new THREE.Vector3(-0.5, -0.1, 0.4),
+    controlOffset: new THREE.Vector3(-0.3, -0.3, 0.5),
+    rotation: new THREE.Euler(0.15, -0.9, 1.3),
+    staggerDelay: 0.1,
+  },
+  leg_left_calf: {
+    targetOffset: new THREE.Vector3(-0.9, -0.2, 0.6),
+    controlOffset: new THREE.Vector3(-0.5, -0.5, 0.7),
+    rotation: new THREE.Euler(0.2, -1.1, 1.5),
+    staggerDelay: 0.16,
+  },
+  leg_left_feet: {
+    targetOffset: new THREE.Vector3(-1.2, -0.6, 0.9),
+    controlOffset: new THREE.Vector3(-0.7, -0.6, 0.8),
+    rotation: new THREE.Euler(0.25, -1.3, 1.8),
+    staggerDelay: 0.24,
+  },
+
+  // RIGHT LEG - Spread to lower-right quadrant (tighter)
+  leg_right_thigh: {
+    targetOffset: new THREE.Vector3(0.8, 0, -0.3),
+    controlOffset: new THREE.Vector3(0.3, -0.3, -0.4),
+    rotation: new THREE.Euler(0.35, 0.9, 0.4),
+    staggerDelay: 0.12,
+  },
+  leg_right_calf: {
+    targetOffset: new THREE.Vector3(1.1, -0.2, -0.6),
+    controlOffset: new THREE.Vector3(0.5, -0.5, -0.6),
+    rotation: new THREE.Euler(0.4, 1.1, 0.5),
+    staggerDelay: 0.18,
+  },
+  leg_right_feet: {
+    targetOffset: new THREE.Vector3(1.3, -0.6, -1.0),
+    controlOffset: new THREE.Vector3(0.7, -0.6, -0.8),
+    rotation: new THREE.Euler(0.5, 1.3, 0.6),
+    staggerDelay: 0.24,
+  },
 };
+
+/**
+ * Random spread factor applied at runtime for unpredictable explosion
+ * Each explosion will have slightly different positions. Reduced to keep in view.
+ */
+const EXPLOSION_RANDOM_SPREAD = 0.3;
 
 /**
  * Orchestrates cinematic exploded view animations for the Iron Man suit schematic.
@@ -228,18 +345,29 @@ export class ExplodedViewManager {
    * @param schematic - The loaded Three.js Group containing named limb meshes
    *
    * @remarks
-   * Must be called after the GLB model is fully loaded. Expected limb names:
-   * `head`, `torso`, `arm_left`, `arm_right`, `leg_left`, `leg_right`
+   * Must be called after the GLB model is fully loaded. Expected 17 limb names
+   * matching the articulated model parts.
    */
   initialize(schematic: THREE.Group): void {
-    // Find and store references to each limb mesh
+    // Find and store references to each limb mesh (17 parts)
     const limbNames: LimbType[] = [
       'head',
-      'torso',
-      'arm_left',
-      'arm_right',
-      'leg_left',
-      'leg_right',
+      'torso_front',
+      'torso_back',
+      'arm_shoulder_left',
+      'arm_upperarm_left',
+      'arm_forearm_left',
+      'arm_hand_left',
+      'arm_shoulder_right',
+      'arm_upperarm_right',
+      'arm_forearm_right',
+      'arm_hand_right',
+      'leg_left_thigh',
+      'leg_left_calf',
+      'leg_left_feet',
+      'leg_right_thigh',
+      'leg_right_calf',
+      'leg_right_feet',
     ];
 
     schematic.traverse((child) => {
@@ -458,13 +586,28 @@ export class ExplodedViewManager {
 
       if (!originalState) continue;
 
-      // Define Bezier points
+      // Define Bezier points with runtime randomization for unpredictability
       // P0: Start (original position)
       const p0 = originalState.position.clone();
-      // P2: End (target position)
-      const p2 = p0.clone().add(explosionConfig.targetOffset);
-      // P1: Control Point (arc)
-      const p1 = p0.clone().add(explosionConfig.controlOffset);
+
+      // P2: End (target position with random offset for variety)
+      const randomOffset = new THREE.Vector3(
+        (Math.random() - 0.5) * 2 * EXPLOSION_RANDOM_SPREAD,
+        (Math.random() - 0.5) * 2 * EXPLOSION_RANDOM_SPREAD,
+        (Math.random() - 0.5) * 2 * EXPLOSION_RANDOM_SPREAD
+      );
+      const p2 = p0.clone().add(explosionConfig.targetOffset).add(randomOffset);
+
+      // P1: Control Point (arc) with slight randomization
+      const controlRandomOffset = new THREE.Vector3(
+        (Math.random() - 0.5) * EXPLOSION_RANDOM_SPREAD * 0.5,
+        (Math.random() - 0.5) * EXPLOSION_RANDOM_SPREAD * 0.5,
+        (Math.random() - 0.5) * EXPLOSION_RANDOM_SPREAD * 0.5
+      );
+      const p1 = p0
+        .clone()
+        .add(explosionConfig.controlOffset)
+        .add(controlRandomOffset);
 
       // Animation params
       const velocityMultiplier = LIMB_VELOCITY_MULTIPLIER[limbName];
@@ -578,22 +721,36 @@ export class ExplodedViewManager {
       },
     });
 
-    // Custom Assembly Sequence:
-    // 1. Torso (Base) - First
-    // 2. Limbs (Arms/Legs) - Second
+    // Custom Assembly Sequence - 17 parts with cascading timing:
+    // 1. Torso → Shoulders → Upper arms → Forearms → Hands (inner to outer)
+    // 2. Thighs → Calves → Feet (top to bottom)
     // 3. Head (Faceplate) - Last, with spin
 
     const sequenceGroups: { [key: string]: LimbType[] } = {
-      torso: ['torso'],
-      limbs: ['leg_left', 'leg_right', 'arm_left', 'arm_right'],
+      torso_back: ['torso_back'],
+      torso_front: ['torso_front'],
+      shoulders: ['arm_shoulder_left', 'arm_shoulder_right'],
+      upperArms: ['arm_upperarm_left', 'arm_upperarm_right'],
+      forearms: ['arm_forearm_left', 'arm_forearm_right'],
+      hands: ['arm_hand_left', 'arm_hand_right'],
+      thighs: ['leg_left_thigh', 'leg_right_thigh'],
+      calves: ['leg_left_calf', 'leg_right_calf'],
+      feet: ['leg_left_feet', 'leg_right_feet'],
       head: ['head'],
     };
 
-    // Delays relative to timeline start
+    // Delays relative to timeline start - cascading from center outward
     const sequenceDelays: { [key: string]: number } = {
-      torso: 0.0,
-      limbs: 0.25,
-      head: 0.8,
+      torso_back: 0.0,
+      torso_front: 0.63,
+      shoulders: 0.08,
+      thighs: 0.12,
+      upperArms: 0.18,
+      calves: 0.22,
+      forearms: 0.28,
+      feet: 0.32,
+      hands: 0.38,
+      head: 0.5,
     };
 
     for (const [groupName, limbs] of Object.entries(sequenceGroups)) {
@@ -623,16 +780,18 @@ export class ExplodedViewManager {
 
         const velocityMultiplier = LIMB_VELOCITY_MULTIPLIER[limbName];
 
-        // Dynamic duration: Torso moves faster
+        // Dynamic duration: Torso parts move faster
         let durationMultiplier = 0.8;
-        if (limbName === 'torso') durationMultiplier = 0.5; // SUPER FAST TORSO
+        if (limbName === 'torso_front' || limbName === 'torso_back') {
+          durationMultiplier = 0.5; // SUPER FAST TORSO
+        }
 
         const baseDuration =
           CINEMATIC_TIMING.burst * velocityMultiplier * durationMultiplier;
 
-        // Stagger within groups (except torso/head which are single)
+        // Stagger within groups
         const intraGroupStagger =
-          groupName === 'limbs' ? Math.random() * 0.2 : 0;
+          groupName !== 'head' ? Math.random() * 0.08 : 0;
         const totalStartTime = groupDelay + intraGroupStagger;
 
         const progressObj = { p: 0 };
@@ -948,10 +1107,14 @@ export class ExplodedViewManager {
       this.levitationTimeline.kill();
       this.levitationTimeline = null;
 
-      // Ensure torso trail is stopped (since it runs continuously)
-      const torsoMesh = this.limbMeshes.get('torso');
-      if (torsoMesh) {
-        this.config.onLimbMoveEnd?.('torso', torsoMesh);
+      // Ensure torso trails are stopped (since they run continuously)
+      const torsoFrontMesh = this.limbMeshes.get('torso_front');
+      if (torsoFrontMesh) {
+        this.config.onLimbMoveEnd?.('torso_front', torsoFrontMesh);
+      }
+      const torsoBackMesh = this.limbMeshes.get('torso_back');
+      if (torsoBackMesh) {
+        this.config.onLimbMoveEnd?.('torso_back', torsoBackMesh);
       }
     }
   }
