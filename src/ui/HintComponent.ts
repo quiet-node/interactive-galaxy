@@ -58,30 +58,14 @@ export class HintComponent {
     } else if (mode === 'iron-man-workshop') {
       content.innerHTML = `
         <div class="hint-header">
-          <span class="hint-title">INTERFACE CONTROLS</span>
-          <div class="hint-subtitle">GESTURE OVERRIDES ACTIVE</div>
+          <span class="hint-title">Guide</span>
         </div>
-        <div class="hint-grid">
-          <div class="hint-row">
-            <div class="hint-label">EXPLODED VIEW</div>
-            <div class="hint-value">Left Hand Open / Close</div>
-          </div>
-          <div class="hint-row">
-            <div class="hint-label">ROTATION</div>
-            <div class="hint-value">Right Hand Pinch & Drag</div>
-          </div>
-          <div class="hint-row">
-            <div class="hint-label">ANALYSIS</div>
-            <div class="hint-value">Right Index Hover</div>
-          </div>
-          <div class="hint-row">
-            <div class="hint-label">COMPONENT SPIN</div>
-            <div class="hint-value">Twist Left Wrist (Exploded)</div>
-          </div>
-          <div class="hint-row">
-            <div class="hint-label">RESET</div>
-            <div class="hint-value">Press <kbd>R</kbd></div>
-          </div>
+        <div class="hint-list">
+          <div class="hint-item">Open left hand to disassemble</div>
+          <div class="hint-item">Close left hand to assemble</div>
+          <div class="hint-item">Pinch right hand to rotate</div>
+          <div class="hint-item">Hover right index for part info</div>
+          <div class="hint-item">Press <kbd>R</kbd> to reset</div>
         </div>
       `;
     } else {
@@ -90,7 +74,7 @@ export class HintComponent {
           <span class="hint-title">Guide</span>
         </div>
         <div class="hint-list">
-          <div class="hint-item">Wave your hand to wipe away the fog</div>
+          <div class="hint-item">Wave hands to clear the fog</div>
           <div class="hint-item highlight clickable-hint" data-action="reset">
             <span class="desktop-text">Press <kbd>R</kbd> to reset</span>
             <span class="mobile-text">Tap to Reset</span>
@@ -181,7 +165,7 @@ export class HintComponent {
         font-family: 'Nunito', sans-serif;
         border-radius: 4px; /* Sharper corners for tech look */
         z-index: 100;
-        width: 380px; /* Wider for grid */
+        width: 250px;
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 255, 255, 0.15); /* Cyan border glow */
         transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
         overflow: hidden;
@@ -374,6 +358,14 @@ export class HintComponent {
         text-align: center;
         margin: 0 2px;
         box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+      }
+
+      .mobile-text {
+        display: none;
+      }
+
+      .desktop-text {
+        display: inline;
       }
 
       @media (max-width: 768px) {

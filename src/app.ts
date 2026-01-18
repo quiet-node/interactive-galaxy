@@ -279,12 +279,12 @@ export class App {
     this.landingPage?.show();
   }
 
-  private returnToMainMenu(): void {
-    if (this.state === 'landing') {
-      this.showLandingPage();
-      return;
-    }
-
+  /**
+   * Stop and dispose the currently active mode controller (if any).
+   * This centralizes all mode cleanup logic to prevent resource leaks
+   * and ensure modes are mutually exclusive.
+   */
+  private stopCurrentMode(): void {
     // Stop galaxy mode
     if (this.galaxyRenderer) {
       this.galaxyRenderer.hide();
@@ -320,6 +320,15 @@ export class App {
       this.workshopController.dispose();
       this.workshopController = null;
     }
+  }
+
+  private returnToMainMenu(): void {
+    if (this.state === 'landing') {
+      this.showLandingPage();
+      return;
+    }
+
+    this.stopCurrentMode();
 
     this.showLandingPage();
   }
@@ -628,21 +637,8 @@ export class App {
     // Hide landing page
     this.landingPage?.hide();
 
-    // Stop foggy-mirror controller
-    if (this.foggyMirrorController) {
-      this.foggyMirrorController.stop();
-      this.foggyMirrorController.disableDebug();
-      this.foggyMirrorController.dispose();
-      this.foggyMirrorController = null;
-    }
-
-    // Stop cosmic slash controller
-    if (this.cosmicSlashController) {
-      this.cosmicSlashController.stop();
-      this.cosmicSlashController.disableDebug();
-      this.cosmicSlashController.dispose();
-      this.cosmicSlashController = null;
-    }
+    // Stop any currently active mode
+    this.stopCurrentMode();
 
     // Initialize galaxy renderer if needed
     if (!this.galaxyRenderer) {
@@ -699,24 +695,8 @@ export class App {
     // Hide landing page
     this.landingPage?.hide();
 
-    // Stop galaxy mode
-    if (this.galaxyRenderer) {
-      this.galaxyRenderer.hide();
-      this.galaxyRenderer.dispose();
-      this.galaxyRenderer = null;
-    }
-    if (this.controller) {
-      this.controller.dispose();
-      this.controller = null;
-    }
-
-    // Stop cosmic slash controller
-    if (this.cosmicSlashController) {
-      this.cosmicSlashController.stop();
-      this.cosmicSlashController.disableDebug();
-      this.cosmicSlashController.dispose();
-      this.cosmicSlashController = null;
-    }
+    // Stop any currently active mode
+    this.stopCurrentMode();
 
     // Initialize foggy mirror controller if needed
     if (!this.foggyMirrorController) {
@@ -787,24 +767,8 @@ export class App {
     // Hide landing page
     this.landingPage?.hide();
 
-    // Stop galaxy mode
-    if (this.galaxyRenderer) {
-      this.galaxyRenderer.hide();
-      this.galaxyRenderer.dispose();
-      this.galaxyRenderer = null;
-    }
-    if (this.controller) {
-      this.controller.dispose();
-      this.controller = null;
-    }
-
-    // Stop foggy-mirror controller
-    if (this.foggyMirrorController) {
-      this.foggyMirrorController.stop();
-      this.foggyMirrorController.disableDebug();
-      this.foggyMirrorController.dispose();
-      this.foggyMirrorController = null;
-    }
+    // Stop any currently active mode
+    this.stopCurrentMode();
 
     // Initialize cosmic slash controller if needed
     if (!this.cosmicSlashController) {
@@ -857,32 +821,8 @@ export class App {
     // Hide landing page
     this.landingPage?.hide();
 
-    // Stop galaxy mode
-    if (this.galaxyRenderer) {
-      this.galaxyRenderer.hide();
-      this.galaxyRenderer.dispose();
-      this.galaxyRenderer = null;
-    }
-    if (this.controller) {
-      this.controller.dispose();
-      this.controller = null;
-    }
-
-    // Stop foggy-mirror controller
-    if (this.foggyMirrorController) {
-      this.foggyMirrorController.stop();
-      this.foggyMirrorController.disableDebug();
-      this.foggyMirrorController.dispose();
-      this.foggyMirrorController = null;
-    }
-
-    // Stop cosmic slash controller
-    if (this.cosmicSlashController) {
-      this.cosmicSlashController.stop();
-      this.cosmicSlashController.disableDebug();
-      this.cosmicSlashController.dispose();
-      this.cosmicSlashController = null;
-    }
+    // Stop any currently active mode
+    this.stopCurrentMode();
 
     // Initialize workshop controller if needed
     if (!this.workshopController) {
@@ -910,7 +850,7 @@ export class App {
     this.statusIndicator?.show();
     this.footer?.show();
     this.hintComponent?.update('iron-man-workshop');
-    this.hintComponent?.hide();
+    this.hintComponent?.show();
     this.modeIndicator?.update('iron-man-workshop');
 
     // Start loop
