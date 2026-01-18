@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="112 112 288 288">
+  <defs>
+    <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffa575"/>
+      <stop offset="100%" stop-color="#311599"/>
+    </linearGradient>
+    <linearGradient id="brandGradientDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffb38a"/>
+      <stop offset="100%" stop-color="#5a3fd1"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      .icon-shape { fill: url(#brandGradient); }
+      .icon-accent { fill: #ffa575; opacity: 0.9; }
+      @media (prefers-color-scheme: dark) {
+        .icon-shape { fill: url(#brandGradientDark); }
+        .icon-accent { fill: #ffb38a; opacity: 1; }
+      }
+    </style>
+  </defs>
+  
+  <!-- Main gesture symbol: stylized hand/cursor with motion trails -->
+  <g filter="url(#glow)">
+    <!-- Central gesture point -->
+    <circle class="icon-shape" cx="256" cy="256" r="80"/>
+    
+    <!-- Motion trails / gesture arcs -->
+    <path class="icon-shape" d="
+      M 256 136
+      A 120 120 0 0 1 376 256
+      L 340 256
+      A 84 84 0 0 0 256 172
+      Z
+    " opacity="0.85"/>
+    
+    <path class="icon-shape" d="
+      M 376 256
+      A 120 120 0 0 1 256 376
+      L 256 340
+      A 84 84 0 0 0 340 256
+      Z
+    " opacity="0.7"/>
+    
+    <path class="icon-shape" d="
+      M 256 376
+      A 120 120 0 0 1 136 256
+      L 172 256
+      A 84 84 0 0 0 256 340
+      Z
+    " opacity="0.55"/>
+    
+    <!-- Inner accent dot -->
+    <circle class="icon-accent" cx="256" cy="256" r="28"/>
+  </g>
+</svg>
