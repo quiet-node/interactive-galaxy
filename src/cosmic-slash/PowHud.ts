@@ -8,6 +8,7 @@ import { PowPhase, PowState } from './types';
  * - High-fidelity glassmorphism and neon glows
  * - Smooth physics-based animations
  * - Sci-fi "Star Wars / Star Trek" data visualization vibes
+ * - Mobile-first: horizontal at bottom, vertical on desktop
  */
 export class PowHud {
   private container: HTMLElement;
@@ -131,7 +132,9 @@ export class PowHud {
   private updateFillVisuals(): void {
     if (!this.fillEl) return;
     const percent = Math.max(0, Math.min(100, this.currentCharge * 100));
-    this.fillEl.style.height = `${percent}%`;
+
+    // CSS custom property for fill percentage (used differently on mobile vs desktop)
+    this.fillEl.style.setProperty('--fill-percent', `${percent}%`);
 
     // Dynamic glow intensity based on charge
     const intensity = 0.2 + this.currentCharge * 0.8;
@@ -162,12 +165,12 @@ export class PowHud {
 
     // Random properties
     const size = 2 + Math.random() * 3;
-    const left = 10 + Math.random() * 80;
+    const pos = 10 + Math.random() * 80;
     const duration = 1 + Math.random() * 1.5;
 
     p.style.width = `${size}px`;
     p.style.height = `${size}px`;
-    p.style.left = `${left}%`;
+    p.style.setProperty('--particle-pos', `${pos}%`);
     p.style.animationDuration = `${duration}s`;
 
     this.particlesEl.appendChild(p);
@@ -200,7 +203,6 @@ export class PowHud {
               .join('')}
           </div>
         </div>
-        <div class="pow-hud__footer"></div>
       </div>
     `;
 
@@ -220,35 +222,38 @@ export class PowHud {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
+      /* ===========================
+         MOBILE-FIRST: Horizontal layout at bottom center
+         =========================== */
       .pow-hud {
         position: absolute;
-        left: 40px;
-        top: 50%;
-        transform: translateY(-50%) translateX(-20px);
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
         opacity: 0;
         transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        z-index: 100;
+        z-index: 90;
         font-family: 'Orbitron', sans-serif;
         pointer-events: none;
       }
 
       .pow-hud--visible {
         opacity: 1;
-        transform: translateY(-50%) translateX(0);
+        transform: translateX(-50%) translateY(0);
       }
 
       .pow-hud__frame {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         align-items: center;
         gap: 12px;
-        padding: 16px;
-        width: 100px; /* Fixed width for stability */
+        padding: 10px 16px;
+        width: auto;
         box-sizing: border-box;
         background: rgba(10, 12, 20, 0.6);
         backdrop-filter: blur(12px);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 24px;
+        border-radius: 16px;
         box-shadow: 
           0 10px 30px rgba(0, 0, 0, 0.5),
           inset 0 0 20px rgba(0, 0, 0, 0.2);
@@ -258,42 +263,45 @@ export class PowHud {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 4px;
-        margin-bottom: 4px;
+        justify-content: center;
+        gap: 2px;
+        min-width: 50px;
       }
 
       .pow-hud__label {
-        font-size: 10px;
-        letter-spacing: 2px;
+        font-size: 8px;
+        letter-spacing: 1.5px;
         font-weight: 700;
         color: rgba(0, 242, 255, 0.8);
         text-shadow: 0 0 5px rgba(0, 242, 255, 0.5);
         transition: color 0.3s ease;
         white-space: nowrap;
         text-align: center;
-        width: 100%;
       }
 
       .pow-hud__value {
-        font-size: 14px;
+        font-size: 12px;
         font-weight: 900;
         color: #fff;
         font-variant-numeric: tabular-nums;
       }
 
+      /* Mobile: Horizontal track */
       .pow-hud__track-container {
         position: relative;
         display: flex;
-        gap: 12px;
-        height: 240px;
+        flex-direction: column;
+        gap: 4px;
+        width: 140px;
+        height: auto;
       }
 
       .pow-hud__track {
         position: relative;
-        width: 24px;
-        height: 100%;
+        width: 100%;
+        height: 16px;
         background: rgba(0, 0, 0, 0.4);
-        border-radius: 12px;
+        border-radius: 8px;
         overflow: hidden;
         border: 1px solid rgba(255, 255, 255, 0.05);
         box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
@@ -310,33 +318,34 @@ export class PowHud {
         z-index: 1;
       }
 
+      /* Mobile: Fill left-to-right */
       .pow-hud__fill {
         position: absolute;
         bottom: 0;
         left: 0;
-        width: 100%;
-        height: 0%;
-        background: linear-gradient(to top, #0066ff, #00f2ff);
-        transition: height 0.1s linear; /* Handled by JS lerp mostly */
+        height: 100%;
+        width: var(--fill-percent, 0%);
+        background: linear-gradient(to right, #0066ff, #00f2ff);
+        transition: width 0.1s linear;
         z-index: 2;
-        color: #00f2ff; /* For drop-shadow currentColor */
+        color: #00f2ff;
       }
 
       .pow-hud__scanline {
         position: absolute;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 20%;
-        background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.1), transparent);
-        animation: pow-scan 3s linear infinite;
+        height: 100%;
+        width: 20%;
+        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
+        animation: pow-scan-h 3s linear infinite;
         z-index: 3;
         pointer-events: none;
       }
 
-      @keyframes pow-scan {
-        0% { transform: translateY(-100%); }
-        100% { transform: translateY(500%); }
+      @keyframes pow-scan-h {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(500%); }
       }
 
       .pow-hud__particles {
@@ -346,39 +355,151 @@ export class PowHud {
         pointer-events: none;
       }
 
+      /* Mobile: particles move right */
       .pow-particle {
         position: absolute;
-        bottom: 0;
+        left: 0;
+        top: var(--particle-pos, 50%);
+        transform: translateY(-50%);
         background: #fff;
         border-radius: 50%;
         opacity: 0;
-        animation: pow-rise linear forwards;
+        animation: pow-drift-h linear forwards;
         box-shadow: 0 0 4px #fff;
       }
 
-      @keyframes pow-rise {
-        0% { transform: translateY(0); opacity: 0.8; }
-        100% { transform: translateY(-240px); opacity: 0; }
+      @keyframes pow-drift-h {
+        0% { transform: translateX(0) translateY(-50%); opacity: 0.8; }
+        100% { transform: translateX(140px) translateY(-50%); opacity: 0; }
       }
 
+      /* Mobile: Horizontal ticks */
       .pow-hud__ticks {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         justify-content: space-between;
-        padding: 4px 0;
-        height: 100%;
+        padding: 0 2px;
+        width: 100%;
       }
 
       .pow-tick {
-        width: 8px;
-        height: 2px;
+        width: 2px;
+        height: 6px;
         background: rgba(255, 255, 255, 0.2);
         border-radius: 1px;
       }
 
       .pow-tick:nth-child(5n) {
-        width: 12px;
+        height: 8px;
         background: rgba(255, 255, 255, 0.4);
+      }
+
+      /* ===========================
+         DESKTOP: Vertical layout on left side
+         =========================== */
+      @media (min-width: 768px) {
+        .pow-hud {
+          left: 40px;
+          bottom: auto;
+          top: 50%;
+          transform: translateY(-50%) translateX(-20px);
+        }
+
+        .pow-hud--visible {
+          transform: translateY(-50%) translateX(0);
+        }
+
+        .pow-hud__frame {
+          flex-direction: column;
+          gap: 12px;
+          padding: 16px;
+          width: 100px;
+        }
+
+        .pow-hud__header {
+          gap: 4px;
+          margin-bottom: 4px;
+          min-width: auto;
+        }
+
+        .pow-hud__label {
+          font-size: 10px;
+          letter-spacing: 2px;
+          width: 100%;
+        }
+
+        .pow-hud__value {
+          font-size: 14px;
+        }
+
+        /* Desktop: Vertical track */
+        .pow-hud__track-container {
+          flex-direction: row;
+          gap: 12px;
+          width: auto;
+          height: 240px;
+        }
+
+        .pow-hud__track {
+          width: 24px;
+          height: 100%;
+          border-radius: 12px;
+        }
+
+        /* Desktop: Fill bottom-to-top */
+        .pow-hud__fill {
+          width: 100%;
+          height: var(--fill-percent, 0%);
+          bottom: 0;
+          left: 0;
+          background: linear-gradient(to top, #0066ff, #00f2ff);
+          transition: height 0.1s linear;
+        }
+
+        .pow-hud__scanline {
+          width: 100%;
+          height: 20%;
+          background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.1), transparent);
+          animation: pow-scan-v 3s linear infinite;
+        }
+
+        @keyframes pow-scan-v {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(500%); }
+        }
+
+        /* Desktop: particles move up */
+        .pow-particle {
+          left: var(--particle-pos, 50%);
+          top: auto;
+          bottom: 0;
+          transform: translateX(-50%);
+          animation: pow-rise linear forwards;
+        }
+
+        @keyframes pow-rise {
+          0% { transform: translateX(-50%) translateY(0); opacity: 0.8; }
+          100% { transform: translateX(-50%) translateY(-240px); opacity: 0; }
+        }
+
+        /* Desktop: Vertical ticks */
+        .pow-hud__ticks {
+          flex-direction: column;
+          justify-content: space-between;
+          padding: 4px 0;
+          width: auto;
+          height: 100%;
+        }
+
+        .pow-tick {
+          width: 8px;
+          height: 2px;
+        }
+
+        .pow-tick:nth-child(5n) {
+          width: 12px;
+          height: 2px;
+        }
       }
 
       /* --- STATES --- */
@@ -430,6 +551,16 @@ export class PowHud {
       
       .pow-hud--cooldown .pow-hud__frame {
         opacity: 0.7;
+      }
+
+      /* Mobile-specific ready state gradient direction */
+      @media (max-width: 767px) {
+        .pow-hud--ready .pow-hud__fill {
+          background: linear-gradient(to right, #ff8c00, #ffd700);
+        }
+        .pow-hud--active .pow-hud__fill {
+          background: linear-gradient(to right, #ff0055, #ffcc00);
+        }
       }
     `;
     document.head.appendChild(style);

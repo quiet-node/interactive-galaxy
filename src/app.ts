@@ -22,6 +22,7 @@ import { HintComponent } from './ui/HintComponent';
 import { InteractionMode, LandingPage } from './ui/LandingPage';
 import { ModeIndicator } from './ui/ModeIndicator';
 import { StatusIndicator } from './ui/StatusIndicator';
+import { DeviceBanner } from './ui/DeviceBanner';
 
 /**
  * Application state
@@ -69,6 +70,7 @@ export class App {
   private modeIndicator: ModeIndicator | null = null;
   private statusIndicator: StatusIndicator | null = null;
   private debugComponent: DebugComponent | null = null;
+  private deviceBanner: DeviceBanner | null = null;
 
   // DOM elements
   private container: HTMLElement;
@@ -199,6 +201,10 @@ export class App {
 
     // Debug Component
     this.debugComponent = new DebugComponent(this.container);
+
+    // Device Banner (for non-laptop screens)
+    this.deviceBanner = new DeviceBanner();
+    this.deviceBanner.show();
 
     // Global Input Listeners
     this.setupGlobalInputListeners();
@@ -901,6 +907,7 @@ export class App {
     this.workshopController?.dispose();
     this.handTracker.dispose();
     this.galaxyRenderer?.dispose();
+    this.deviceBanner?.dispose();
 
     // Clear container
     this.container.innerHTML = '';

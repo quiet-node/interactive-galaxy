@@ -164,7 +164,7 @@ export class HintComponent {
         color: #fff;
         font-family: 'Nunito', sans-serif;
         border-radius: 4px; /* Sharper corners for tech look */
-        z-index: 100;
+        z-index: 150;
         width: 250px;
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 255, 255, 0.15); /* Cyan border glow */
         transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);

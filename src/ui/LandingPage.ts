@@ -320,22 +320,54 @@ export class LandingPage {
 
       @media (max-width: 600px) {
         .landing-container {
-          padding: 2rem 1rem;
-          gap: 1.5rem;
+          padding: 3.5rem 0.75rem 1.5rem;
+          gap: 1rem;
+          overflow-y: auto;
+          max-height: 100%;
         }
-        .app-title { font-size: 2.5rem; }
-        .app-subtitle { font-size: 0.9rem; }
-        .portals-container { gap: 1rem; }
+        .app-title { font-size: 2.2rem; }
+        .app-subtitle { font-size: 0.85rem; }
+        .portals-container { 
+          gap: 0.75rem; 
+          padding: 0 0.25rem;
+        }
         .portal-card { 
           flex-direction: column; 
           align-items: flex-start; 
           gap: 0.5rem;
-          padding: 1.2rem;
+          padding: 1rem;
           min-height: auto;
         }
-        .portal-title { font-size: 1.2rem; }
-        .portal-desc { font-size: 0.85rem; }
+        .portal-title { font-size: 1.1rem; }
+        .portal-desc { font-size: 0.8rem; }
         .portal-footer { display: none; }
+        .landing-footer { bottom: 12px; }
+      }
+
+      @media (max-width: 400px) {
+        .landing-container {
+          padding: 3.5rem 0.5rem 1rem;
+        }
+        .app-title { font-size: 1.8rem; }
+        .app-subtitle { 
+          font-size: 0.75rem; 
+          letter-spacing: 0.05rem;
+        }
+        .portals-container { gap: 0.6rem; }
+        .portal-card { 
+          padding: 0.85rem;
+          border-radius: 12px;
+        }
+        .portal-title { font-size: 1rem; }
+        .portal-desc { font-size: 0.75rem; }
+        .landing-footer { 
+          bottom: 8px;
+          font-size: 0.75rem;
+        }
+        .landing-footer a {
+          padding: 4px 8px;
+          font-size: 0.7rem;
+        }
       }
     `;
     this.element.appendChild(style);
