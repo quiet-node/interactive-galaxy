@@ -23,6 +23,7 @@ export class HandTracker {
   private stream: MediaStream | null = null;
   private config: HandTrackerConfig;
   private _isReady: boolean = false;
+  private _isCameraEnabled: boolean = false;
 
   private detectionIntervalMs: number = 0;
   private lastResult: HandLandmarkerResult | null = null;
@@ -47,9 +48,12 @@ export class HandTracker {
     this.videoElement = videoElement;
 
     // Initialize in parallel for faster startup
+    // Camera errors are caught and handled gracefully
     await Promise.all([
       this.initializeHandLandmarker(),
-      this.initializeWebcam(),
+      this.initializeWebcam().catch(() => {
+        // Camera failure is handled in initializeWebcam, just swallow to prevent Promise.all rejection
+      }),
     ]);
 
     this._isReady = true;
@@ -86,7 +90,7 @@ export class HandTracker {
       HandTracker.initializationPromise = (async () => {
         // Step 1: Load WASM runtime
         const vision = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
         );
 
         // Step 2: Create HandLandmarker with configuration
@@ -108,12 +112,12 @@ export class HandTracker {
       this.handLandmarker = HandTracker.sharedHandLandmarker;
 
       console.log(
-        '[HandTracker] MediaPipe HandLandmarker initialized (New Instance)'
+        '[HandTracker] MediaPipe HandLandmarker initialized (New Instance)',
       );
     } catch (error) {
       console.error(
         '[HandTracker] Failed to initialize HandLandmarker:',
-        error
+        error,
       );
       HandTracker.initializationPromise = null; // Reset on failure
       throw new Error(`MediaPipe initialization failed: ${error}`);
@@ -163,9 +167,12 @@ export class HandTracker {
         width: this.videoElement.videoWidth,
         height: this.videoElement.videoHeight,
       });
+
+      this._isCameraEnabled = true;
     } catch (error) {
+      this._isCameraEnabled = false;
       this.handleCameraError(error);
-      throw error;
+      // Do NOT re-throw; allow app to continue without camera
     }
   }
 
@@ -177,17 +184,17 @@ export class HandTracker {
       switch (error.name) {
         case 'NotAllowedError':
           console.error(
-            '[HandTracker] Camera permission denied. Please allow camera access.'
+            '[HandTracker] Camera permission denied. Please allow camera access.',
           );
           break;
         case 'NotFoundError':
           console.error(
-            '[HandTracker] No camera found. Please connect a camera.'
+            '[HandTracker] No camera found. Please connect a camera.',
           );
           break;
         case 'NotReadableError':
           console.error(
-            '[HandTracker] Camera is in use by another application.'
+            '[HandTracker] Camera is in use by another application.',
           );
           break;
         case 'OverconstrainedError':
@@ -239,7 +246,7 @@ export class HandTracker {
       // detectForVideo is synchronous in VIDEO running mode
       const result = this.handLandmarker.detectForVideo(
         this.videoElement,
-        timestamp
+        timestamp,
       );
       this.lastDetectForVideoTimestamp = timestamp;
       this.lastResult = result;
@@ -255,6 +262,13 @@ export class HandTracker {
    */
   isReady(): boolean {
     return this._isReady;
+  }
+
+  /**
+   * Check if camera is enabled and streaming
+   */
+  isCameraEnabled(): boolean {
+    return this._isCameraEnabled;
   }
 
   /**

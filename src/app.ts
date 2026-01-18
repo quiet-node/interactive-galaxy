@@ -23,6 +23,7 @@ import { InteractionMode, LandingPage } from './ui/LandingPage';
 import { ModeIndicator } from './ui/ModeIndicator';
 import { StatusIndicator } from './ui/StatusIndicator';
 import { DeviceBanner } from './ui/DeviceBanner';
+import { CameraPermissionBanner } from './ui/CameraPermissionBanner';
 
 /**
  * Application state
@@ -71,6 +72,7 @@ export class App {
   private statusIndicator: StatusIndicator | null = null;
   private debugComponent: DebugComponent | null = null;
   private deviceBanner: DeviceBanner | null = null;
+  private cameraPermissionBanner: CameraPermissionBanner | null = null;
 
   // DOM elements
   private container: HTMLElement;
@@ -207,6 +209,9 @@ export class App {
     this.deviceBanner = new DeviceBanner();
     this.deviceBanner.show();
 
+    // Camera Permission Banner (shown when camera is denied)
+    this.cameraPermissionBanner = new CameraPermissionBanner();
+
     // Global Input Listeners
     this.setupGlobalInputListeners();
   }
@@ -334,6 +339,7 @@ export class App {
     }
 
     this.stopCurrentMode();
+    this.cameraPermissionBanner?.hide();
 
     this.showLandingPage();
   }
@@ -691,6 +697,11 @@ export class App {
     // Start loop
     this.startAnimationLoop();
 
+    // Show camera permission banner if camera is not enabled
+    if (!this.handTracker.isCameraEnabled()) {
+      this.cameraPermissionBanner?.show('galaxy');
+    }
+
     // Re-enable debug if it was active
     if (this.debugComponent?.isVisibleState() && this.controller) {
       this.controller.enableDebug((info) => this.updateGalaxyDebugPanel(info));
@@ -741,6 +752,11 @@ export class App {
 
     // Start loop (for FPS and status, though foggy mirror has its own loop)
     this.startAnimationLoop();
+
+    // Show camera permission banner if camera is not enabled
+    if (!this.handTracker.isCameraEnabled()) {
+      this.cameraPermissionBanner?.show('foggy-mirror');
+    }
 
     // Re-enable debug if it was active
     if (this.debugComponent?.isVisibleState()) {
@@ -815,6 +831,11 @@ export class App {
     // Start loop
     this.startAnimationLoop();
 
+    // Show camera permission banner if camera is not enabled
+    if (!this.handTracker.isCameraEnabled()) {
+      this.cameraPermissionBanner?.show('cosmic-slash');
+    }
+
     // Re-enable debug if it was active
     if (this.debugComponent?.isVisibleState()) {
       this.cosmicSlashController.enableDebug((info) =>
@@ -869,6 +890,11 @@ export class App {
     // Start loop
     this.startAnimationLoop();
 
+    // Show camera permission banner if camera is not enabled
+    if (!this.handTracker.isCameraEnabled()) {
+      this.cameraPermissionBanner?.show('iron-man-workshop');
+    }
+
     // Re-enable debug if it was active
     if (this.debugComponent?.isVisibleState()) {
       this.workshopController.enableDebug((info) =>
@@ -915,6 +941,7 @@ export class App {
     this.handTracker.dispose();
     this.galaxyRenderer?.dispose();
     this.deviceBanner?.dispose();
+    this.cameraPermissionBanner?.dispose();
 
     // Clear container
     this.container.innerHTML = '';
