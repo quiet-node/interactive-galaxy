@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
-    "validate-build": "npm run typecheck && npm run lint && npm run build"
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "validate-build": "eslint . --max-warnings=0 && tsc --noEmit && prettier --check . && vite build"
   },
   "keywords": [
     "mediapipe",
@@ -52,6 +54,7 @@
     "@types/node": "^25.0.1",
     "@types/three": "^0.181.0",
     "eslint": "^9.39.2",
+    "prettier": "^3.8.0",
     "typescript-eslint": "^8.49.0"
   }
 }

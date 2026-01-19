@@ -1,0 +1,19 @@
+name: PR Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build:
+    name: Build Validation
+    uses: ./.github/workflows/build-validation.yml
+    with:
+      head_ref: ${{ github.head_ref }}
+      event_name: ${{ github.event_name }}
+    secrets: inherit

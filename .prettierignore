@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+package-lock.json
+bun.lock
+
+# Build output
+dist/
+
+# Assets
+audio-sources/
+public/
+
+# Misc
+.DS_Store
+*.log
+coverage/
+.cache/

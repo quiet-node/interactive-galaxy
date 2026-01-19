@@ -1,0 +1,92 @@
+name: Build Validation
+
+on:
+  workflow_call:
+    inputs:
+      head_ref:
+        description: "The head ref of the PR"
+        required: false
+        type: string
+      event_name:
+        description: "The event name"
+        required: false
+        type: string
+
+jobs:
+  build:
+    name: Build Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ inputs.head_ref || github.head_ref }}
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Verify dependencies
+        run: bun pm ls --depth=0 || true
+
+      - name: Security vulnerability scan
+        run: |
+          echo "Running security audit for dependencies..."
+
+          # Perform security audit with bun and capture output
+          AUDIT_OUTPUT=$(bun audit 2>&1 || true)
+
+          if echo "$AUDIT_OUTPUT" | grep -q "vulnerabilities"; then
+            echo "Security vulnerabilities detected in dependencies"
+            echo ""
+            echo "Vulnerability Summary:"
+            echo "$AUDIT_OUTPUT"
+            echo ""
+            
+            # Check for high or critical vulnerabilities
+            if echo "$AUDIT_OUTPUT" | grep -q -E "(high|critical)"; then
+              echo "::error::Critical or high severity vulnerabilities detected"
+              echo "Resolution Required: Please run 'bun update' to resolve vulnerabilities before merging"
+              exit 1
+            else
+              echo "::warning::Low to moderate vulnerabilities detected but build can proceed"
+              echo "Consider running 'bun update' to resolve vulnerabilities"
+            fi
+          else
+            echo "Security scan completed successfully - no vulnerabilities found"
+          fi
+
+      - name: Build validation
+        run: bun run validate-build
+
+      - name: Check chunk sizes
+        run: |
+          # Get the chunk size warning limit from vite.config.ts
+          CHUNK_SIZE_LIMIT=$(grep -o 'chunkSizeWarningLimit: [0-9]*' vite.config.ts | awk '{print $2}')
+          echo "Chunk size limit: ${CHUNK_SIZE_LIMIT}KB"
+
+          # Find all JS files in the dist/assets directory and check their sizes
+          OVERSIZED_CHUNKS=0
+          for file in dist/assets/*.js; do
+            if [ -f "$file" ]; then
+              SIZE_KB=$(du -k "$file" | cut -f1)
+              echo "Checking $file: ${SIZE_KB}KB"
+              if [ "$SIZE_KB" -gt "$CHUNK_SIZE_LIMIT" ]; then
+                echo "::error::Chunk size exceeded: $file is ${SIZE_KB}KB (limit: ${CHUNK_SIZE_LIMIT}KB)"
+                OVERSIZED_CHUNKS=$((OVERSIZED_CHUNKS + 1))
+              fi
+            fi
+          done
+
+          if [ "$OVERSIZED_CHUNKS" -gt 0 ]; then
+            echo "::error::Found $OVERSIZED_CHUNKS chunks exceeding the size limit of ${CHUNK_SIZE_LIMIT}KB"
+            exit 1
+          else
+            echo "All chunks are within the size limit of ${CHUNK_SIZE_LIMIT}KB"
+          fi
