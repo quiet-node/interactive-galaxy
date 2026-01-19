@@ -74,11 +74,7 @@ export class BossOverlay {
   setAnchor(worldPosition: THREE.Vector3, bossScale: number): void {
     const offsetY = Math.max(6.3, bossScale * 0.85);
     const offsetZ = -Math.max(3, bossScale * 0.06);
-    this.sprite.position.set(
-      worldPosition.x,
-      worldPosition.y + offsetY,
-      worldPosition.z + offsetZ
-    );
+    this.sprite.position.set(worldPosition.x, worldPosition.y + offsetY, worldPosition.z + offsetZ);
 
     const dist = this.camera.position.distanceTo(this.sprite.position);
     const size = this.baseScale * (0.85 + 0.065 * dist);
@@ -103,11 +99,7 @@ export class BossOverlay {
     this.pulse01 = Math.max(this.pulse01, clamp01(intensity01));
   }
 
-  setText(
-    progressText: string,
-    rewardText: string,
-    excitement01: number
-  ): void {
+  setText(progressText: string, rewardText: string, excitement01: number): void {
     const ctx = this.ctx;
     const w = this.canvas.width;
     const h = this.canvas.height;
@@ -125,10 +117,8 @@ export class BossOverlay {
     const progressGlow = `rgba(0, 212, 255, ${glowA})`;
     const rewardGlow = `rgba(255, 95, 215, ${glowB})`;
 
-    const progressColor =
-      e >= 0.85 ? 'rgba(255, 255, 255, 0.98)' : 'rgba(220, 250, 255, 0.96)';
-    const rewardColor =
-      e >= 0.65 ? 'rgba(255, 215, 170, 0.98)' : 'rgba(170, 255, 230, 0.92)';
+    const progressColor = e >= 0.85 ? 'rgba(255, 255, 255, 0.98)' : 'rgba(220, 250, 255, 0.96)';
+    const rewardColor = e >= 0.65 ? 'rgba(255, 215, 170, 0.98)' : 'rgba(170, 255, 230, 0.92)';
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

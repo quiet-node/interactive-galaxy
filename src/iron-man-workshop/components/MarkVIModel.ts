@@ -11,11 +11,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
-import {
-  computeBoundsTree,
-  disposeBoundsTree,
-  acceleratedRaycast,
-} from 'three-mesh-bvh';
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 import { createWorkshopMaterial } from '../materials/WorkshopMaterial';
 
 // Register BVH extension methods on Three.js prototypes (once at module load)
@@ -71,9 +67,7 @@ export interface MarkVIModelResult {
  * await loadPromise;
  * ```
  */
-export function loadMarkVIModel(
-  config: Partial<MarkVIModelConfig> = {}
-): MarkVIModelResult {
+export function loadMarkVIModel(config: Partial<MarkVIModelConfig> = {}): MarkVIModelResult {
   const { color, scale } = { ...DEFAULT_CONFIG, ...config };
   const group = new THREE.Group();
   group.scale.setScalar(scale);
@@ -149,10 +143,7 @@ export function loadMarkVIModel(
             // Generate wireframe geometry based on edge angle threshold
             // 20° threshold filters for structural edges while ignoring smooth curvature
             const edges = new THREE.EdgesGeometry(child.geometry, 20);
-            const wireframe = new THREE.LineSegments(
-              edges,
-              edgeMaterial.clone()
-            );
+            const wireframe = new THREE.LineSegments(edges, edgeMaterial.clone());
 
             // Ensure schematic renders on top of everything (panels, rings, etc.)
             child.renderOrder = 10;
@@ -221,9 +212,7 @@ export function loadMarkVIModel(
         // Fallback: If no specific limbs were found (e.g. naming mismatch),
         // create a global hit volume like before to prevent breakage.
         if (hitVolumes.length === 0) {
-          console.warn(
-            '[MarkVIModel] No named limbs found. Creating fallback global hit volume.'
-          );
+          console.warn('[MarkVIModel] No named limbs found. Creating fallback global hit volume.');
           const size = box.getSize(new THREE.Vector3());
           const maxDim = Math.max(size.x, size.y, size.z);
           const hitGeometry = new THREE.SphereGeometry(maxDim * 0.6, 8, 8);
@@ -268,10 +257,7 @@ export type ShaderMesh = THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
  * @param cachedMeshes - Pre-cached array of shader meshes
  * @param time - Current animation time in seconds
  */
-export function updateMarkVIModelCached(
-  cachedMeshes: ShaderMesh[],
-  time: number
-): void {
+export function updateMarkVIModelCached(cachedMeshes: ShaderMesh[], time: number): void {
   for (const mesh of cachedMeshes) {
     mesh.material.uniforms.uTime.value = time;
   }
@@ -289,10 +275,7 @@ export function updateMarkVIModelCached(
  */
 export function updateMarkVIModel(model: THREE.Group, time: number): void {
   model.traverse((child) => {
-    if (
-      child instanceof THREE.Mesh &&
-      child.material instanceof THREE.ShaderMaterial
-    ) {
+    if (child instanceof THREE.Mesh && child.material instanceof THREE.ShaderMaterial) {
       child.material.uniforms.uTime.value = time;
     }
   });

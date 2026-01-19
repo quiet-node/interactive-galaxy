@@ -168,8 +168,7 @@ export class FoggyMirrorController {
       this.frameCount++;
 
       if (timestamp - this.lastFpsUpdate >= 1000) {
-        this.currentFps =
-          (this.frameCount * 1000) / (timestamp - this.lastFpsUpdate);
+        this.currentFps = (this.frameCount * 1000) / (timestamp - this.lastFpsUpdate);
         this.frameCount = 0;
         this.lastFpsUpdate = timestamp;
       }
@@ -216,10 +215,8 @@ export class FoggyMirrorController {
           }
         }
 
-        const avgVelocity =
-          trackedHands.length > 0 ? totalVelocity / trackedHands.length : 0;
-        const avgBrushSize =
-          trackedHands.length > 0 ? totalBrushSize / trackedHands.length : 0;
+        const avgVelocity = trackedHands.length > 0 ? totalVelocity / trackedHands.length : 0;
+        const avgBrushSize = trackedHands.length > 0 ? totalBrushSize / trackedHands.length : 0;
 
         this.debugCallback({
           handsDetected: trackedHands.length,

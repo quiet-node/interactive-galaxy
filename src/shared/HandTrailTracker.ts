@@ -51,11 +51,7 @@ export class HandTrailTracker {
     // Reset new trail points for this frame
     this.newTrailPoints = [];
 
-    if (
-      !handResults ||
-      !handResults.landmarks ||
-      handResults.landmarks.length === 0
-    ) {
+    if (!handResults || !handResults.landmarks || handResults.landmarks.length === 0) {
       // No hands detected, clear tracked hands
       this.trackedHands.clear();
       return [];
@@ -67,8 +63,7 @@ export class HandTrailTracker {
     // Process each detected hand
     for (let i = 0; i < handResults.landmarks.length; i++) {
       const landmarks = handResults.landmarks[i];
-      const handedness =
-        handResults.handedness?.[i]?.[0]?.categoryName || 'Unknown';
+      const handedness = handResults.handedness?.[i]?.[0]?.categoryName || 'Unknown';
       const handId = `${handedness}-${i}`;
 
       currentHandIds.add(handId);
@@ -104,11 +99,7 @@ export class HandTrailTracker {
       }
 
       // Generate interpolated trail
-      const trail = this.generateTrail(
-        palmPosition,
-        previousPosition,
-        clearRadius
-      );
+      const trail = this.generateTrail(palmPosition, previousPosition, clearRadius);
 
       // Add to new trail points
       this.newTrailPoints.push(...trail);
@@ -143,11 +134,7 @@ export class HandTrailTracker {
    * @param radius - Clear radius for this hand
    * @returns Array of interpolated trail points
    */
-  private generateTrail(
-    current: Point2D,
-    previous: Point2D | null,
-    radius: number
-  ): TrailPoint[] {
+  private generateTrail(current: Point2D, previous: Point2D | null, radius: number): TrailPoint[] {
     const trail: TrailPoint[] = [];
     const timestamp = performance.now();
 

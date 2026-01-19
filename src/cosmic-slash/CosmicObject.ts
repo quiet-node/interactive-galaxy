@@ -9,11 +9,7 @@
  */
 
 import * as THREE from 'three';
-import {
-  CosmicObjectType,
-  COSMIC_OBJECT_CONFIGS,
-  type CosmicObjectConfig,
-} from './types';
+import { CosmicObjectType, COSMIC_OBJECT_CONFIGS, type CosmicObjectConfig } from './types';
 import {
   createCrystalMicroNormal,
   createMetalTextures,
@@ -543,10 +539,7 @@ class GeometryCache {
     this.addSurfaceVariation(star, 0.06);
     star.computeVertexNormals();
     if (star.attributes.uv) {
-      star.setAttribute(
-        'uv2',
-        new THREE.BufferAttribute(star.attributes.uv.array, 2)
-      );
+      star.setAttribute('uv2', new THREE.BufferAttribute(star.attributes.uv.array, 2));
     }
     this.geometries.set(CosmicObjectType.STAR, star);
 
@@ -555,10 +548,7 @@ class GeometryCache {
     this.addSurfaceVariation(meteor, 0.18);
     meteor.computeVertexNormals();
     if (meteor.attributes.uv) {
-      meteor.setAttribute(
-        'uv2',
-        new THREE.BufferAttribute(meteor.attributes.uv.array, 2)
-      );
+      meteor.setAttribute('uv2', new THREE.BufferAttribute(meteor.attributes.uv.array, 2));
     }
     this.geometries.set(CosmicObjectType.METEOR, meteor);
 
@@ -571,10 +561,7 @@ class GeometryCache {
     this.addSurfaceVariation(voidPearl, 0.012);
     voidPearl.computeVertexNormals();
     if (voidPearl.attributes.uv) {
-      voidPearl.setAttribute(
-        'uv2',
-        new THREE.BufferAttribute(voidPearl.attributes.uv.array, 2)
-      );
+      voidPearl.setAttribute('uv2', new THREE.BufferAttribute(voidPearl.attributes.uv.array, 2));
     }
     this.geometries.set(CosmicObjectType.VOID_PEARL, voidPearl);
 
@@ -585,10 +572,7 @@ class GeometryCache {
     this.addSurfaceVariation(nebulaCore, 0.05);
     nebulaCore.computeVertexNormals();
     if (nebulaCore.attributes.uv) {
-      nebulaCore.setAttribute(
-        'uv2',
-        new THREE.BufferAttribute(nebulaCore.attributes.uv.array, 2)
-      );
+      nebulaCore.setAttribute('uv2', new THREE.BufferAttribute(nebulaCore.attributes.uv.array, 2));
     }
     this.geometries.set(CosmicObjectType.NEBULA_CORE, nebulaCore);
 
@@ -607,10 +591,7 @@ class GeometryCache {
     this.addSurfaceVariation(cometEmber, 0.2);
     cometEmber.computeVertexNormals();
     if (cometEmber.attributes.uv) {
-      cometEmber.setAttribute(
-        'uv2',
-        new THREE.BufferAttribute(cometEmber.attributes.uv.array, 2)
-      );
+      cometEmber.setAttribute('uv2', new THREE.BufferAttribute(cometEmber.attributes.uv.array, 2));
     }
     this.geometries.set(CosmicObjectType.COMET_EMBER, cometEmber);
 
@@ -699,13 +680,7 @@ class GeometryCache {
     }
 
     // Prism body faces (4 rings creating 3 segments)
-    const rings = [
-      topRingStart,
-      midTopRingStart,
-      centerRingStart,
-      midBotRingStart,
-      botRingStart,
-    ];
+    const rings = [topRingStart, midTopRingStart, centerRingStart, midBotRingStart, botRingStart];
     for (let ring = 0; ring < rings.length - 1; ring++) {
       for (let i = 0; i < sides; i++) {
         const next = (i + 1) % sides;
@@ -724,14 +699,10 @@ class GeometryCache {
       indices.push(botApexIdx, botRingStart + next, botRingStart + i);
     }
 
-    geometry.setAttribute(
-      'position',
-      new THREE.Float32BufferAttribute(vertices, 3)
-    );
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     geometry.setIndex(indices);
 
-    const positionsForUv = geometry.attributes
-      .position as THREE.BufferAttribute;
+    const positionsForUv = geometry.attributes.position as THREE.BufferAttribute;
     let minY = Number.POSITIVE_INFINITY;
     let maxY = Number.NEGATIVE_INFINITY;
     for (let i = 0; i < positionsForUv.count; i++) {
@@ -776,10 +747,7 @@ class GeometryCache {
     return geometry;
   }
 
-  private addSurfaceVariation(
-    geometry: THREE.BufferGeometry,
-    magnitude: number
-  ): void {
+  private addSurfaceVariation(geometry: THREE.BufferGeometry, magnitude: number): void {
     const position = geometry.attributes.position as THREE.BufferAttribute;
     const dir = new THREE.Vector3();
     for (let i = 0; i < position.count; i++) {
@@ -791,12 +759,7 @@ class GeometryCache {
       const rand = noise - Math.floor(noise);
       const direction = dir.set(x, y, z).normalize();
       const delta = (rand - 0.5) * 2 * magnitude;
-      position.setXYZ(
-        i,
-        x + direction.x * delta,
-        y + direction.y * delta,
-        z + direction.z * delta
-      );
+      position.setXYZ(i, x + direction.x * delta, y + direction.y * delta, z + direction.z * delta);
     }
     position.needsUpdate = true;
   }
@@ -822,8 +785,7 @@ class GeometryCache {
 // ============== FACTORY ==============
 export class CosmicObjectFactory {
   private geometryCache: GeometryCache;
-  private glowMaterials: Map<CosmicObjectType, THREE.ShaderMaterial> =
-    new Map();
+  private glowMaterials: Map<CosmicObjectType, THREE.ShaderMaterial> = new Map();
 
   private rockTextures = createRockTextures({ size: 256, seed: 1337 });
   private metalTextures = createMetalTextures({ size: 256, seed: 4242 });
@@ -845,14 +807,14 @@ export class CosmicObjectFactory {
         type === CosmicObjectType.STAR
           ? 3.6
           : type === CosmicObjectType.CRYSTAL
-          ? 1.1
-          : type === CosmicObjectType.VOID_PEARL
-          ? 1.15
-          : type === CosmicObjectType.NEBULA_CORE
-          ? 1.35
-          : type === CosmicObjectType.COMET_EMBER
-          ? 1.25
-          : 0.95;
+            ? 1.1
+            : type === CosmicObjectType.VOID_PEARL
+              ? 1.15
+              : type === CosmicObjectType.NEBULA_CORE
+                ? 1.35
+                : type === CosmicObjectType.COMET_EMBER
+                  ? 1.25
+                  : 0.95;
 
       const material = new THREE.ShaderMaterial({
         uniforms: {
@@ -919,10 +881,7 @@ export class CosmicObjectFactory {
         });
         ringMaterial.envMapIntensity = 2.35;
 
-        const ring = new THREE.Mesh(
-          this.geometryCache.voidPearlRing,
-          ringMaterial
-        );
+        const ring = new THREE.Mesh(this.geometryCache.voidPearlRing, ringMaterial);
         ring.rotation.set(0.65, 0.0, 0.25);
         ring.renderOrder = 99;
         rotationRoot.add(ring);
@@ -953,10 +912,7 @@ export class CosmicObjectFactory {
           depthWrite: false,
           depthTest: true,
         });
-        const shell = new THREE.Mesh(
-          this.geometryCache.nebulaShell,
-          shellMaterial
-        );
+        const shell = new THREE.Mesh(this.geometryCache.nebulaShell, shellMaterial);
         shell.renderOrder = 98;
         group.add(shell);
       }
@@ -1018,12 +974,12 @@ export class CosmicObjectFactory {
           type === CosmicObjectType.STAR
             ? 2.1
             : type === CosmicObjectType.CRYSTAL
-            ? 1.35
-            : type === CosmicObjectType.NEBULA_CORE
-            ? 1.55
-            : type === CosmicObjectType.COMET_EMBER
-            ? 1.5
-            : 1.45;
+              ? 1.35
+              : type === CosmicObjectType.NEBULA_CORE
+                ? 1.55
+                : type === CosmicObjectType.COMET_EMBER
+                  ? 1.5
+                  : 1.45;
         glow.scale.setScalar(scale);
         glow.renderOrder = 96; // Behind everything
         group.add(glow);
@@ -1050,10 +1006,7 @@ export class CosmicObjectFactory {
     return group;
   }
 
-  private createMaterial(
-    type: CosmicObjectType,
-    config: CosmicObjectConfig
-  ): THREE.Material {
+  private createMaterial(type: CosmicObjectType, config: CosmicObjectConfig): THREE.Material {
     if (type === CosmicObjectType.STAR) {
       return new THREE.ShaderMaterial({
         uniforms: {
@@ -1204,19 +1157,12 @@ export class CosmicObjectFactory {
     return m;
   }
 
-  static updateObjectTime(
-    object: THREE.Object3D,
-    time: number,
-    camera?: THREE.Camera
-  ): void {
+  static updateObjectTime(object: THREE.Object3D, time: number, camera?: THREE.Camera): void {
     // Update core mesh shader time
     const coreMesh = object.userData.coreMesh as THREE.Mesh | undefined;
     if (coreMesh) {
       const material = coreMesh.material;
-      if (
-        material instanceof THREE.ShaderMaterial &&
-        material.uniforms?.uTime
-      ) {
+      if (material instanceof THREE.ShaderMaterial && material.uniforms?.uTime) {
         material.uniforms.uTime.value = time;
       }
     }

@@ -12,10 +12,7 @@
  */
 
 import * as THREE from 'three';
-import {
-  CosmicBackgroundConfig,
-  DEFAULT_COSMIC_BACKGROUND_CONFIG,
-} from './types';
+import { CosmicBackgroundConfig, DEFAULT_COSMIC_BACKGROUND_CONFIG } from './types';
 
 // Vertex shader with twinkling
 const backgroundVertexShader = /* glsl */ `
@@ -132,10 +129,7 @@ export class CosmicBackground {
     uSize: { value: number };
   };
 
-  constructor(
-    scene: THREE.Scene,
-    config: Partial<CosmicBackgroundConfig> = {}
-  ) {
+  constructor(scene: THREE.Scene, config: Partial<CosmicBackgroundConfig> = {}) {
     this.scene = scene;
     this.config = { ...DEFAULT_COSMIC_BACKGROUND_CONFIG, ...config };
 
@@ -184,15 +178,9 @@ export class CosmicBackground {
       seeds[i] = Math.random();
     }
 
-    this.geometry.setAttribute(
-      'position',
-      new THREE.BufferAttribute(positions, 3)
-    );
+    this.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     this.geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
-    this.geometry.setAttribute(
-      'aBrightness',
-      new THREE.BufferAttribute(brightnesses, 1)
-    );
+    this.geometry.setAttribute('aBrightness', new THREE.BufferAttribute(brightnesses, 1));
     this.geometry.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
 
     this.material = new THREE.ShaderMaterial({

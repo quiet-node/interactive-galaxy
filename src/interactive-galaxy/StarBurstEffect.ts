@@ -17,10 +17,7 @@
  */
 
 import * as THREE from 'three';
-import {
-  StarBurstConfig,
-  DEFAULT_STAR_BURST_CONFIG,
-} from '../shared/GestureTypes';
+import { StarBurstConfig, DEFAULT_STAR_BURST_CONFIG } from '../shared/GestureTypes';
 
 /**
  * Individual burst instance tracking
@@ -160,15 +157,9 @@ export class StarBurstEffect {
     this.points.frustumCulled = false; // Always render (particles spread widely)
 
     // Get attribute references
-    this.positionAttribute = this.geometry.getAttribute(
-      'position'
-    ) as THREE.BufferAttribute;
-    this.alphaAttribute = this.geometry.getAttribute(
-      'aAlpha'
-    ) as THREE.BufferAttribute;
-    this.sizeAttribute = this.geometry.getAttribute(
-      'aSize'
-    ) as THREE.BufferAttribute;
+    this.positionAttribute = this.geometry.getAttribute('position') as THREE.BufferAttribute;
+    this.alphaAttribute = this.geometry.getAttribute('aAlpha') as THREE.BufferAttribute;
+    this.sizeAttribute = this.geometry.getAttribute('aSize') as THREE.BufferAttribute;
 
     // Add to scene (starts hidden)
     this.scene.add(this.points);
@@ -239,9 +230,7 @@ export class StarBurstEffect {
 
     // Randomize particle count for variation (50% to 150% of base count)
     const particleCountVariation = 0.5 + Math.random();
-    const actualParticleCount = Math.floor(
-      this.config.particleCount * particleCountVariation
-    );
+    const actualParticleCount = Math.floor(this.config.particleCount * particleCountVariation);
 
     const startIndex = slot * this.config.particleCount;
     const currentTime = performance.now() / 1000;
@@ -310,10 +299,7 @@ export class StarBurstEffect {
   /**
    * Initialize particle data for a new burst
    */
-  private initializeBurstParticles(
-    burst: BurstInstance,
-    velocityMultiplier: number = 1.0
-  ): void {
+  private initializeBurstParticles(burst: BurstInstance, velocityMultiplier: number = 1.0): void {
     const positions = this.positionAttribute.array as Float32Array;
     const alphas = this.alphaAttribute.array as Float32Array;
     const sizes = this.sizeAttribute.array as Float32Array;
@@ -333,13 +319,10 @@ export class StarBurstEffect {
 
       // Convert to Cartesian with highly varied speed (30% to 180% variation)
       const speedVariation = 0.3 + Math.random() * 1.5;
-      const speed =
-        this.config.initialVelocity * speedVariation * velocityMultiplier;
+      const speed = this.config.initialVelocity * speedVariation * velocityMultiplier;
 
-      this.particleData.velocities[i3] =
-        Math.sin(phi) * Math.cos(theta) * speed;
-      this.particleData.velocities[i3 + 1] =
-        Math.sin(phi) * Math.sin(theta) * speed;
+      this.particleData.velocities[i3] = Math.sin(phi) * Math.cos(theta) * speed;
+      this.particleData.velocities[i3 + 1] = Math.sin(phi) * Math.sin(theta) * speed;
       this.particleData.velocities[i3 + 2] = Math.cos(phi) * speed;
 
       // Set initial alpha with more variation (0.5 to 1.0)
@@ -347,12 +330,10 @@ export class StarBurstEffect {
       this.particleData.initialAlphas[particleIndex] = alphas[particleIndex];
 
       // Random lifetime offset for more variation
-      this.particleData.lifetimeOffsets[particleIndex] =
-        (Math.random() - 0.5) * 0.4;
+      this.particleData.lifetimeOffsets[particleIndex] = (Math.random() - 0.5) * 0.4;
 
       // Much more varied particle sizes (40% to 160% of base)
-      sizes[particleIndex] =
-        this.config.initialSize * (0.4 + Math.random() * 1.2);
+      sizes[particleIndex] = this.config.initialSize * (0.4 + Math.random() * 1.2);
     }
 
     // Mark attributes for update
@@ -415,17 +396,12 @@ export class StarBurstEffect {
 
         // Calculate alpha fade with individual variation
         const lifetimeOffset = this.particleData.lifetimeOffsets[particleIndex];
-        const adjustedProgress = Math.max(
-          0,
-          Math.min(1, progress + lifetimeOffset)
-        );
+        const adjustedProgress = Math.max(0, Math.min(1, progress + lifetimeOffset));
 
         // Smooth fade out (ease-out curve)
         const fadeProgress = 1.0 - adjustedProgress;
         alphas[particleIndex] =
-          this.particleData.initialAlphas[particleIndex] *
-          fadeProgress *
-          fadeProgress; // Quadratic ease-out
+          this.particleData.initialAlphas[particleIndex] * fadeProgress * fadeProgress; // Quadratic ease-out
       }
     }
 
@@ -474,10 +450,7 @@ export class StarBurstEffect {
    */
   setParticleCount(count: number): void {
     // Note: This only affects new bursts, not pre-allocated pool size
-    this.config.particleCount = Math.min(
-      count,
-      this.totalParticles / this.maxConcurrentBursts
-    );
+    this.config.particleCount = Math.min(count, this.totalParticles / this.maxConcurrentBursts);
   }
 
   /**

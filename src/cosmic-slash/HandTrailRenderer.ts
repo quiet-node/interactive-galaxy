@@ -13,10 +13,7 @@
  */
 
 import * as THREE from 'three';
-import type {
-  HandLandmarkerResult,
-  NormalizedLandmark,
-} from '@mediapipe/tasks-vision';
+import type { HandLandmarkerResult, NormalizedLandmark } from '@mediapipe/tasks-vision';
 
 // Premium Lightsaber-Inspired Trail Shader
 // Ultra-sharp white core with energy field and soft aura
@@ -399,14 +396,10 @@ class SparkleSystem {
       this.sizes[i] *= 0.998;
     }
 
-    (this.geometry.attributes.position as THREE.BufferAttribute).needsUpdate =
-      true;
-    (this.geometry.attributes.color as THREE.BufferAttribute).needsUpdate =
-      true;
-    (this.geometry.attributes.aSize as THREE.BufferAttribute).needsUpdate =
-      true;
-    (this.geometry.attributes.aAlpha as THREE.BufferAttribute).needsUpdate =
-      true;
+    (this.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+    (this.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+    (this.geometry.attributes.aSize as THREE.BufferAttribute).needsUpdate = true;
+    (this.geometry.attributes.aAlpha as THREE.BufferAttribute).needsUpdate = true;
   }
 
   dispose(scene: THREE.Scene): void {
@@ -488,10 +481,7 @@ export class HandTrailRenderer {
 
     this.maxRenderPoints = this.config.maxPoints;
 
-    this.sparkleSystem = new SparkleSystem(
-      this.scene,
-      this.config.sparkleMaxCount
-    );
+    this.sparkleSystem = new SparkleSystem(this.scene, this.config.sparkleMaxCount);
     this.sparkleSystem.setIntensity(this.config.intensityBoost);
 
     window.addEventListener('resize', this.handleResize);
@@ -517,20 +507,13 @@ export class HandTrailRenderer {
     }
 
     if (level === 'medium') {
-      this.maxRenderPoints = Math.max(
-        12,
-        Math.floor(this.config.maxPoints * 0.75)
-      );
+      this.maxRenderPoints = Math.max(12, Math.floor(this.config.maxPoints * 0.75));
       this.sparkleRateMultiplier = 0.55;
-      this.material.uniforms.uIntensity.value =
-        this.config.intensityBoost * 0.92;
+      this.material.uniforms.uIntensity.value = this.config.intensityBoost * 0.92;
       return;
     }
 
-    this.maxRenderPoints = Math.max(
-      10,
-      Math.floor(this.config.maxPoints * 0.5)
-    );
+    this.maxRenderPoints = Math.max(10, Math.floor(this.config.maxPoints * 0.5));
     this.sparkleRateMultiplier = 0.25;
     this.material.uniforms.uIntensity.value = this.config.intensityBoost * 0.8;
   }
@@ -576,26 +559,14 @@ export class HandTrailRenderer {
     const maxVerts = this.config.maxPoints * 2;
     const geometry = new THREE.BufferGeometry();
 
-    geometry.setAttribute(
-      'position',
-      new THREE.BufferAttribute(new Float32Array(maxVerts * 3), 3)
-    );
-    geometry.setAttribute(
-      'aAlpha',
-      new THREE.BufferAttribute(new Float32Array(maxVerts), 1)
-    );
-    geometry.setAttribute(
-      'aProgress',
-      new THREE.BufferAttribute(new Float32Array(maxVerts), 1)
-    );
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxVerts * 3), 3));
+    geometry.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(maxVerts), 1));
+    geometry.setAttribute('aProgress', new THREE.BufferAttribute(new Float32Array(maxVerts), 1));
     geometry.setAttribute(
       'aDistanceFromCenter',
       new THREE.BufferAttribute(new Float32Array(maxVerts), 1)
     );
-    geometry.setAttribute(
-      'aVelocity',
-      new THREE.BufferAttribute(new Float32Array(maxVerts), 1)
-    );
+    geometry.setAttribute('aVelocity', new THREE.BufferAttribute(new Float32Array(maxVerts), 1));
 
     const maxSegments = this.config.maxPoints - 1;
     const indexArray = new Uint16Array(maxSegments * 6);
@@ -906,21 +877,14 @@ export class HandTrailRenderer {
     for (const p of removed) this.worldPosPool.push(p.worldPos);
   }
 
-  private screenToWorldInto(
-    screenX: number,
-    screenY: number,
-    out: THREE.Vector3
-  ): void {
+  private screenToWorldInto(screenX: number, screenY: number, out: THREE.Vector3): void {
     const ndcX = (screenX / this.width) * 2 - 1;
     const ndcY = -(screenY / this.height) * 2 + 1;
 
     this.tmpNdc.set(ndcX, ndcY, 0.5);
     this.tmpNdc.unproject(this.camera);
 
-    this.tmpUnprojectDir
-      .copy(this.tmpNdc)
-      .sub(this.camera.position)
-      .normalize();
+    this.tmpUnprojectDir.copy(this.tmpNdc).sub(this.camera.position).normalize();
 
     out.copy(this.camera.position).add(this.tmpUnprojectDir.multiplyScalar(4));
   }
@@ -936,12 +900,9 @@ export class HandTrailRenderer {
 
     const posAttr = trail.geometry.attributes.position as THREE.BufferAttribute;
     const alphaAttr = trail.geometry.attributes.aAlpha as THREE.BufferAttribute;
-    const progressAttr = trail.geometry.attributes
-      .aProgress as THREE.BufferAttribute;
-    const distanceAttr = trail.geometry.attributes
-      .aDistanceFromCenter as THREE.BufferAttribute;
-    const velocityAttr = trail.geometry.attributes
-      .aVelocity as THREE.BufferAttribute;
+    const progressAttr = trail.geometry.attributes.aProgress as THREE.BufferAttribute;
+    const distanceAttr = trail.geometry.attributes.aDistanceFromCenter as THREE.BufferAttribute;
+    const velocityAttr = trail.geometry.attributes.aVelocity as THREE.BufferAttribute;
 
     const positions = posAttr.array as Float32Array;
     const alphas = alphaAttr.array as Float32Array;
@@ -983,8 +944,7 @@ export class HandTrailRenderer {
 
       // Enhanced width with velocity boost and taper
       const velocityWidthBoost = THREE.MathUtils.lerp(0.9, 1.5, velocity);
-      const taperWidth =
-        width * velocityWidthBoost * (1 + 0.85 * Math.pow(progress, 0.85));
+      const taperWidth = width * velocityWidthBoost * (1 + 0.85 * Math.pow(progress, 0.85));
       const alpha = Math.pow(progress, 1.85);
 
       const i6 = i * 6;

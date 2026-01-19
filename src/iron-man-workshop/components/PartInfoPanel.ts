@@ -85,10 +85,7 @@ export class PartInfoPanel {
     this.texture.anisotropy = 16;
 
     // Create Panel Mesh
-    const geometry = new THREE.PlaneGeometry(
-      this.WORLD_WIDTH,
-      this.WORLD_HEIGHT
-    );
+    const geometry = new THREE.PlaneGeometry(this.WORLD_WIDTH, this.WORLD_HEIGHT);
     const material = new THREE.MeshBasicMaterial({
       map: this.texture,
       transparent: true,

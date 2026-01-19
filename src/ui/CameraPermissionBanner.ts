@@ -22,8 +22,7 @@ export class CameraPermissionBanner {
   private currentMode: InteractionMode | null = null;
   private onCameraEnabled: (() => void) | null = null;
 
-  private static readonly STORAGE_KEY_PREFIX =
-    'gesture-lab-camera-banner-dismissed-';
+  private static readonly STORAGE_KEY_PREFIX = 'gesture-lab-camera-banner-dismissed-';
 
   /**
    * Show the banner for a specific mode
@@ -77,8 +76,7 @@ export class CameraPermissionBanner {
    */
   dismiss(): void {
     if (this.currentMode) {
-      const storageKey =
-        CameraPermissionBanner.STORAGE_KEY_PREFIX + this.currentMode;
+      const storageKey = CameraPermissionBanner.STORAGE_KEY_PREFIX + this.currentMode;
       sessionStorage.setItem(storageKey, 'true');
     }
     this.hide();
@@ -186,8 +184,7 @@ export class CameraPermissionBanner {
     const textEl = this.element.querySelector('.camera-banner__text');
     const enableBtn = this.element.querySelector('.camera-banner__enable');
     if (textEl) {
-      textEl.textContent =
-        'Camera blocked. Check browser address bar or settings';
+      textEl.textContent = 'Camera blocked. Check browser address bar or settings';
     }
     if (enableBtn) {
       (enableBtn as HTMLElement).style.display = 'none';

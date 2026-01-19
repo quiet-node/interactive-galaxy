@@ -258,15 +258,9 @@ export class PowLaserEffect {
     }
 
     this.beamGeometry = new THREE.BufferGeometry();
-    this.beamGeometry.setAttribute(
-      'position',
-      new THREE.BufferAttribute(positions, 3)
-    );
+    this.beamGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     this.beamGeometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-    this.beamGeometry.setAttribute(
-      'aDistance',
-      new THREE.BufferAttribute(distances, 1)
-    );
+    this.beamGeometry.setAttribute('aDistance', new THREE.BufferAttribute(distances, 1));
     this.beamGeometry.setIndex(indices);
 
     this.beamMaterial = new THREE.ShaderMaterial({
@@ -334,10 +328,7 @@ export class PowLaserEffect {
     this.sparkAlphas = new Float32Array(this.maxSparks);
 
     this.sparkGeometry = new THREE.BufferGeometry();
-    this.sparkGeometry.setAttribute(
-      'position',
-      new THREE.BufferAttribute(this.sparkPositions, 3)
-    );
+    this.sparkGeometry.setAttribute('position', new THREE.BufferAttribute(this.sparkPositions, 3));
 
     this.sparkMaterial = new THREE.PointsMaterial({
       color: 0xffaa00, // Orange-Gold
@@ -419,8 +410,7 @@ export class PowLaserEffect {
     const targetWidth = 0.3 + clampedDist * 0.6;
 
     // Smooth lerp
-    this.currentBeamWidth +=
-      (targetWidth - this.currentBeamWidth) * deltaTime * 5.0;
+    this.currentBeamWidth += (targetWidth - this.currentBeamWidth) * deltaTime * 5.0;
 
     // Update shader uniforms
     if (this.beamMaterial) {
@@ -476,9 +466,7 @@ export class PowLaserEffect {
 
       // Add slight wave effect
       const wave = Math.sin(t * Math.PI * 4 + this.time * 6) * 0.02;
-      temp.add(
-        perpendicular.clone().multiplyScalar(wave * (1 - Math.abs(t - 0.5) * 2))
-      );
+      temp.add(perpendicular.clone().multiplyScalar(wave * (1 - Math.abs(t - 0.5) * 2)));
 
       // Top vertex (offset by perpendicular)
       positions[i * 6] = temp.x + perpendicular.x;
@@ -514,12 +502,7 @@ export class PowLaserEffect {
    * Update spark particles
    */
   private updateSparks(deltaTime: number): void {
-    if (
-      !this.sparkPositions ||
-      !this.sparkVelocities ||
-      !this.sparkAlphas ||
-      !this.sparkGeometry
-    ) {
+    if (!this.sparkPositions || !this.sparkVelocities || !this.sparkAlphas || !this.sparkGeometry) {
       return;
     }
 
@@ -531,11 +514,7 @@ export class PowLaserEffect {
       if (this.sparkAlphas[i] <= 0 && Math.random() < 0.35) {
         // Random position along the beam
         const t = Math.random();
-        const pos = new THREE.Vector3().lerpVectors(
-          this.leftHandPos,
-          this.rightHandPos,
-          t
-        );
+        const pos = new THREE.Vector3().lerpVectors(this.leftHandPos, this.rightHandPos, t);
 
         // Add random offset
         pos.x += (Math.random() - 0.5) * 0.2;
@@ -560,10 +539,8 @@ export class PowLaserEffect {
       if (this.sparkAlphas[i] > 0) {
         // Update position
         this.sparkPositions[i * 3] += this.sparkVelocities[i * 3] * deltaTime;
-        this.sparkPositions[i * 3 + 1] +=
-          this.sparkVelocities[i * 3 + 1] * deltaTime;
-        this.sparkPositions[i * 3 + 2] +=
-          this.sparkVelocities[i * 3 + 2] * deltaTime;
+        this.sparkPositions[i * 3 + 1] += this.sparkVelocities[i * 3 + 1] * deltaTime;
+        this.sparkPositions[i * 3 + 2] += this.sparkVelocities[i * 3 + 2] * deltaTime;
 
         // Fade out
         this.sparkAlphas[i] -= deltaTime * 2.5;

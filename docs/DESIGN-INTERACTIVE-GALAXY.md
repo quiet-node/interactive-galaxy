@@ -816,9 +816,7 @@ console.log('[GalaxyRenderer] Explosion complete, clearing screen');
 **Gesture Events:**
 
 ```typescript
-console.log(
-  `[HandGalaxyController] Pinch detected (${handedness}) - triggering star burst`
-);
+console.log(`[HandGalaxyController] Pinch detected (${handedness}) - triggering star burst`);
 console.log('[StarBurstEffect] Burst triggered at position:', position);
 ```
 
@@ -1066,11 +1064,7 @@ export function midpoint3D(
   p1: { x: number; y: number; z: number },
   p2: { x: number; y: number; z: number }
 ): THREE.Vector3 {
-  return new THREE.Vector3(
-    (p1.x + p2.x) / 2,
-    (p1.y + p2.y) / 2,
-    (p1.z + p2.z) / 2
-  );
+  return new THREE.Vector3((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2);
 }
 ```
 
@@ -1719,9 +1713,7 @@ statusElement.setAttribute('aria-atomic', 'true');
 ### 23.3 Reduced Motion
 
 ```typescript
-const prefersReducedMotion = window.matchMedia(
-  '(prefers-reduced-motion: reduce)'
-).matches;
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 if (prefersReducedMotion) {
   config.smoothingFactor = 1.0; // Instant transitions
@@ -1773,8 +1765,7 @@ inject(); // Track page views and performance
 
 ```typescript
 // Use CDN-hosted model with long cache duration
-const modelUrl =
-  'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm/...';
+const modelUrl = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm/...';
 ```
 
 ---

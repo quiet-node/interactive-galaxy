@@ -111,11 +111,7 @@ export const DEFAULT_FOGGY_MIRROR_CONFIG: FoggyMirrorConfig = {
 /**
  * State of the foggy mirror controller
  */
-export type FoggyMirrorState =
-  | 'uninitialized'
-  | 'ready'
-  | 'active'
-  | 'disposed';
+export type FoggyMirrorState = 'uninitialized' | 'ready' | 'active' | 'disposed';
 
 /**
  * Debug information for FoggyMirrorController

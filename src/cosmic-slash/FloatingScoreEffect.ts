@@ -36,10 +36,7 @@ export class FloatingScoreEffect {
     this.scene = scene;
     this.config = {
       poolSize: Math.max(8, Math.min(64, config.poolSize ?? 24)),
-      baseDurationSec: Math.max(
-        0.2,
-        Math.min(3.0, config.baseDurationSec ?? 1.0)
-      ),
+      baseDurationSec: Math.max(0.2, Math.min(3.0, config.baseDurationSec ?? 1.0)),
     };
 
     for (let i = 0; i < this.config.poolSize; i++) {
@@ -61,10 +58,7 @@ export class FloatingScoreEffect {
     this.poolIndex = (this.poolIndex + 1) % this.pool.length;
 
     const intensity01 = clamp01(options.intensity01 ?? 0.5);
-    const duration = Math.max(
-      0.2,
-      options.durationSec ?? this.config.baseDurationSec
-    );
+    const duration = Math.max(0.2, options.durationSec ?? this.config.baseDurationSec);
 
     instance.active = true;
     instance.age = 0;
@@ -81,10 +75,8 @@ export class FloatingScoreEffect {
     const sign = value > 0 ? '+' : '-';
     const label = `${sign}${abs}`;
 
-    const color =
-      value > 0 ? 'rgba(140, 255, 220, 0.92)' : 'rgba(255, 160, 170, 0.92)';
-    const glow =
-      value > 0 ? 'rgba(0, 212, 255, 0.15)' : 'rgba(255, 95, 215, 0.12)';
+    const color = value > 0 ? 'rgba(140, 255, 220, 0.92)' : 'rgba(255, 160, 170, 0.92)';
+    const glow = value > 0 ? 'rgba(0, 212, 255, 0.15)' : 'rgba(255, 95, 215, 0.12)';
 
     const scale = 0.34 + 0.38 * intensity01;
     instance.sprite.scale.setScalar(scale);

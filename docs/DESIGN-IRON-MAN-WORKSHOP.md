@@ -9,7 +9,6 @@ Create a premium, high-fidelity "Stark Industries Lab" experience where users fe
 ### User Experience Flow
 
 1.  **Entry (Cinematic Startup)**:
-
     - **Initial Void**: The user enters a dark, minimal grid environment.
     - **System Initialization**: A F.R.I.D.A.Y.-inspired loading overlay initializes systems (0% -> 100%).
     - **Schematic Assembly**: Armor parts fly in from a void state to assemble the suit.
@@ -17,7 +16,6 @@ Create a premium, high-fidelity "Stark Industries Lab" experience where users fe
     - **The Reveal**: The full environment (rings, volumetric lights, screens) fades in, completing the transition.
 
 2.  **Exploration (Assembled State)**:
-
     - **Turntable Rotation**: User uses a "virtual turntable" gesture (right hand) to rotate the suit reliably.
     - **Contextual Hover**: Hovering over parts triggers a specific "Amber Glow" and reveals a holographic "Info Panel" with technical stats.
     - **Atmosphere**: "God rays" and dynamic lighting react to the user's presence.

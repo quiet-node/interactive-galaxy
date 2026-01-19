@@ -181,11 +181,7 @@ export class ParticleTrailEmitter {
    * @param direction - Initial velocity direction (will be normalized)
    * @param rate - Particles per frame (optional, default: 4)
    */
-  startEmitting(
-    position: THREE.Vector3,
-    direction: THREE.Vector3,
-    rate?: number
-  ): void {
+  startEmitting(position: THREE.Vector3, direction: THREE.Vector3, rate?: number): void {
     this.isEmitting = true;
     this.emitPosition.copy(position);
     this.emitDirection.copy(direction).normalize();
@@ -297,11 +293,7 @@ export class ParticleTrailEmitter {
       positions[i * 3 + 2] = particle.position.z;
 
       // Fade color from core to fade color (using pre-allocated temp to avoid GC)
-      this._tempColor.lerpColors(
-        this.config.coreColor,
-        this.config.fadeColor,
-        lifeRatio
-      );
+      this._tempColor.lerpColors(this.config.coreColor, this.config.fadeColor, lifeRatio);
       colors[i * 3] = this._tempColor.r;
       colors[i * 3 + 1] = this._tempColor.g;
       colors[i * 3 + 2] = this._tempColor.b;
@@ -338,9 +330,7 @@ export class ParticleTrailEmitter {
         particle.position.z += (Math.random() - 0.5) * 0.1;
 
         // Velocity in emit direction - move faster for clear trail
-        particle.velocity
-          .copy(this.emitDirection)
-          .multiplyScalar(1.2 + Math.random() * 0.4); // Faster for longer streaks
+        particle.velocity.copy(this.emitDirection).multiplyScalar(1.2 + Math.random() * 0.4); // Faster for longer streaks
         // Less random spread for cleaner trails
         particle.velocity.x += (Math.random() - 0.5) * 0.15;
         particle.velocity.y += (Math.random() - 0.5) * 0.15;
@@ -425,10 +415,7 @@ export class ParticleTrailSystem {
    * @param config - Optional configuration overrides for this emitter
    * @returns The created ParticleTrailEmitter instance
    */
-  createEmitter(
-    limbName: string,
-    config?: Partial<ParticleTrailConfig>
-  ): ParticleTrailEmitter {
+  createEmitter(limbName: string, config?: Partial<ParticleTrailConfig>): ParticleTrailEmitter {
     const emitter = new ParticleTrailEmitter(config);
     this.emitters.set(limbName, emitter);
     this.group.add(emitter.getObject3D());

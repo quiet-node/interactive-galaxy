@@ -29,10 +29,7 @@ export class CosmicAssetLibrary {
   private loadedRoots: Map<CosmicObjectType, THREE.Object3D> = new Map();
   private loading: Map<CosmicObjectType, Promise<void>> = new Map();
 
-  constructor(
-    renderer: THREE.WebGLRenderer,
-    config: Partial<CosmicAssetLibraryConfig> = {}
-  ) {
+  constructor(renderer: THREE.WebGLRenderer, config: Partial<CosmicAssetLibraryConfig> = {}) {
     this.renderer = renderer;
     this.config = { ...DEFAULT_COSMIC_ASSET_LIBRARY_CONFIG, ...config };
 
@@ -80,10 +77,7 @@ export class CosmicAssetLibrary {
         this.loadedRoots.set(type, gltf.scene);
       })
       .catch((error) => {
-        console.warn(
-          `[CosmicAssetLibrary] Failed to load model for ${type}:`,
-          error
-        );
+        console.warn(`[CosmicAssetLibrary] Failed to load model for ${type}:`, error);
       })
       .finally(() => {
         this.loading.delete(type);
@@ -98,9 +92,7 @@ export class CosmicAssetLibrary {
       root.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           child.geometry?.dispose();
-          const materials = Array.isArray(child.material)
-            ? child.material
-            : [child.material];
+          const materials = Array.isArray(child.material) ? child.material : [child.material];
           for (const material of materials) {
             material.dispose();
           }

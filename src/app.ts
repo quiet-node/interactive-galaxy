@@ -7,10 +7,7 @@ import * as THREE from 'three';
 import { FoggyMirrorController } from './foggy-mirror/FoggyMirrorController';
 import { FoggyMirrorDebugInfo } from './foggy-mirror/types';
 import { GalaxyRenderer } from './interactive-galaxy/GalaxyRenderer';
-import {
-  HandGalaxyController,
-  DebugInfo,
-} from './interactive-galaxy/HandGalaxyController';
+import { HandGalaxyController, DebugInfo } from './interactive-galaxy/HandGalaxyController';
 import { CosmicSlashController } from './cosmic-slash/CosmicSlashController';
 import { CosmicSlashDebugInfo } from './cosmic-slash/types';
 import { WorkshopController } from './iron-man-workshop/WorkshopController';
@@ -28,13 +25,7 @@ import { CameraPermissionBanner } from './ui/CameraPermissionBanner';
 /**
  * Application state
  */
-type AppState =
-  | 'uninitialized'
-  | 'initializing'
-  | 'landing'
-  | 'running'
-  | 'error'
-  | 'disposed';
+type AppState = 'uninitialized' | 'initializing' | 'landing' | 'running' | 'error' | 'disposed';
 
 /**
  * Application configuration
@@ -404,10 +395,7 @@ export class App {
   /**
    * Update status indicator
    */
-  private updateStatus(
-    message: string,
-    state: 'loading' | 'ready' | 'error' | 'active',
-  ): void {
+  private updateStatus(message: string, state: 'loading' | 'ready' | 'error' | 'active'): void {
     this.statusIndicator?.update(message, state);
   }
 
@@ -421,27 +409,12 @@ export class App {
 
     if (this.currentMode === 'galaxy' && this.controller) {
       this.controller.enableDebug((info) => this.updateGalaxyDebugPanel(info));
-    } else if (
-      this.currentMode === 'foggy-mirror' &&
-      this.foggyMirrorController
-    ) {
-      this.foggyMirrorController.enableDebug((info) =>
-        this.updateFoggyMirrorDebugPanel(info),
-      );
-    } else if (
-      this.currentMode === 'cosmic-slash' &&
-      this.cosmicSlashController
-    ) {
-      this.cosmicSlashController.enableDebug((info) =>
-        this.updateCosmicSlashDebugPanel(info),
-      );
-    } else if (
-      this.currentMode === 'iron-man-workshop' &&
-      this.workshopController
-    ) {
-      this.workshopController.enableDebug((info) =>
-        this.updateWorkshopDebugPanel(info),
-      );
+    } else if (this.currentMode === 'foggy-mirror' && this.foggyMirrorController) {
+      this.foggyMirrorController.enableDebug((info) => this.updateFoggyMirrorDebugPanel(info));
+    } else if (this.currentMode === 'cosmic-slash' && this.cosmicSlashController) {
+      this.cosmicSlashController.enableDebug((info) => this.updateCosmicSlashDebugPanel(info));
+    } else if (this.currentMode === 'iron-man-workshop' && this.workshopController) {
+      this.workshopController.enableDebug((info) => this.updateWorkshopDebugPanel(info));
     }
   }
 
@@ -574,30 +547,13 @@ export class App {
       this.workshopController?.disableDebug();
     } else {
       if (this.currentMode === 'galaxy' && this.controller) {
-        this.controller.enableDebug((info) =>
-          this.updateGalaxyDebugPanel(info),
-        );
-      } else if (
-        this.currentMode === 'foggy-mirror' &&
-        this.foggyMirrorController
-      ) {
-        this.foggyMirrorController.enableDebug((info) =>
-          this.updateFoggyMirrorDebugPanel(info),
-        );
-      } else if (
-        this.currentMode === 'cosmic-slash' &&
-        this.cosmicSlashController
-      ) {
-        this.cosmicSlashController.enableDebug((info) =>
-          this.updateCosmicSlashDebugPanel(info),
-        );
-      } else if (
-        this.currentMode === 'iron-man-workshop' &&
-        this.workshopController
-      ) {
-        this.workshopController.enableDebug((info) =>
-          this.updateWorkshopDebugPanel(info),
-        );
+        this.controller.enableDebug((info) => this.updateGalaxyDebugPanel(info));
+      } else if (this.currentMode === 'foggy-mirror' && this.foggyMirrorController) {
+        this.foggyMirrorController.enableDebug((info) => this.updateFoggyMirrorDebugPanel(info));
+      } else if (this.currentMode === 'cosmic-slash' && this.cosmicSlashController) {
+        this.cosmicSlashController.enableDebug((info) => this.updateCosmicSlashDebugPanel(info));
+      } else if (this.currentMode === 'iron-man-workshop' && this.workshopController) {
+        this.workshopController.enableDebug((info) => this.updateWorkshopDebugPanel(info));
       }
     }
   }
@@ -629,8 +585,7 @@ export class App {
 
     if (mode === 'galaxy') {
       // Dim video for galaxy mode (background effect)
-      this.videoElement.style.cssText =
-        baseStyles + 'filter: brightness(0.20) contrast(0.6);';
+      this.videoElement.style.cssText = baseStyles + 'filter: brightness(0.20) contrast(0.6);';
     } else if (mode === 'cosmic-slash') {
       // Dim video for cosmic slash (cosmic background effect)
       this.videoElement.style.cssText =
@@ -672,10 +627,7 @@ export class App {
 
     // Initialize controller if needed
     if (!this.controller) {
-      this.controller = new HandGalaxyController(
-        this.handTracker,
-        this.galaxyRenderer,
-      );
+      this.controller = new HandGalaxyController(this.handTracker, this.galaxyRenderer);
       this.controller.initializeEffects(this.galaxyRenderer.getScene());
     }
 
@@ -724,11 +676,9 @@ export class App {
 
     // Initialize foggy mirror controller if needed
     if (!this.foggyMirrorController) {
-      this.foggyMirrorController = new FoggyMirrorController(
-        this.handTracker,
-        this.container,
-        { debug: this.config.debug },
-      );
+      this.foggyMirrorController = new FoggyMirrorController(this.handTracker, this.container, {
+        debug: this.config.debug,
+      });
       this.foggyMirrorController.initialize();
     }
 
@@ -760,9 +710,7 @@ export class App {
 
     // Re-enable debug if it was active
     if (this.debugComponent?.isVisibleState()) {
-      this.foggyMirrorController.enableDebug((info) =>
-        this.updateFoggyMirrorDebugPanel(info),
-      );
+      this.foggyMirrorController.enableDebug((info) => this.updateFoggyMirrorDebugPanel(info));
     }
   }
 
@@ -802,11 +750,9 @@ export class App {
     // Initialize cosmic slash controller if needed
     if (!this.cosmicSlashController) {
       this.updateStatus('Loading Cosmic Slash...', 'loading');
-      this.cosmicSlashController = new CosmicSlashController(
-        this.handTracker,
-        this.container,
-        { debug: this.config.debug },
-      );
+      this.cosmicSlashController = new CosmicSlashController(this.handTracker, this.container, {
+        debug: this.config.debug,
+      });
       this.cosmicSlashController.initialize();
     }
 
@@ -838,9 +784,7 @@ export class App {
 
     // Re-enable debug if it was active
     if (this.debugComponent?.isVisibleState()) {
-      this.cosmicSlashController.enableDebug((info) =>
-        this.updateCosmicSlashDebugPanel(info),
-      );
+      this.cosmicSlashController.enableDebug((info) => this.updateCosmicSlashDebugPanel(info));
     }
   }
 
@@ -861,11 +805,9 @@ export class App {
     // Initialize workshop controller if needed
     if (!this.workshopController) {
       this.updateStatus('Loading Workshop...', 'loading');
-      this.workshopController = new WorkshopController(
-        this.handTracker,
-        this.container,
-        { debug: this.config.debug },
-      );
+      this.workshopController = new WorkshopController(this.handTracker, this.container, {
+        debug: this.config.debug,
+      });
       this.workshopController.initialize();
     }
 
@@ -897,9 +839,7 @@ export class App {
 
     // Re-enable debug if it was active
     if (this.debugComponent?.isVisibleState()) {
-      this.workshopController.enableDebug((info) =>
-        this.updateWorkshopDebugPanel(info),
-      );
+      this.workshopController.enableDebug((info) => this.updateWorkshopDebugPanel(info));
     }
   }
 
@@ -913,9 +853,7 @@ export class App {
       <div style="margin-bottom: 8px; color: #fff; font-weight: bold;">Debug Info</div>
       <div>FPS: ${info.fps.toFixed(1)}</div>
       <div>Hands: ${info.handsDetected}</div>
-      <div>Grabbing: ${
-        info.isGrabbing ? '<span style="color: #0ff;">YES</span>' : 'No'
-      }</div>
+      <div>Grabbing: ${info.isGrabbing ? '<span style="color: #0ff;">YES</span>' : 'No'}</div>
       <div>Active Elements: ${info.activeElements}</div>
       <div>Bloom: ${info.bloomEnabled ? 'ON' : 'OFF'}</div>
     `);

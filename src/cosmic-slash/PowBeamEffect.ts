@@ -13,7 +13,7 @@ export class PowBeamEffect {
     // Create beam geometry (vertical by default, will rotate)
     // Radius top, radius bottom, height, segments
     this.geometry = new THREE.CylinderGeometry(0.1, 0.1, 1, 16, 1, true);
-    
+
     this.material = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       emissive: 0x00ffff,
@@ -67,7 +67,13 @@ export class PowBeamEffect {
   /**
    * Checks if a point collides with the beam (Capsule collision)
    */
-  public checkCollision(point: THREE.Vector3, radius: number, start: THREE.Vector3, end: THREE.Vector3, beamRadius: number): boolean {
+  public checkCollision(
+    point: THREE.Vector3,
+    radius: number,
+    start: THREE.Vector3,
+    end: THREE.Vector3,
+    beamRadius: number
+  ): boolean {
     if (!this.isVisible) return false;
 
     // Vector from start to end
@@ -77,13 +83,13 @@ export class PowBeamEffect {
 
     // Project point onto line segment
     const t = Math.max(0, Math.min(1, ac.dot(ab) / ab.lengthSq()));
-    
+
     // Closest point on segment
     const closest = new THREE.Vector3().copy(start).add(ab.multiplyScalar(t));
-    
+
     // Distance check
     const distance = point.distanceTo(closest);
-    
-    return distance < (beamRadius + radius);
+
+    return distance < beamRadius + radius;
   }
 }

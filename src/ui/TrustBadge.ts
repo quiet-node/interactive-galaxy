@@ -78,9 +78,7 @@ export class TrustBadge {
 
     this.isOpen = true;
     this.popover.classList.add('is-open');
-    this.wrapper
-      ?.querySelector('.trust-badge')
-      ?.setAttribute('aria-expanded', 'true');
+    this.wrapper?.querySelector('.trust-badge')?.setAttribute('aria-expanded', 'true');
 
     // Add global click listener to close on click-outside
     // Slight delay to prevent immediate closing if the trigger click bubbles
@@ -97,9 +95,7 @@ export class TrustBadge {
 
     this.isOpen = false;
     this.popover.classList.remove('is-open');
-    this.wrapper
-      ?.querySelector('.trust-badge')
-      ?.setAttribute('aria-expanded', 'false');
+    this.wrapper?.querySelector('.trust-badge')?.setAttribute('aria-expanded', 'false');
 
     document.removeEventListener('click', this.outsideClickHandler);
   }
@@ -189,7 +185,7 @@ export class TrustBadge {
               <span class="trust-item__desc">${item.desc}</span>
             </div>
           </div>
-        `,
+        `
           )
           .join('')}
       </div>

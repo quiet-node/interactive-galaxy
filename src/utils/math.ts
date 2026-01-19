@@ -25,11 +25,7 @@ export function midpoint3D(
   p1: { x: number; y: number; z: number },
   p2: { x: number; y: number; z: number }
 ): THREE.Vector3 {
-  return new THREE.Vector3(
-    (p1.x + p2.x) / 2,
-    (p1.y + p2.y) / 2,
-    (p1.z + p2.z) / 2
-  );
+  return new THREE.Vector3((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2);
 }
 
 /**
@@ -37,10 +33,7 @@ export function midpoint3D(
  * MediaPipe normalized coordinates: x,y in [0,1], z is depth relative to wrist
  * Three.js world: centered at origin, scaled appropriately
  */
-export function normalizedToWorld(
-  landmark: NormalizedLandmark,
-  scale: number = 10
-): THREE.Vector3 {
+export function normalizedToWorld(landmark: NormalizedLandmark, scale: number = 10): THREE.Vector3 {
   // Convert from [0,1] to [-0.5, 0.5] range, then scale
   // Flip Y because screen Y is inverted relative to 3D Y
   return new THREE.Vector3(

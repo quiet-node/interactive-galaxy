@@ -8,32 +8,16 @@
  */
 
 import * as THREE from 'three';
-import {
-  HandLandmarkerResult,
-  NormalizedLandmark,
-} from '@mediapipe/tasks-vision';
+import { HandLandmarkerResult, NormalizedLandmark } from '@mediapipe/tasks-vision';
 import { HandTracker } from '../shared/HandTracker';
 import { GalaxyRenderer } from './GalaxyRenderer';
 import { GestureDetector } from '../shared/GestureDetector';
 import { StarBurstEffect } from './StarBurstEffect';
 import { HandLandmarkIndex } from '../shared/HandTypes';
-import {
-  GestureState,
-  Handedness,
-  PinchGestureEvent,
-} from '../shared/GestureTypes';
+import { GestureState, Handedness, PinchGestureEvent } from '../shared/GestureTypes';
 import { ExplosionState } from './types';
-import {
-  distance3D,
-  midpoint3D,
-  normalizedToWorld,
-  mapDistanceToScale,
-} from '../utils/math';
-import {
-  ScalarSmoother,
-  Vector3Smoother,
-  EulerSmoother,
-} from '../utils/smoothing';
+import { distance3D, midpoint3D, normalizedToWorld, mapDistanceToScale } from '../utils/math';
+import { ScalarSmoother, Vector3Smoother, EulerSmoother } from '../utils/smoothing';
 
 /**
  * Interaction configuration
@@ -131,10 +115,7 @@ export class HandGalaxyController {
     this.config = { ...DEFAULT_INTERACTION_CONFIG, ...config };
 
     // Initialize smoothers
-    this.scaleSmoother = new ScalarSmoother(
-      0,
-      this.config.scaleSmoothingFactor
-    );
+    this.scaleSmoother = new ScalarSmoother(0, this.config.scaleSmoothingFactor);
     this.positionSmoother = new Vector3Smoother(
       new THREE.Vector3(0, 0, 0),
       this.config.positionSmoothingFactor
@@ -169,9 +150,7 @@ export class HandGalaxyController {
       3
     ); // Max 3 concurrent bursts
 
-    console.log(
-      '[HandGalaxyController] Phase 3.2 star burst effect initialized'
-    );
+    console.log('[HandGalaxyController] Phase 3.2 star burst effect initialized');
   }
 
   /**
@@ -180,8 +159,7 @@ export class HandGalaxyController {
    */
   update(timestamp: number): void {
     // Calculate delta time
-    const deltaTime =
-      this.lastTimestamp > 0 ? (timestamp - this.lastTimestamp) / 1000 : 0;
+    const deltaTime = this.lastTimestamp > 0 ? (timestamp - this.lastTimestamp) / 1000 : 0;
     this.lastTimestamp = timestamp;
 
     // Update galaxy animation time
@@ -223,10 +201,7 @@ export class HandGalaxyController {
   /**
    * Process Phase 3.2 gesture (pinch only)
    */
-  private processGestures(
-    result: HandLandmarkerResult,
-    timestamp: number
-  ): void {
+  private processGestures(result: HandLandmarkerResult, timestamp: number): void {
     // Extract handedness from result
     const handedness: Handedness[] = result.handedness.map((h) => {
       const category = h[0]?.categoryName?.toLowerCase();
@@ -234,11 +209,7 @@ export class HandGalaxyController {
     });
 
     // Run gesture detection
-    const gestureResult = this.gestureDetector.detect(
-      result.landmarks,
-      handedness,
-      timestamp
-    );
+    const gestureResult = this.gestureDetector.detect(result.landmarks, handedness, timestamp);
 
     // Process pinch gesture → Star Burst (Phase 3.2)
     if (gestureResult.pinch) {
@@ -276,10 +247,7 @@ export class HandGalaxyController {
   /**
    * Process interaction when two hands are detected
    */
-  private processHandInteraction(
-    result: HandLandmarkerResult,
-    _timestamp: number
-  ): void {
+  private processHandInteraction(result: HandLandmarkerResult, _timestamp: number): void {
     // Get palm center positions for both hands (average of MCP knuckles)
     const palm1 = this.getPalmCenter(result.landmarks[0]);
     const palm2 = this.getPalmCenter(result.landmarks[1]);
@@ -303,11 +271,7 @@ export class HandGalaxyController {
     // === BIG BANG EXPLOSION TRIGGER ===
     // Trigger when galaxy shrinks to critical mass (hands close but still tracked)
     // Only trigger once per galaxy lifecycle - not repeatedly
-    if (
-      smoothedScale < 0.01 &&
-      smoothedScale > 0 &&
-      !this.hasExplodedThisLife
-    ) {
+    if (smoothedScale < 0.01 && smoothedScale > 0 && !this.hasExplodedThisLife) {
       console.log(
         `[HandGalaxyController] Critical mass! scale=${smoothedScale.toFixed(
           3
@@ -353,18 +317,12 @@ export class HandGalaxyController {
       this.isGalaxyActive = true;
       // Reset explosion flag for new galaxy lifecycle
       this.hasExplodedThisLife = false;
-      console.log(
-        '[HandGalaxyController] New galaxy spawned - lifecycle reset'
-      );
+      console.log('[HandGalaxyController] New galaxy spawned - lifecycle reset');
     }
 
     // Apply transforms
     this.galaxyRenderer.setScale(smoothedScale);
-    this.galaxyRenderer.setPosition(
-      smoothedPosition.x,
-      smoothedPosition.y,
-      smoothedPosition.z
-    );
+    this.galaxyRenderer.setPosition(smoothedPosition.x, smoothedPosition.y, smoothedPosition.z);
     this.galaxyRenderer.setRotation(smoothedRotation);
 
     // Debug output
@@ -390,9 +348,7 @@ export class HandGalaxyController {
     // MediaPipe loses tracking when hands overlap - trigger explosion!
     const currentScale = this.scaleSmoother.value;
     if (this.lastHandCount === 2 && currentScale < 0.3) {
-      console.log(
-        '[HandGalaxyController] Hands lost while close - triggering explosion!'
-      );
+      console.log('[HandGalaxyController] Hands lost while close - triggering explosion!');
       this.galaxyRenderer.triggerExplosion();
       // Don't fade out - let explosion play
       return;
@@ -443,9 +399,7 @@ export class HandGalaxyController {
     const worldUp = new THREE.Vector3(0, 1, 0);
 
     // Calculate the right vector perpendicular to hand axis and up
-    const right = new THREE.Vector3()
-      .crossVectors(worldUp, handAxis)
-      .normalize();
+    const right = new THREE.Vector3().crossVectors(worldUp, handAxis).normalize();
 
     // If hands are vertically aligned, use different reference
     if (right.length() < 0.1) {

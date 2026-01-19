@@ -89,10 +89,7 @@ export class PowManager {
    */
   addRawCharge(amount: number): void {
     // Can't charge during active or cooldown phases
-    if (
-      this.state.phase === PowPhase.ACTIVE ||
-      this.state.phase === PowPhase.COOLDOWN
-    ) {
+    if (this.state.phase === PowPhase.ACTIVE || this.state.phase === PowPhase.COOLDOWN) {
       return;
     }
 

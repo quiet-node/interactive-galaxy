@@ -20,10 +20,7 @@ export class StatusIndicator {
     }
   }
 
-  update(
-    message: string,
-    state: 'loading' | 'ready' | 'error' | 'active'
-  ): void {
+  update(message: string, state: 'loading' | 'ready' | 'error' | 'active'): void {
     if (!this.element) return;
 
     const stateColors: Record<string, string> = {

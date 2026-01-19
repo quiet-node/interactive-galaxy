@@ -3,11 +3,7 @@
  * Provides a blur effect over content that can be "wiped away" by clearing specific areas
  */
 
-import {
-  BlurOverlayConfig,
-  DEFAULT_BLUR_OVERLAY_CONFIG,
-  TrailPoint,
-} from './wipe-types';
+import { BlurOverlayConfig, DEFAULT_BLUR_OVERLAY_CONFIG, TrailPoint } from './wipe-types';
 
 /**
  * BlurOverlay manages a canvas element that overlays content with a blur effect
@@ -215,12 +211,7 @@ export class BlurOverlay {
     }
 
     // Store current mask data
-    const maskData = this.maskCtx.getImageData(
-      0,
-      0,
-      this.maskCanvas.width,
-      this.maskCanvas.height
-    );
+    const maskData = this.maskCtx.getImageData(0, 0, this.maskCanvas.width, this.maskCanvas.height);
 
     // Update dimensions
     this.updateDimensions();
@@ -242,12 +233,7 @@ export class BlurOverlay {
 
     try {
       // Sample the canvas to estimate blur coverage
-      const imageData = this.ctx.getImageData(
-        0,
-        0,
-        this.canvas.width,
-        this.canvas.height
-      );
+      const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
       const data = imageData.data;
       let opaquePixels = 0;
       const totalPixels = data.length / 4;

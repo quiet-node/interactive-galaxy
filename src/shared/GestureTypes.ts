@@ -115,9 +115,7 @@ export interface GestureDetectionResult {
 /**
  * Callback type for gesture event handlers
  */
-export type GestureEventHandler<T extends AnyGestureEvent = AnyGestureEvent> = (
-  event: T
-) => void;
+export type GestureEventHandler<T extends AnyGestureEvent = AnyGestureEvent> = (event: T) => void;
 
 /**
  * Star burst effect configuration (Phase 3.2)

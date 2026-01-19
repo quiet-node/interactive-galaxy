@@ -64,8 +64,4 @@ export interface WorkshopDebugInfo {
  * - `assembled` → `exploding` → `exploded`
  * - `exploded` → `assembling` → `assembled`
  */
-export type ExplodedViewState =
-  | 'assembled'
-  | 'exploding'
-  | 'exploded'
-  | 'assembling';
+export type ExplodedViewState = 'assembled' | 'exploding' | 'exploded' | 'assembling';

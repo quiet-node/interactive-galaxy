@@ -89,11 +89,7 @@ export class ScoreHud {
       this.levelTextEl.textContent = `${state.level}`;
       this.setProgress(state.progressToNextLevel01);
       this.deltaEl.textContent = '';
-      this.deltaEl.classList.remove(
-        'delta-pop',
-        'delta-positive',
-        'delta-negative'
-      );
+      this.deltaEl.classList.remove('delta-pop', 'delta-positive', 'delta-negative');
       return;
     }
 
@@ -156,10 +152,7 @@ export class ScoreHud {
     this.scoreAnimRaf = requestAnimationFrame(tick);
   }
 
-  private showDelta(
-    delta: number,
-    reason: 'slice' | 'miss' | 'combo' | 'boss'
-  ): void {
+  private showDelta(delta: number, reason: 'slice' | 'miss' | 'combo' | 'boss'): void {
     if (!this.deltaEl) return;
 
     if (this.deltaHideTimeout !== null) {
@@ -170,9 +163,7 @@ export class ScoreHud {
     const sign = delta >= 0 ? '+' : '';
     this.deltaEl.textContent = `${sign}${delta}`;
     this.deltaEl.classList.remove('delta-positive', 'delta-negative');
-    this.deltaEl.classList.add(
-      delta >= 0 ? 'delta-positive' : 'delta-negative'
-    );
+    this.deltaEl.classList.add(delta >= 0 ? 'delta-positive' : 'delta-negative');
 
     this.deltaEl.setAttribute('data-reason', reason);
 
@@ -204,13 +195,7 @@ export class ScoreHud {
     }
 
     this.comboEl.textContent = `x${m}`;
-    this.comboEl.classList.remove(
-      'combo-pop',
-      'combo--2',
-      'combo--3',
-      'combo--4',
-      'combo--5'
-    );
+    this.comboEl.classList.remove('combo-pop', 'combo--2', 'combo--3', 'combo--4', 'combo--5');
     void this.comboEl.offsetHeight;
     this.comboEl.classList.add('combo-pop', `combo--${m}`);
 
@@ -247,9 +232,7 @@ export class ScoreHud {
     this.deltaEl = this.element.querySelector('.score-hud__delta');
     this.comboEl = this.element.querySelector('.score-hud__combo');
     this.levelTextEl = this.element.querySelector('.score-hud__levelText');
-    this.progressCircleEl = this.element.querySelector(
-      '.score-hud__ringProgress'
-    );
+    this.progressCircleEl = this.element.querySelector('.score-hud__ringProgress');
 
     const radius = 18;
     this.progressCircumference = 2 * Math.PI * radius;

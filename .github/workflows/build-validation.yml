@@ -4,11 +4,11 @@ on:
   workflow_call:
     inputs:
       head_ref:
-        description: "The head ref of the PR"
+        description: 'The head ref of the PR'
         required: false
         type: string
       event_name:
-        description: "The event name"
+        description: 'The event name'
         required: false
         type: string
 

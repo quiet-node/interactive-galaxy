@@ -162,10 +162,7 @@ function makeDataTextureR(data: Uint8Array, size: number): THREE.DataTexture {
   return tex;
 }
 
-export function createRockTextures(options?: {
-  size?: number;
-  seed?: number;
-}): RockTextureSet {
+export function createRockTextures(options?: { size?: number; seed?: number }): RockTextureSet {
   const size = options?.size ?? 256;
   const seed = options?.seed ?? 1337;
 
@@ -255,10 +252,7 @@ export function createRockTextures(options?: {
   };
 }
 
-export function createMetalTextures(options?: {
-  size?: number;
-  seed?: number;
-}): MetalTextureSet {
+export function createMetalTextures(options?: { size?: number; seed?: number }): MetalTextureSet {
   const size = options?.size ?? 256;
   const seed = options?.seed ?? 4242;
   const rng = mulberry32(seed);

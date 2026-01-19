@@ -164,8 +164,7 @@ export class PostProcessingManager {
       });
 
       // Set intensity via blend mode opacity
-      this.colorGradingEffect.blendMode.opacity.value =
-        this.config.colorGradingIntensity;
+      this.colorGradingEffect.blendMode.opacity.value = this.config.colorGradingIntensity;
 
       effects.push(this.colorGradingEffect);
     }
@@ -198,11 +197,7 @@ export class PostProcessingManager {
     const data = new Uint8Array(size * size * size * 4);
 
     // Helper: RGB to HSL conversion
-    const rgbToHsl = (
-      r: number,
-      g: number,
-      b: number
-    ): [number, number, number] => {
+    const rgbToHsl = (r: number, g: number, b: number): [number, number, number] => {
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
       const delta = max - min;
@@ -232,11 +227,7 @@ export class PostProcessingManager {
     };
 
     // Helper: HSL to RGB conversion
-    const hslToRgb = (
-      h: number,
-      s: number,
-      l: number
-    ): [number, number, number] => {
+    const hslToRgb = (h: number, s: number, l: number): [number, number, number] => {
       const hue2rgb = (p: number, q: number, t: number): number => {
         if (t < 0) t += 1;
         if (t > 1) t -= 1;

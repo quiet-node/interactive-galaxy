@@ -92,10 +92,7 @@ export class HandLandmarkOverlay {
   private width: number = 0;
   private height: number = 0;
 
-  constructor(
-    container: HTMLElement,
-    config: Partial<HandLandmarkOverlayConfig> = {}
-  ) {
+  constructor(container: HTMLElement, config: Partial<HandLandmarkOverlayConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
 
     // Create canvas element

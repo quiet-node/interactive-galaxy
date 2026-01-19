@@ -40,9 +40,7 @@ const DEFAULT_CONFIG: WorkshopPanelConfig = {
  * @param config - Configuration options for panel appearance
  * @returns THREE.Group containing all panel meshes
  */
-export function createWorkshopPanels(
-  config: Partial<WorkshopPanelConfig> = {}
-): THREE.Group {
+export function createWorkshopPanels(config: Partial<WorkshopPanelConfig> = {}): THREE.Group {
   const { width, height, color } = { ...DEFAULT_CONFIG, ...config };
   const group = new THREE.Group();
 

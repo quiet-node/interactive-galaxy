@@ -17,9 +17,7 @@ export class HintComponent {
     this.actionHandler = handler;
   }
 
-  update(
-    mode: 'galaxy' | 'foggy-mirror' | 'cosmic-slash' | 'iron-man-workshop',
-  ): void {
+  update(mode: 'galaxy' | 'foggy-mirror' | 'cosmic-slash' | 'iron-man-workshop'): void {
     if (!this.element) {
       this.createDOM();
     }
@@ -139,9 +137,7 @@ export class HintComponent {
       </div>
     `;
 
-    const hintBox = this.element.querySelector(
-      '.hint-component-box',
-    ) as HTMLElement;
+    const hintBox = this.element.querySelector('.hint-component-box') as HTMLElement;
 
     hintBox.addEventListener('click', (e) => {
       // If minimized, clicking anywhere expands it

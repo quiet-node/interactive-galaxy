@@ -105,27 +105,21 @@ export class PowHud {
     if (!this.fillEl) return;
 
     // Immediate snap for small deltas or if not visible
-    if (
-      !this.isVisible ||
-      Math.abs(this.currentCharge - targetCharge) < 0.005
-    ) {
+    if (!this.isVisible || Math.abs(this.currentCharge - targetCharge) < 0.005) {
       this.currentCharge = targetCharge;
       this.updateFillVisuals();
       return;
     }
 
     // Smooth interpolation
-    const lerp = (start: number, end: number, t: number) =>
-      start * (1 - t) + end * t;
+    const lerp = (start: number, end: number, t: number) => start * (1 - t) + end * t;
     this.currentCharge = lerp(this.currentCharge, targetCharge, 0.1);
     this.updateFillVisuals();
 
     // Continue animation if needed
     if (Math.abs(this.currentCharge - targetCharge) > 0.001) {
       if (this.animationRaf) cancelAnimationFrame(this.animationRaf);
-      this.animationRaf = requestAnimationFrame(() =>
-        this.animateChargeTo(targetCharge)
-      );
+      this.animationRaf = requestAnimationFrame(() => this.animateChargeTo(targetCharge));
     }
   }
 
@@ -138,9 +132,7 @@ export class PowHud {
 
     // Dynamic glow intensity based on charge
     const intensity = 0.2 + this.currentCharge * 0.8;
-    this.fillEl.style.filter = `drop-shadow(0 0 ${
-      10 * intensity
-    }px currentColor)`;
+    this.fillEl.style.filter = `drop-shadow(0 0 ${10 * intensity}px currentColor)`;
   }
 
   private startParticleEffect(): void {

@@ -109,11 +109,7 @@ export const DEFAULT_WIPE_TO_REVEAL_CONFIG: WipeToRevealConfig = {
 /**
  * State of the wipe-to-reveal controller
  */
-export type WipeToRevealState =
-  | 'uninitialized'
-  | 'ready'
-  | 'active'
-  | 'disposed';
+export type WipeToRevealState = 'uninitialized' | 'ready' | 'active' | 'disposed';
 
 /**
  * Debug information for WipeToRevealController

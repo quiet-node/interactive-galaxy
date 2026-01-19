@@ -144,8 +144,7 @@ export class GestureDetector {
     const isReleased = distance > this.config.pinch.releaseThreshold;
 
     // Check cooldown
-    const cooldownElapsed =
-      timestamp - handState.lastTriggerTime > this.config.pinch.cooldownMs;
+    const cooldownElapsed = timestamp - handState.lastTriggerTime > this.config.pinch.cooldownMs;
 
     // Track sustained pinch frames (require 3 consecutive frames before triggering)
     const REQUIRED_SUSTAINED_FRAMES = 3;
@@ -155,8 +154,7 @@ export class GestureDetector {
       handState.sustainedFrames = 0;
     }
 
-    const isSustainedPinch =
-      handState.sustainedFrames >= REQUIRED_SUSTAINED_FRAMES;
+    const isSustainedPinch = handState.sustainedFrames >= REQUIRED_SUSTAINED_FRAMES;
 
     let gestureState: GestureState;
 
@@ -196,10 +194,7 @@ export class GestureDetector {
     );
 
     // Calculate pinch strength (inverse of distance, normalized)
-    const strength = Math.max(
-      0,
-      Math.min(1, 1 - distance / this.config.pinch.releaseThreshold)
-    );
+    const strength = Math.max(0, Math.min(1, 1 - distance / this.config.pinch.releaseThreshold));
 
     const data: PinchGestureData = {
       position: worldPosition,
@@ -220,14 +215,9 @@ export class GestureDetector {
   /**
    * Calculate 3D Euclidean distance between two landmarks
    */
-  private calculateDistance3D(
-    p1: NormalizedLandmark,
-    p2: NormalizedLandmark
-  ): number {
+  private calculateDistance3D(p1: NormalizedLandmark, p2: NormalizedLandmark): number {
     return Math.sqrt(
-      Math.pow(p1.x - p2.x, 2) +
-        Math.pow(p1.y - p2.y, 2) +
-        Math.pow(p1.z - p2.z, 2)
+      Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2) + Math.pow(p1.z - p2.z, 2)
     );
   }
 

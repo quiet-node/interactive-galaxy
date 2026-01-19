@@ -64,11 +64,7 @@ export interface ExplodedViewConfig {
   /** Callback when limb stops moving (for particles) */
   onLimbMoveEnd?: (limbName: LimbType, mesh: THREE.Object3D) => void;
   /** Callback per-frame during limb movement (for particle trail following) */
-  onLimbMoveUpdate?: (
-    limbName: LimbType,
-    mesh: THREE.Object3D,
-    velocity: THREE.Vector3
-  ) => void;
+  onLimbMoveUpdate?: (limbName: LimbType, mesh: THREE.Object3D, velocity: THREE.Vector3) => void;
   /** Callback when an individual limb completes assembly */
   onLimbAssemblyComplete?: (limbName: LimbType) => void;
   /** Callback for animation state changes */
@@ -371,10 +367,7 @@ export class ExplodedViewManager {
     ];
 
     schematic.traverse((child) => {
-      if (
-        child instanceof THREE.Mesh &&
-        limbNames.includes(child.name as LimbType)
-      ) {
+      if (child instanceof THREE.Mesh && limbNames.includes(child.name as LimbType)) {
         const limbName = child.name as LimbType;
         this.limbMeshes.set(limbName, child);
 
@@ -393,9 +386,7 @@ export class ExplodedViewManager {
       }
     });
 
-    console.log(
-      `[ExplodedViewManager] Initialized with ${this.limbMeshes.size} limbs`
-    );
+    console.log(`[ExplodedViewManager] Initialized with ${this.limbMeshes.size} limbs`);
   }
 
   /**
@@ -492,9 +483,7 @@ export class ExplodedViewManager {
     // For simplicity, we pause the entire levitation when any limb is grabbed
     if (this.levitationTimeline && !this.levitationTimeline.paused()) {
       this.levitationTimeline.pause();
-      console.log(
-        `[ExplodedViewManager] Paused levitation for limb grab: ${limbType}`
-      );
+      console.log(`[ExplodedViewManager] Paused levitation for limb grab: ${limbType}`);
     }
   }
 
@@ -509,9 +498,7 @@ export class ExplodedViewManager {
     // restart the levitation from wherever the limbs currently are.
     // This allows user-moved parts to stay in their new positions.
     if (this.state === 'exploded') {
-      console.log(
-        '[ExplodedViewManager] Restarting levitation from current positions'
-      );
+      console.log('[ExplodedViewManager] Restarting levitation from current positions');
       // startLevitation will kill the old timeline and create a new one
       // based on current mesh.position values
       this.startLevitation();
@@ -534,9 +521,7 @@ export class ExplodedViewManager {
    */
   async explode(): Promise<void> {
     if (this.state !== 'assembled') {
-      console.log(
-        '[ExplodedViewManager] Cannot explode - not in assembled state'
-      );
+      console.log('[ExplodedViewManager] Cannot explode - not in assembled state');
       return;
     }
 
@@ -604,23 +589,17 @@ export class ExplodedViewManager {
         (Math.random() - 0.5) * EXPLOSION_RANDOM_SPREAD * 0.5,
         (Math.random() - 0.5) * EXPLOSION_RANDOM_SPREAD * 0.5
       );
-      const p1 = p0
-        .clone()
-        .add(explosionConfig.controlOffset)
-        .add(controlRandomOffset);
+      const p1 = p0.clone().add(explosionConfig.controlOffset).add(controlRandomOffset);
 
       // Animation params
       const velocityMultiplier = LIMB_VELOCITY_MULTIPLIER[limbName];
       const limbDuration = CINEMATIC_TIMING.burst * velocityMultiplier;
       const staggerJitter = (Math.random() - 0.5) * 0.04;
-      const staggerTime =
-        burstStartTime + explosionConfig.staggerDelay + staggerJitter;
+      const staggerTime = burstStartTime + explosionConfig.staggerDelay + staggerJitter;
 
       const targetRotation = new THREE.Euler(
         originalState.rotation.x + explosionConfig.rotation.x,
-        originalState.rotation.y +
-          explosionConfig.rotation.y +
-          LIMB_FLIGHT_SPIN[limbName],
+        originalState.rotation.y + explosionConfig.rotation.y + LIMB_FLIGHT_SPIN[limbName],
         originalState.rotation.z + explosionConfig.rotation.z
       );
 
@@ -698,9 +677,7 @@ export class ExplodedViewManager {
    */
   async assemble(): Promise<void> {
     if (this.state !== 'exploded') {
-      console.log(
-        '[ExplodedViewManager] Cannot assemble - not in exploded state'
-      );
+      console.log('[ExplodedViewManager] Cannot assemble - not in exploded state');
       return;
     }
 
@@ -774,9 +751,7 @@ export class ExplodedViewManager {
         // Use the midpoint raised slightly along the explosion control offset direction for visual consistency.
         const midpoint = p0.clone().add(p2).multiplyScalar(0.5);
         // Add a fraction of the original control offset to create an arc (scaled down for subtlety)
-        const p1 = midpoint.add(
-          explosionConfig.controlOffset.clone().multiplyScalar(0.5)
-        );
+        const p1 = midpoint.add(explosionConfig.controlOffset.clone().multiplyScalar(0.5));
 
         const velocityMultiplier = LIMB_VELOCITY_MULTIPLIER[limbName];
 
@@ -786,12 +761,10 @@ export class ExplodedViewManager {
           durationMultiplier = 0.5; // SUPER FAST TORSO
         }
 
-        const baseDuration =
-          CINEMATIC_TIMING.burst * velocityMultiplier * durationMultiplier;
+        const baseDuration = CINEMATIC_TIMING.burst * velocityMultiplier * durationMultiplier;
 
         // Stagger within groups
-        const intraGroupStagger =
-          groupName !== 'head' ? Math.random() * 0.08 : 0;
+        const intraGroupStagger = groupName !== 'head' ? Math.random() * 0.08 : 0;
         const totalStartTime = groupDelay + intraGroupStagger;
 
         const progressObj = { p: 0 };
@@ -880,9 +853,7 @@ export class ExplodedViewManager {
    */
   async toggle(): Promise<void> {
     if (this.isAnimating()) {
-      console.log(
-        '[ExplodedViewManager] Animation in progress, ignoring toggle'
-      );
+      console.log('[ExplodedViewManager] Animation in progress, ignoring toggle');
       return;
     }
 
@@ -933,17 +904,13 @@ export class ExplodedViewManager {
 
       if (originalState && explosionConfig) {
         // Calculate target position (P0 + TargetOffset * distanceMultiplier)
-        const offset = explosionConfig.targetOffset
-          .clone()
-          .multiplyScalar(distanceMultiplier);
+        const offset = explosionConfig.targetOffset.clone().multiplyScalar(distanceMultiplier);
         const targetPos = originalState.position.clone().add(offset);
 
         // Calculate target rotation
         const targetRot = new THREE.Euler(
           originalState.rotation.x + explosionConfig.rotation.x,
-          originalState.rotation.y +
-            explosionConfig.rotation.y +
-            LIMB_FLIGHT_SPIN[limbName],
+          originalState.rotation.y + explosionConfig.rotation.y + LIMB_FLIGHT_SPIN[limbName],
           originalState.rotation.z + explosionConfig.rotation.z
         );
 
@@ -961,9 +928,7 @@ export class ExplodedViewManager {
     } else {
       this.stopLevitation();
     }
-    console.log(
-      `[ExplodedViewManager] Forced exploded state (multiplier: ${distanceMultiplier})`
-    );
+    console.log(`[ExplodedViewManager] Forced exploded state (multiplier: ${distanceMultiplier})`);
   }
 
   /**
@@ -989,11 +954,7 @@ export class ExplodedViewManager {
     const b = 2 * oneMinusT * t;
     const c = t * t;
 
-    target
-      .set(0, 0, 0)
-      .addScaledVector(p0, a)
-      .addScaledVector(p1, b)
-      .addScaledVector(p2, c);
+    target.set(0, 0, 0).addScaledVector(p0, a).addScaledVector(p1, b).addScaledVector(p2, c);
   }
 
   /**
@@ -1030,9 +991,7 @@ export class ExplodedViewManager {
     const v2y = p2.y - p1.y;
     const v2z = p2.z - p1.z;
 
-    target
-      .set(a * v1x + b * v2x, a * v1y + b * v2y, a * v1z + b * v2z)
-      .normalize();
+    target.set(a * v1x + b * v2x, a * v1y + b * v2y, a * v1z + b * v2z).normalize();
   }
 
   /**

@@ -39,9 +39,7 @@ export class ObjectPoolManager {
   private totalSliced: number = 0;
 
   private speedMultiplier: number = 1;
-  private onObjectMissedHandler:
-    | ((instance: CosmicObjectInstance) => void)
-    | null = null;
+  private onObjectMissedHandler: ((instance: CosmicObjectInstance) => void) | null = null;
 
   private qualitySpawnRateMultiplier: number = 1;
   private qualityMaxActiveMultiplier: number = 1;
@@ -68,9 +66,7 @@ export class ObjectPoolManager {
 
   private recomputeEffectiveTuning(): void {
     const nextSpawnRate =
-      this.baseSpawnRate *
-      this.qualitySpawnRateMultiplier *
-      this.difficultySpawnRateMultiplier;
+      this.baseSpawnRate * this.qualitySpawnRateMultiplier * this.difficultySpawnRateMultiplier;
 
     const nextMaxActive = Math.min(
       this.config.poolSize,
@@ -110,19 +106,14 @@ export class ObjectPoolManager {
           (Math.random() - 0.5) * 2
         ),
         activatedAt: 0,
-        boundingSphere: new THREE.Sphere(
-          new THREE.Vector3(),
-          config.collisionRadius
-        ),
+        boundingSphere: new THREE.Sphere(new THREE.Vector3(), config.collisionRadius),
       };
 
       this.pool.push(instance);
       this.scene.add(object);
     }
 
-    console.log(
-      `[ObjectPoolManager] Initialized pool with ${this.config.poolSize} objects`
-    );
+    console.log(`[ObjectPoolManager] Initialized pool with ${this.config.poolSize} objects`);
   }
 
   update(deltaTime: number, currentTime: number): void {
@@ -132,9 +123,7 @@ export class ObjectPoolManager {
 
     // Sort active objects by z-depth (further = render first)
     // This prevents blending issues when objects overlap
-    const activeObjects = this.pool.filter(
-      (obj) => obj.state === CosmicObjectState.ACTIVE
-    );
+    const activeObjects = this.pool.filter((obj) => obj.state === CosmicObjectState.ACTIVE);
     activeObjects.sort((a, b) => b.position.z - a.position.z);
 
     // Update in sorted order and set renderOrder
@@ -248,10 +237,7 @@ export class ObjectPoolManager {
     instance.boundingSphere.radius = config.collisionRadius * scale;
   }
 
-  private updateActiveObject(
-    instance: CosmicObjectInstance,
-    deltaTime: number
-  ): void {
+  private updateActiveObject(instance: CosmicObjectInstance, deltaTime: number): void {
     // Update position
     instance.position.addScaledVector(instance.velocity, deltaTime);
     instance.mesh.position.copy(instance.position);
@@ -266,11 +252,7 @@ export class ObjectPoolManager {
     rotationRoot.rotation.z += instance.rotationSpeed.z * deltaTime;
 
     // Update shader time and billboard glow sprites
-    CosmicObjectFactory.updateObjectTime(
-      instance.mesh,
-      this.animationTime,
-      this.camera
-    );
+    CosmicObjectFactory.updateObjectTime(instance.mesh, this.animationTime, this.camera);
 
     // Update bounding sphere
     instance.boundingSphere.center.copy(instance.position);
@@ -284,16 +266,14 @@ export class ObjectPoolManager {
             0,
             Math.min(
               1,
-              (this.config.despawnZPosition - instance.position.z) /
-                this.despawnFadeDistance
+              (this.config.despawnZPosition - instance.position.z) / this.despawnFadeDistance
             )
           );
 
     this.applyDespawnFade(instance.mesh, fade);
 
     const baseScale =
-      (instance.mesh.userData.baseScale as number | undefined) ??
-      instance.mesh.scale.x;
+      (instance.mesh.userData.baseScale as number | undefined) ?? instance.mesh.scale.x;
     const scaleFactor = 0.72 + 0.28 * fade;
     instance.mesh.scale.setScalar(baseScale * scaleFactor);
 
@@ -309,9 +289,7 @@ export class ObjectPoolManager {
     object.traverse((child) => {
       if (!(child instanceof THREE.Mesh)) return;
 
-      const materials = Array.isArray(child.material)
-        ? child.material
-        : [child.material];
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
 
       for (const material of materials) {
         if (!(material instanceof THREE.Material)) continue;
@@ -377,14 +355,8 @@ export class ObjectPoolManager {
     }, 50);
   }
 
-  private recycleObject(
-    instance: CosmicObjectInstance,
-    newState: CosmicObjectState
-  ): void {
-    instance.state =
-      newState === CosmicObjectState.POOLED
-        ? CosmicObjectState.POOLED
-        : newState;
+  private recycleObject(instance: CosmicObjectInstance, newState: CosmicObjectState): void {
+    instance.state = newState === CosmicObjectState.POOLED ? CosmicObjectState.POOLED : newState;
 
     if (newState === CosmicObjectState.MISSED) {
       instance.state = CosmicObjectState.POOLED;
@@ -399,10 +371,7 @@ export class ObjectPoolManager {
     const baseZ = this.config.spawnZPosition;
     const candidate = new THREE.Vector3();
 
-    const pickEdgeBiased = (
-      spread: number,
-      centerDeadzone01: number
-    ): number => {
+    const pickEdgeBiased = (spread: number, centerDeadzone01: number): number => {
       const half = spread / 2;
       const dead = Math.max(0, Math.min(0.49, centerDeadzone01)) * half;
       const sign = Math.random() < 0.5 ? -1 : 1;
@@ -412,20 +381,11 @@ export class ObjectPoolManager {
     };
 
     for (let attempt = 0; attempt < 6; attempt++) {
-      candidate.set(
-        pickEdgeBiased(spreadX, 0.18),
-        (Math.random() - 0.5) * spreadY,
-        baseZ
-      );
+      candidate.set(pickEdgeBiased(spreadX, 0.18), (Math.random() - 0.5) * spreadY, baseZ);
 
       const tooClose = this.pool.some((obj) => {
         if (obj.state !== CosmicObjectState.ACTIVE) return false;
-        return (
-          Math.hypot(
-            obj.position.x - candidate.x,
-            obj.position.y - candidate.y
-          ) < 1.25
-        );
+        return Math.hypot(obj.position.x - candidate.x, obj.position.y - candidate.y) < 1.25;
       });
 
       if (!tooClose) {
@@ -441,8 +401,7 @@ export class ObjectPoolManager {
   }
 
   getActiveCount(): number {
-    return this.pool.filter((obj) => obj.state === CosmicObjectState.ACTIVE)
-      .length;
+    return this.pool.filter((obj) => obj.state === CosmicObjectState.ACTIVE).length;
   }
 
   getTotalSliced(): number {
@@ -484,10 +443,7 @@ export class ObjectPoolManager {
   }
 
   setMaxActiveObjects(max: number): void {
-    this.baseMaxActiveObjects = Math.min(
-      Math.max(1, Math.floor(max)),
-      this.config.poolSize
-    );
+    this.baseMaxActiveObjects = Math.min(Math.max(1, Math.floor(max)), this.config.poolSize);
     this.recomputeEffectiveTuning();
   }
 

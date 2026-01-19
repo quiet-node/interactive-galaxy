@@ -67,9 +67,7 @@ export class Footer {
     this.isVisible = true;
 
     // Initialize TrustBadge
-    const privacyContainer = this.element.querySelector(
-      '.footer-privacy-container',
-    );
+    const privacyContainer = this.element.querySelector('.footer-privacy-container');
     if (privacyContainer instanceof HTMLElement) {
       this.trustBadge = new TrustBadge(privacyContainer);
       this.trustBadge.render();

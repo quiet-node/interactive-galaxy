@@ -6,11 +6,7 @@
 import type { HandTracker } from '../shared/HandTracker';
 import { BlurOverlay } from './BlurOverlay';
 import { HandTrailTracker } from '../shared/HandTrailTracker';
-import {
-  WipeToRevealConfig,
-  DEFAULT_WIPE_TO_REVEAL_CONFIG,
-  WipeToRevealState,
-} from './wipe-types';
+import { WipeToRevealConfig, DEFAULT_WIPE_TO_REVEAL_CONFIG, WipeToRevealState } from './wipe-types';
 
 /**
  * WipeToRevealController manages the wipe-to-reveal interaction mode

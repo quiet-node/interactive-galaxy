@@ -10,11 +10,7 @@
  */
 
 import * as THREE from 'three';
-import {
-  CosmicObjectType,
-  SliceEffectConfig,
-  DEFAULT_SLICE_EFFECT_CONFIG,
-} from './types';
+import { CosmicObjectType, SliceEffectConfig, DEFAULT_SLICE_EFFECT_CONFIG } from './types';
 
 // Optimized vertex shader
 const explosionVertexShader = /* glsl */ `
@@ -98,10 +94,7 @@ function jitterHsl(color: THREE.Color, hueJitter: number): THREE.Color {
   return new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l);
 }
 
-function getStyleForType(
-  type: CosmicObjectType,
-  baseCount: number
-): ExplosionStyle {
+function getStyleForType(type: CosmicObjectType, baseCount: number): ExplosionStyle {
   const cap = baseCount;
 
   const make = (
@@ -276,18 +269,10 @@ export class SliceEffect {
     this.points.renderOrder = 20;
 
     // Get attribute references
-    this.positionAttr = this.geometry.getAttribute(
-      'position'
-    ) as THREE.BufferAttribute;
-    this.alphaAttr = this.geometry.getAttribute(
-      'aAlpha'
-    ) as THREE.BufferAttribute;
-    this.sizeAttr = this.geometry.getAttribute(
-      'aSize'
-    ) as THREE.BufferAttribute;
-    this.colorAttr = this.geometry.getAttribute(
-      'aColor'
-    ) as THREE.BufferAttribute;
+    this.positionAttr = this.geometry.getAttribute('position') as THREE.BufferAttribute;
+    this.alphaAttr = this.geometry.getAttribute('aAlpha') as THREE.BufferAttribute;
+    this.sizeAttr = this.geometry.getAttribute('aSize') as THREE.BufferAttribute;
+    this.colorAttr = this.geometry.getAttribute('aColor') as THREE.BufferAttribute;
 
     this.scene.add(this.points);
   }
@@ -352,8 +337,7 @@ export class SliceEffect {
           }
         : {
             ...colorOrOptions,
-            velocityMultiplier:
-              colorOrOptions.velocityMultiplier ?? velocityMultiplier,
+            velocityMultiplier: colorOrOptions.velocityMultiplier ?? velocityMultiplier,
           };
 
     // Find available slot
@@ -383,10 +367,7 @@ export class SliceEffect {
 
     const style = getStyleForType(options.type, this.config.particleCount);
     const count =
-      style.countMin +
-      Math.floor(
-        Math.random() * Math.max(1, style.countMax - style.countMin + 1)
-      );
+      style.countMin + Math.floor(Math.random() * Math.max(1, style.countMax - style.countMin + 1));
 
     const explosion: ExplosionInstance = {
       id: this.nextId++,
@@ -412,10 +393,7 @@ export class SliceEffect {
     return explosion.id;
   }
 
-  private initializeParticles(
-    explosion: ExplosionInstance,
-    velocityMult: number
-  ): void {
+  private initializeParticles(explosion: ExplosionInstance, velocityMult: number): void {
     const positions = this.positionAttr.array as Float32Array;
     const alphas = this.alphaAttr.array as Float32Array;
     const sizes = this.sizeAttr.array as Float32Array;
@@ -423,10 +401,8 @@ export class SliceEffect {
 
     const style = explosion.style;
     const discBias = clamp01(style.discBias + (Math.random() - 0.5) * 0.1);
-    const speedMult =
-      style.speedMin + Math.random() * (style.speedMax - style.speedMin);
-    const baseSizeMult =
-      style.sizeMin + Math.random() * (style.sizeMax - style.sizeMin);
+    const speedMult = style.speedMin + Math.random() * (style.speedMax - style.speedMin);
+    const baseSizeMult = style.sizeMin + Math.random() * (style.sizeMax - style.sizeMin);
 
     for (let i = 0; i < explosion.count; i++) {
       const idx = explosion.startIndex + i;
@@ -441,11 +417,7 @@ export class SliceEffect {
       const theta = Math.random() * Math.PI * 2;
       const rnd = Math.random();
       const phi = Math.acos(2 * rnd - 1);
-      const speed =
-        this.config.initialVelocity *
-        (0.5 + Math.random()) *
-        velocityMult *
-        speedMult;
+      const speed = this.config.initialVelocity * (0.5 + Math.random()) * velocityMult * speedMult;
 
       const disc = Math.random() < discBias;
       const sinPhi = disc ? 1.0 : Math.sin(phi);
@@ -463,14 +435,11 @@ export class SliceEffect {
       this.lifetimeOffsets[idx] = (Math.random() - 0.5) * 0.25;
 
       // Size
-      sizes[idx] =
-        this.config.particleSize * baseSizeMult * (0.55 + Math.random() * 0.9);
+      sizes[idx] = this.config.particleSize * baseSizeMult * (0.55 + Math.random() * 0.9);
 
       // Color
       const mixFactor = clamp01(style.colorMix + (Math.random() - 0.5) * 0.22);
-      const mixed = explosion.baseColor
-        .clone()
-        .lerp(explosion.glowColor, mixFactor);
+      const mixed = explosion.baseColor.clone().lerp(explosion.glowColor, mixFactor);
       const jittered = jitterHsl(mixed, style.hueJitter);
 
       const isSpark = Math.random() < style.sparkChance;
@@ -478,9 +447,7 @@ export class SliceEffect {
         jittered.lerp(new THREE.Color(0xffffff), 0.55);
       }
 
-      const brightness = isSpark
-        ? 1.25 + Math.random() * 0.75
-        : 0.85 + Math.random() * 0.55;
+      const brightness = isSpark ? 1.25 + Math.random() * 0.75 : 0.85 + Math.random() * 0.55;
       jittered.multiplyScalar(brightness);
 
       colors[i3] = jittered.r;
@@ -539,10 +506,7 @@ export class SliceEffect {
         positions[i3 + 2] += this.velocities[i3 + 2] * deltaTime;
 
         // Fade alpha
-        const adjustedProgress = Math.max(
-          0,
-          Math.min(1, progress + this.lifetimeOffsets[idx])
-        );
+        const adjustedProgress = Math.max(0, Math.min(1, progress + this.lifetimeOffsets[idx]));
         const fade = 1.0 - adjustedProgress;
         alphas[idx] = this.initialAlphas[idx] * fade * fade;
       }

@@ -1,12 +1,12 @@
 /**
  * ScreenFlashEffect
  * Brief full-screen color flash for impactful moments
- * 
+ *
  * Use cases:
  * - Boss hit feedback (white flash)
  * - Critical events (red flash for damage, gold for rewards)
  * - Screen shake companion effect
- * 
+ *
  * Performance optimized with DOM overlay instead of Three.js rendering
  */
 

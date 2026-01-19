@@ -3,11 +3,7 @@
  * Displays the initial mode selection screen
  */
 
-export type InteractionMode =
-  | 'galaxy'
-  | 'foggy-mirror'
-  | 'cosmic-slash'
-  | 'iron-man-workshop';
+export type InteractionMode = 'galaxy' | 'foggy-mirror' | 'cosmic-slash' | 'iron-man-workshop';
 
 export class LandingPage {
   private container: HTMLElement;
@@ -15,10 +11,7 @@ export class LandingPage {
   private onSelect: (mode: InteractionMode) => void;
   private isVisible: boolean = false;
 
-  constructor(
-    container: HTMLElement,
-    onSelect: (mode: InteractionMode) => void,
-  ) {
+  constructor(container: HTMLElement, onSelect: (mode: InteractionMode) => void) {
     this.container = container;
     this.onSelect = onSelect;
   }

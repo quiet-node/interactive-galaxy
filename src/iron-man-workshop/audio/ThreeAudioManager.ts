@@ -73,17 +73,12 @@ export class ThreeAudioManager {
         const buffer = await this.audioLoader.loadAsync(config.path);
         this.buffers.set(name as SoundName, buffer);
       } catch (error) {
-        console.warn(
-          `[ThreeAudioManager] Failed to load sound: ${name} (${config.path})`,
-          error
-        );
+        console.warn(`[ThreeAudioManager] Failed to load sound: ${name} (${config.path})`, error);
       }
     });
 
     await Promise.all(promises);
-    console.log(
-      `[ThreeAudioManager] Loaded ${this.buffers.size} audio buffers.`
-    );
+    console.log(`[ThreeAudioManager] Loaded ${this.buffers.size} audio buffers.`);
   }
 
   /**

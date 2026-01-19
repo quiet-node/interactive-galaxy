@@ -19,9 +19,7 @@ export class ModeIndicator {
     }
   }
 
-  update(
-    mode: 'galaxy' | 'foggy-mirror' | 'cosmic-slash' | 'iron-man-workshop',
-  ): void {
+  update(mode: 'galaxy' | 'foggy-mirror' | 'cosmic-slash' | 'iron-man-workshop'): void {
     if (!this.element) {
       this.createDOM();
     }
@@ -58,9 +56,7 @@ export class ModeIndicator {
       </div>
     `;
 
-    const indicatorBox = this.element.querySelector(
-      '.mode-indicator-box',
-    ) as HTMLElement;
+    const indicatorBox = this.element.querySelector('.mode-indicator-box') as HTMLElement;
 
     if (this.clickHandler) {
       indicatorBox.style.cursor = 'pointer';

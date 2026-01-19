@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from 'vite';
 
 export default defineConfig({
   // Development server configuration
@@ -11,20 +11,20 @@ export default defineConfig({
   },
 
   // Asset handling
-  assetsInclude: ["**/*.glsl", "**/*.glb"],
+  assetsInclude: ['**/*.glsl', '**/*.glb'],
 
   // Build configuration
   build: {
-    target: "ES2020",
-    outDir: "dist",
+    target: 'ES2020',
+    outDir: 'dist',
     sourcemap: true,
-    minify: "esbuild", // Use esbuild (built-in) instead of terser
+    minify: 'esbuild', // Use esbuild (built-in) instead of terser
     rollupOptions: {
       output: {
         // Chunk splitting for better caching
         manualChunks: {
-          three: ["three"],
-          mediapipe: ["@mediapipe/tasks-vision"],
+          three: ['three'],
+          mediapipe: ['@mediapipe/tasks-vision'],
         },
       },
     },
@@ -33,11 +33,11 @@ export default defineConfig({
 
   // Optimize dependencies
   optimizeDeps: {
-    include: ["three", "@mediapipe/tasks-vision"],
+    include: ['three', '@mediapipe/tasks-vision'],
   },
 
   // Define environment variables
   define: {
-    __DEV__: JSON.stringify(process.env.NODE_ENV !== "production"),
+    __DEV__: JSON.stringify(process.env.NODE_ENV !== 'production'),
   },
 });

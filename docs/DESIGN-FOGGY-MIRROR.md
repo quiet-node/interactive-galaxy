@@ -287,11 +287,7 @@ const DEFAULT_HAND_TRAIL_CONFIG: HandTrailConfig = {
 **Solution:** Linear interpolation with configurable density.
 
 ```typescript
-function generateTrail(
-  current: Point2D,
-  previous: Point2D | null,
-  radius: number
-): TrailPoint[] {
+function generateTrail(current: Point2D, previous: Point2D | null, radius: number): TrailPoint[] {
   const trail: TrailPoint[] = [];
 
   if (!previous) {
@@ -364,9 +360,7 @@ const handId = `${handedness}-${index}`;
 const previousHand = trackedHands.get(handId);
 
 // Calculate velocity for debug info
-const velocity = previousHand
-  ? distance(current, previousHand.palmPosition)
-  : 0;
+const velocity = previousHand ? distance(current, previousHand.palmPosition) : 0;
 
 // Update tracked hands map
 trackedHands.set(handId, {
@@ -739,15 +733,9 @@ class App {
     await this.handTracker.initialize(videoElement);
 
     // Pass to both controllers
-    this.controller = new HandGalaxyController(
-      this.handTracker,
-      galaxyRenderer
-    );
+    this.controller = new HandGalaxyController(this.handTracker, galaxyRenderer);
 
-    this.foggyMirrorController = new FoggyMirrorController(
-      this.handTracker,
-      container
-    );
+    this.foggyMirrorController = new FoggyMirrorController(this.handTracker, container);
   }
 }
 ```

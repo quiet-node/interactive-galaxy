@@ -386,22 +386,17 @@ export class GalaxyRenderer {
     this.generateGalaxy();
 
     // Initialize post-processing (Phase 1 enhancement)
-    this.postProcessing = new PostProcessingManager(
-      this.renderer,
-      this.scene,
-      this.camera,
-      {
-        enableBloom: true,
-        bloomIntensity: 1.5,
-        bloomLuminanceThreshold: 0.4,
-        bloomRadius: 0.8,
-        enableChromaticAberration: true,
-        chromaticAberrationOffset: 0.001,
-        enableColorGrading: true,
-        colorGradingIntensity: 0.8,
-        enableGravitationalLensing: true,
-      }
-    );
+    this.postProcessing = new PostProcessingManager(this.renderer, this.scene, this.camera, {
+      enableBloom: true,
+      bloomIntensity: 1.5,
+      bloomLuminanceThreshold: 0.4,
+      bloomRadius: 0.8,
+      enableChromaticAberration: true,
+      chromaticAberrationOffset: 0.001,
+      enableColorGrading: true,
+      colorGradingIntensity: 0.8,
+      enableGravitationalLensing: true,
+    });
   }
 
   /**
@@ -447,8 +442,7 @@ export class GalaxyRenderer {
       const angle = Math.random() * Math.PI * 2;
 
       // Simple radial scatter for natural appearance
-      const baseRadialScatter =
-        (Math.random() - 0.5) * randomness * 0.05 * radiusRatio;
+      const baseRadialScatter = (Math.random() - 0.5) * randomness * 0.05 * radiusRatio;
       const finalRadius = r + baseRadialScatter;
 
       // Position on circular ring
@@ -539,19 +533,10 @@ export class GalaxyRenderer {
     }
 
     // Set geometry attributes
-    this.geometry.setAttribute(
-      'position',
-      new THREE.BufferAttribute(positions, 3)
-    );
+    this.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     this.geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
-    this.geometry.setAttribute(
-      'aDistance',
-      new THREE.BufferAttribute(distances, 1)
-    );
-    this.geometry.setAttribute(
-      'aBrightness',
-      new THREE.BufferAttribute(brightnesses, 1)
-    );
+    this.geometry.setAttribute('aDistance', new THREE.BufferAttribute(distances, 1));
+    this.geometry.setAttribute('aBrightness', new THREE.BufferAttribute(brightnesses, 1));
     this.geometry.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
 
     // Create shader material
@@ -648,13 +633,9 @@ export class GalaxyRenderer {
 
     let intensity = 0.0;
 
-    if (
-      this.currentHandDistance >= minDistance &&
-      this.currentHandDistance <= maxDistance
-    ) {
+    if (this.currentHandDistance >= minDistance && this.currentHandDistance <= maxDistance) {
       // Map distance to intensity (closer hands = stronger lensing)
-      const normalizedDist =
-        (this.currentHandDistance - minDistance) / (maxDistance - minDistance);
+      const normalizedDist = (this.currentHandDistance - minDistance) / (maxDistance - minDistance);
       intensity = 1.0 - normalizedDist; // Invert: close = 1.0, far = 0.0
     }
 
@@ -798,12 +779,8 @@ export class GalaxyRenderer {
     switch (this.explosionState) {
       case ExplosionState.SINGULARITY: {
         // Animate scale from initial value to 0 for smooth collapse
-        const collapseProgress = Math.min(
-          explosionElapsed / this.singularityDuration,
-          1.0
-        );
-        const currentScale =
-          this.explosionInitialScale * (1.0 - collapseProgress);
+        const collapseProgress = Math.min(explosionElapsed / this.singularityDuration, 1.0);
+        const currentScale = this.explosionInitialScale * (1.0 - collapseProgress);
         this.setScale(currentScale);
 
         if (explosionElapsed >= this.singularityDuration) {
@@ -818,10 +795,7 @@ export class GalaxyRenderer {
 
       case ExplosionState.EXPLODING: {
         // Animate scale from 0 to larger for visual expansion
-        const explosionProgress = Math.min(
-          explosionElapsed / this.explosionDuration,
-          1.0
-        );
+        const explosionProgress = Math.min(explosionElapsed / this.explosionDuration, 1.0);
         // Expand from 0 to 3.0 (3x larger for dramatic effect)
         this.setScale(explosionProgress * 3.0);
 

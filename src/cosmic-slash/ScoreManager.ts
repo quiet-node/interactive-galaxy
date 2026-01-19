@@ -28,10 +28,7 @@ export interface ScoreManagerConfig {
   speedMultiplierForLevel?: (level: number) => number;
 }
 
-export type ScoreListener = (
-  state: ScoreState,
-  event: ScoreChangeEvent
-) => void;
+export type ScoreListener = (state: ScoreState, event: ScoreChangeEvent) => void;
 
 function clampInt(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.floor(v)));
@@ -57,9 +54,7 @@ const defaultSpeedMultiplierForLevel = (level: number): number => {
 
 export class ScoreManager {
   private readonly pointsByType: Record<CosmicObjectType, number>;
-  private readonly missPenaltyByType?: Partial<
-    Record<CosmicObjectType, number>
-  >;
+  private readonly missPenaltyByType?: Partial<Record<CosmicObjectType, number>>;
 
   private readonly maxLevel: number;
   private readonly pointsToNextLevel: (level: number) => number;
@@ -76,10 +71,8 @@ export class ScoreManager {
     this.missPenaltyByType = config.missPenaltyByType;
 
     this.maxLevel = clampInt(config.maxLevel ?? 50, 1, 200);
-    this.pointsToNextLevel =
-      config.pointsToNextLevel ?? defaultPointsToNextLevel;
-    this.speedMultiplierForLevel =
-      config.speedMultiplierForLevel ?? defaultSpeedMultiplierForLevel;
+    this.pointsToNextLevel = config.pointsToNextLevel ?? defaultPointsToNextLevel;
+    this.speedMultiplierForLevel = config.speedMultiplierForLevel ?? defaultSpeedMultiplierForLevel;
 
     this.ensureThresholdsUpTo(this.maxLevel);
   }
@@ -122,10 +115,7 @@ export class ScoreManager {
   }
 
   applyMiss(objectType: CosmicObjectType): number {
-    const penalty =
-      this.missPenaltyByType?.[objectType] ??
-      this.pointsByType[objectType] ??
-      0;
+    const penalty = this.missPenaltyByType?.[objectType] ?? this.pointsByType[objectType] ?? 0;
     return this.applyScoreDelta(-Math.abs(penalty), 'miss', objectType);
   }
 
@@ -219,8 +209,7 @@ export class ScoreManager {
       score: this.score,
       level: this.level,
       progressToNextLevel01: clamp(progress, 0, 1),
-      pointsToNextLevel:
-        nextThreshold !== null ? Math.max(0, nextThreshold - this.score) : null,
+      pointsToNextLevel: nextThreshold !== null ? Math.max(0, nextThreshold - this.score) : null,
       nextLevelThresholdScore: nextThreshold,
       speedMultiplier: this.speedMultiplierForLevel(this.level),
     };

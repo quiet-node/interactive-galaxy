@@ -71,8 +71,7 @@ export const HandLandmarkIndex = {
   PINKY_TIP: 20,
 } as const;
 
-export type HandLandmarkIndexType =
-  (typeof HandLandmarkIndex)[keyof typeof HandLandmarkIndex];
+export type HandLandmarkIndexType = (typeof HandLandmarkIndex)[keyof typeof HandLandmarkIndex];
 
 /**
  * Configuration options for HandLandmarker

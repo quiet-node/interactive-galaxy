@@ -214,8 +214,7 @@ export class CosmicSlashController {
       hdriUrl,
       (texture) => {
         texture.mapping = THREE.EquirectangularReflectionMapping;
-        const nextEnv =
-          this.pmremGenerator!.fromEquirectangular(texture).texture;
+        const nextEnv = this.pmremGenerator!.fromEquirectangular(texture).texture;
         this.environmentMap?.dispose();
         this.environmentMap = nextEnv;
         this.scene.environment = this.environmentMap;
@@ -263,21 +262,16 @@ export class CosmicSlashController {
     this.background = new CosmicBackground(this.scene, this.config.background);
 
     // Initialize elegant ribbon trail renderer (rendered as overlay pass)
-    this.trailRenderer = new HandTrailRenderer(
-      this.overlayScene,
-      this.camera,
-      this.container,
-      {
-        maxPoints: 72,
-        ribbonWidth: 0.2,
-        trailLength: 28,
-        coreColor: new THREE.Color(0xffffff), // Pure white core
-        glowColor: new THREE.Color(0x00d4ff), // Electric cyan glow
-        smoothingFactor: 0.35,
-        velocityScale: 2.5,
-        intensityBoost: 1.2,
-      }
-    );
+    this.trailRenderer = new HandTrailRenderer(this.overlayScene, this.camera, this.container, {
+      maxPoints: 72,
+      ribbonWidth: 0.2,
+      trailLength: 28,
+      coreColor: new THREE.Color(0xffffff), // Pure white core
+      glowColor: new THREE.Color(0x00d4ff), // Electric cyan glow
+      smoothingFactor: 0.35,
+      velocityScale: 2.5,
+      intensityBoost: 1.2,
+    });
 
     this.trailRenderer.setRenderMode(this.trailRenderMode);
 
@@ -322,22 +316,17 @@ export class CosmicSlashController {
     });
 
     // Initialize HDR-aware post-processing with bloom
-    this.postProcessing = new PostProcessingManager(
-      this.renderer,
-      this.scene,
-      this.camera,
-      {
-        enableBloom: true,
-        bloomIntensity: 1.15,
-        bloomLuminanceThreshold: 0.26,
-        bloomRadius: 0.65,
-        enableChromaticAberration: true,
-        chromaticAberrationOffset: 0.00065,
-        enableColorGrading: true,
-        colorGradingIntensity: 0.6,
-        enableGravitationalLensing: false,
-      }
-    );
+    this.postProcessing = new PostProcessingManager(this.renderer, this.scene, this.camera, {
+      enableBloom: true,
+      bloomIntensity: 1.15,
+      bloomLuminanceThreshold: 0.26,
+      bloomRadius: 0.65,
+      enableChromaticAberration: true,
+      chromaticAberrationOffset: 0.00065,
+      enableColorGrading: true,
+      colorGradingIntensity: 0.6,
+      enableGravitationalLensing: false,
+    });
 
     // Initialize visual effect overlays
     this.levelUpOverlay = new LevelUpOverlay(this.scene, this.camera);
@@ -402,18 +391,11 @@ export class CosmicSlashController {
       const k = Math.max(0, state.level - 3);
 
       const speedMultiplier =
-        state.level <= 3
-          ? 1
-          : Math.min(
-              3.75,
-              state.speedMultiplier * Math.min(1.65, 1 + 0.06 * k)
-            );
+        state.level <= 3 ? 1 : Math.min(3.75, state.speedMultiplier * Math.min(1.65, 1 + 0.06 * k));
       this.objectPool?.setSpeedMultiplier(speedMultiplier);
 
-      const spawnRateMultiplier =
-        state.level <= 3 ? 1 : Math.min(5.4, 1 + 0.34 * k);
-      const maxActiveMultiplier =
-        state.level <= 3 ? 1 : Math.min(4.8, 1 + 0.32 * k);
+      const spawnRateMultiplier = state.level <= 3 ? 1 : Math.min(5.4, 1 + 0.34 * k);
+      const maxActiveMultiplier = state.level <= 3 ? 1 : Math.min(4.8, 1 + 0.32 * k);
 
       this.objectPool?.setDifficultyScaling({
         spawnRateMultiplier,
@@ -435,16 +417,11 @@ export class CosmicSlashController {
     });
 
     this.objectPool.onObjectMissed((instance) => {
-      const appliedDelta =
-        this.scoreManager?.applyMiss(instance.config.type) ?? 0;
-      this.floatingScoreEffect?.trigger(
-        instance.position.clone(),
-        appliedDelta,
-        {
-          intensity01: 0.35,
-          durationSec: 0.85,
-        }
-      );
+      const appliedDelta = this.scoreManager?.applyMiss(instance.config.type) ?? 0;
+      this.floatingScoreEffect?.trigger(instance.position.clone(), appliedDelta, {
+        intensity01: 0.35,
+        durationSec: 0.85,
+      });
     });
 
     // Baseline difficulty at level 1.
@@ -674,12 +651,7 @@ export class CosmicSlashController {
    * Check collisions between trails and objects
    */
   private checkCollisions(): void {
-    if (
-      !this.trailRenderer ||
-      !this.objectPool ||
-      !this.collisionDetector ||
-      !this.sliceEffect
-    ) {
+    if (!this.trailRenderer || !this.objectPool || !this.collisionDetector || !this.sliceEffect) {
       return;
     }
 
@@ -693,10 +665,7 @@ export class CosmicSlashController {
     }
 
     // Detect collisions
-    const collisions = this.collisionDetector.detectCollisions(
-      trailSegments,
-      activeObjects
-    );
+    const collisions = this.collisionDetector.detectCollisions(trailSegments, activeObjects);
 
     // Handle each collision
     for (const collision of collisions) {
@@ -728,10 +697,7 @@ export class CosmicSlashController {
     // Trigger explosion at object's 3D position
     const velocityMultiplier = Math.min(2.5, Math.max(0.7, velocity / 300));
 
-    const intensity01 = Math.max(
-      0,
-      Math.min(1, (velocityMultiplier - 0.7) / (2.5 - 0.7))
-    );
+    const intensity01 = Math.max(0, Math.min(1, (velocityMultiplier - 0.7) / (2.5 - 0.7)));
 
     this.floatingScoreEffect?.trigger(object.position.clone(), appliedDelta, {
       intensity01,
@@ -746,17 +712,11 @@ export class CosmicSlashController {
     });
   }
 
-  private registerComboSlice(
-    appliedDelta: number,
-    position: THREE.Vector3
-  ): void {
+  private registerComboSlice(appliedDelta: number, position: THREE.Vector3): void {
     if (!Number.isFinite(appliedDelta) || appliedDelta <= 0) return;
 
     const now = performance.now();
-    if (
-      this.comboStartMs === null ||
-      now - this.comboStartMs > this.comboWindowMs
-    ) {
+    if (this.comboStartMs === null || now - this.comboStartMs > this.comboWindowMs) {
       this.flushCombo();
       this.comboStartMs = now;
       this.comboCount = 0;
@@ -772,10 +732,7 @@ export class CosmicSlashController {
       this.comboResolveTimeout = null;
     }
 
-    const remaining = Math.max(
-      0,
-      this.comboWindowMs - (now - (this.comboStartMs ?? now))
-    );
+    const remaining = Math.max(0, this.comboWindowMs - (now - (this.comboStartMs ?? now)));
     this.comboResolveTimeout = window.setTimeout(() => {
       this.flushCombo();
     }, remaining);
@@ -807,10 +764,7 @@ export class CosmicSlashController {
     this.scoreHud.showCombo(multiplier);
 
     if (lastPos) {
-      const intensity01 = Math.max(
-        0.45,
-        Math.min(1, 0.55 + 0.12 * (multiplier - 2))
-      );
+      const intensity01 = Math.max(0.45, Math.min(1, 0.55 + 0.12 * (multiplier - 2)));
       this.floatingScoreEffect?.trigger(lastPos, bonus, {
         intensity01,
         durationSec: 1.15,
@@ -851,9 +805,7 @@ export class CosmicSlashController {
     this.bossRequiredHits = 10 * bossIndex;
     this.bossHits = 0;
     this.bossRewardAccrued = 0;
-    this.bossRewardTotal = Math.round(
-      360 * bossIndex * bossIndex + 220 * bossIndex
-    );
+    this.bossRewardTotal = Math.round(360 * bossIndex * bossIndex + 220 * bossIndex);
 
     // Faster early bosses; more-hit bosses are slower (gives time to slice).
     // Level 5 should feel urgent.
@@ -905,8 +857,7 @@ export class CosmicSlashController {
     };
 
     instance.boundingSphere.center.copy(instance.position);
-    instance.boundingSphere.radius =
-      bossConfig.collisionRadius * bossConfig.scale;
+    instance.boundingSphere.radius = bossConfig.collisionRadius * bossConfig.scale;
 
     this.bossInstance = instance;
 
@@ -943,12 +894,8 @@ export class CosmicSlashController {
     this.bossInstance.mesh.position.copy(this.bossInstance.position);
 
     const rotationRoot =
-      (this.bossInstance.mesh.userData.rotationRoot as
-        | THREE.Object3D
-        | undefined) ??
-      (this.bossInstance.mesh.userData.coreMesh as
-        | THREE.Object3D
-        | undefined) ??
+      (this.bossInstance.mesh.userData.rotationRoot as THREE.Object3D | undefined) ??
+      (this.bossInstance.mesh.userData.coreMesh as THREE.Object3D | undefined) ??
       this.bossInstance.mesh;
 
     rotationRoot.rotation.x += this.bossInstance.rotationSpeed.x * deltaTime;
@@ -957,10 +904,7 @@ export class CosmicSlashController {
 
     this.bossInstance.boundingSphere.center.copy(this.bossInstance.position);
 
-    this.bossOverlay?.setAnchor(
-      this.bossInstance.position,
-      this.bossInstance.mesh.scale.x
-    );
+    this.bossOverlay?.setAnchor(this.bossInstance.position, this.bossInstance.mesh.scale.x);
     this.bossOverlay?.update(deltaTime);
 
     // Escaped: no penalty, resume normal spawning.
@@ -970,12 +914,7 @@ export class CosmicSlashController {
   }
 
   private handleBossHit(velocity: number): void {
-    if (
-      !this.bossInstance ||
-      !this.bossType ||
-      !this.scoreManager ||
-      this.bossState !== 'active'
-    ) {
+    if (!this.bossInstance || !this.bossType || !this.scoreManager || this.bossState !== 'active') {
       return;
     }
 
@@ -995,32 +934,22 @@ export class CosmicSlashController {
     this.flashBossMaterial(1.0);
 
     // Per-hit reward increases as you get closer to the final burst.
-    const progress01 =
-      this.bossRequiredHits > 0 ? this.bossHits / this.bossRequiredHits : 1;
-    const targetAccrued = Math.round(
-      this.bossRewardTotal * Math.pow(progress01, 2.05)
-    );
+    const progress01 = this.bossRequiredHits > 0 ? this.bossHits / this.bossRequiredHits : 1;
+    const targetAccrued = Math.round(this.bossRewardTotal * Math.pow(progress01, 2.05));
     const delta = Math.max(0, targetAccrued - this.bossRewardAccrued);
     this.bossRewardAccrued = targetAccrued;
     // Note: Score accumulates but is NOT added to main score during fight
     // It will be awarded only when boss is defeated
     if (delta > 0) {
-      this.floatingScoreEffect?.trigger(
-        this.bossInstance.position.clone(),
-        delta,
-        {
-          intensity01: 0.6,
-          durationSec: 1.05,
-        }
-      );
+      this.floatingScoreEffect?.trigger(this.bossInstance.position.clone(), delta, {
+        intensity01: 0.6,
+        durationSec: 1.05,
+      });
     }
 
     const excitement01 = Math.max(
       0,
-      Math.min(
-        1,
-        this.bossRequiredHits > 0 ? this.bossHits / this.bossRequiredHits : 1
-      )
+      Math.min(1, this.bossRequiredHits > 0 ? this.bossHits / this.bossRequiredHits : 1)
     );
 
     this.bossOverlay?.setText(
@@ -1071,14 +1000,10 @@ export class CosmicSlashController {
             (Math.random() - 0.5) * 0.45,
             (Math.random() - 0.5) * 0.35
           );
-          this.floatingScoreEffect?.trigger(
-            pos.clone().add(jitter),
-            Math.round(totalReward / 4),
-            {
-              intensity01: 1,
-              durationSec: 1.75,
-            }
-          );
+          this.floatingScoreEffect?.trigger(pos.clone().add(jitter), Math.round(totalReward / 4), {
+            intensity01: 1,
+            durationSec: 1.75,
+          });
         }
       }
 
@@ -1157,9 +1082,7 @@ export class CosmicSlashController {
     // Small particle burst at camera center (subtle celebration)
     const cameraDir = new THREE.Vector3(0, 0, -1);
     cameraDir.applyQuaternion(this.camera.quaternion);
-    const celebrationPos = this.camera.position
-      .clone()
-      .add(cameraDir.multiplyScalar(2.5));
+    const celebrationPos = this.camera.position.clone().add(cameraDir.multiplyScalar(2.5));
 
     // Reduced particle count from 12 to 6 for subtlety
     for (let i = 0; i < 6; i++) {
@@ -1197,9 +1120,7 @@ export class CosmicSlashController {
     mesh.traverse((child) => {
       if (!(child instanceof THREE.Mesh)) return;
 
-      const materials = Array.isArray(child.material)
-        ? child.material
-        : [child.material];
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
 
       for (const mat of materials) {
         if (!mat) continue;
@@ -1208,18 +1129,15 @@ export class CosmicSlashController {
         if ('emissiveIntensity' in mat) {
           const baseIntensity = cfg.emissiveIntensity;
           const flashBoost = intensity * 2.8;
-          (mat as THREE.MeshStandardMaterial).emissiveIntensity =
-            baseIntensity + flashBoost;
+          (mat as THREE.MeshStandardMaterial).emissiveIntensity = baseIntensity + flashBoost;
         }
 
         // Flash emissive color brightness if available
         if ('emissive' in mat && mat.emissive instanceof THREE.Color) {
           const flashFactor = 1 + intensity * 1.5;
-          const baseBrightness =
-            cfg.emissiveColor.r + cfg.emissiveColor.g + cfg.emissiveColor.b;
+          const baseBrightness = cfg.emissiveColor.r + cfg.emissiveColor.g + cfg.emissiveColor.b;
           const targetBrightness = Math.min(3, baseBrightness * flashFactor);
-          const scale =
-            baseBrightness > 0 ? targetBrightness / baseBrightness : 1;
+          const scale = baseBrightness > 0 ? targetBrightness / baseBrightness : 1;
           (mat as THREE.MeshStandardMaterial).emissive
             .copy(cfg.emissiveColor)
             .multiplyScalar(scale);
@@ -1228,9 +1146,7 @@ export class CosmicSlashController {
         // For materials without emissive, flash the base color
         if ('color' in mat && mat.color instanceof THREE.Color) {
           const flashFactor = 1 + intensity * 0.4;
-          (mat as THREE.MeshStandardMaterial).color
-            .copy(cfg.color)
-            .multiplyScalar(flashFactor);
+          (mat as THREE.MeshStandardMaterial).color.copy(cfg.color).multiplyScalar(flashFactor);
         }
       }
     });
@@ -1242,9 +1158,7 @@ export class CosmicSlashController {
     vec.unproject(this.camera);
     vec.sub(this.camera.position).normalize();
     const distance = (z - this.camera.position.z) / vec.z;
-    return new THREE.Vector3()
-      .copy(this.camera.position)
-      .add(vec.multiplyScalar(distance));
+    return new THREE.Vector3().copy(this.camera.position).add(vec.multiplyScalar(distance));
   }
 
   private checkBeamCollisions(p1: THREE.Vector2, p2: THREE.Vector2): void {
@@ -1262,15 +1176,10 @@ export class CosmicSlashController {
       if (lineLenSq > 0) {
         t = Math.max(
           0,
-          Math.min(
-            1,
-            new THREE.Vector2().subVectors(objPos, p1).dot(lineDir) / lineLenSq
-          )
+          Math.min(1, new THREE.Vector2().subVectors(objPos, p1).dot(lineDir) / lineLenSq)
         );
       }
-      const closest = new THREE.Vector2()
-        .copy(p1)
-        .add(lineDir.clone().multiplyScalar(t));
+      const closest = new THREE.Vector2().copy(p1).add(lineDir.clone().multiplyScalar(t));
       return objPos.distanceTo(closest);
     };
 
@@ -1296,12 +1205,9 @@ export class CosmicSlashController {
 
     // Check boss collision if there's an active boss fight
     if (this.bossInstance) {
-      const bossScreenPos = this.bossInstance.position
-        .clone()
-        .project(this.camera);
+      const bossScreenPos = this.bossInstance.position.clone().project(this.camera);
       const bossX = (bossScreenPos.x * 0.5 + 0.5) * this.container.clientWidth;
-      const bossY =
-        (-(bossScreenPos.y * 0.5) + 0.5) * this.container.clientHeight;
+      const bossY = (-(bossScreenPos.y * 0.5) + 0.5) * this.container.clientHeight;
       const bossPos = new THREE.Vector2(bossX, bossY);
 
       const bossDist = getDistToBeam(bossPos);
@@ -1364,10 +1270,7 @@ export class CosmicSlashController {
 
     // POW laser deals stronger damage - count as multiple hits
     const laserHitsPerFrame = 2; // Each frame the laser touches boss counts as 2 hits
-    this.bossHits = Math.min(
-      this.bossRequiredHits,
-      this.bossHits + laserHitsPerFrame
-    );
+    this.bossHits = Math.min(this.bossRequiredHits, this.bossHits + laserHitsPerFrame);
 
     // Visual feedback
     this.bloomBoostAge = 0;
@@ -1377,11 +1280,8 @@ export class CosmicSlashController {
     this.flashBossMaterial(1.0);
 
     // Calculate score reward with laser multiplier
-    const progress01 =
-      this.bossRequiredHits > 0 ? this.bossHits / this.bossRequiredHits : 1;
-    const targetAccrued = Math.round(
-      this.bossRewardTotal * Math.pow(progress01, 2.05)
-    );
+    const progress01 = this.bossRequiredHits > 0 ? this.bossHits / this.bossRequiredHits : 1;
+    const targetAccrued = Math.round(this.bossRewardTotal * Math.pow(progress01, 2.05));
     const baseReward = Math.max(0, targetAccrued - this.bossRewardAccrued);
 
     // Apply laser multiplier to the reward
@@ -1391,14 +1291,10 @@ export class CosmicSlashController {
 
     // Show floating score with high intensity (laser hit!)
     if (boostedReward > 0) {
-      this.floatingScoreEffect?.trigger(
-        this.bossInstance.position.clone(),
-        boostedReward,
-        {
-          intensity01: 1.0,
-          durationSec: 1.0,
-        }
-      );
+      this.floatingScoreEffect?.trigger(this.bossInstance.position.clone(), boostedReward, {
+        intensity01: 1.0,
+        durationSec: 1.0,
+      });
     }
 
     // Record destruction in POW manager
@@ -1432,9 +1328,7 @@ export class CosmicSlashController {
     object.traverse((child) => {
       if (!(child instanceof THREE.Mesh)) return;
       child.geometry?.dispose();
-      const mats = Array.isArray(child.material)
-        ? child.material
-        : [child.material];
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
       for (const m of mats) {
         if (m instanceof THREE.Material) m.dispose();
       }

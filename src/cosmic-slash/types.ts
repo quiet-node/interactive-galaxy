@@ -56,10 +56,7 @@ export interface CosmicObjectConfig {
  * Default configurations for each object type
  * Larger scale and more vibrant colors for visual impact
  */
-export const COSMIC_OBJECT_CONFIGS: Record<
-  CosmicObjectType,
-  CosmicObjectConfig
-> = {
+export const COSMIC_OBJECT_CONFIGS: Record<CosmicObjectType, CosmicObjectConfig> = {
   [CosmicObjectType.CRYSTAL]: {
     type: CosmicObjectType.CRYSTAL,
     color: new THREE.Color(0x7fe4ff), // Premium icy aqua

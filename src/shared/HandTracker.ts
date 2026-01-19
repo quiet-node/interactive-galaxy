@@ -4,15 +4,8 @@
  * @see https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker/web_js
  */
 
-import {
-  FilesetResolver,
-  HandLandmarker,
-  HandLandmarkerResult,
-} from '@mediapipe/tasks-vision';
-import {
-  DEFAULT_HAND_TRACKER_CONFIG,
-  type HandTrackerConfig,
-} from './HandTypes';
+import { FilesetResolver, HandLandmarker, HandLandmarkerResult } from '@mediapipe/tasks-vision';
+import { DEFAULT_HAND_TRACKER_CONFIG, type HandTrackerConfig } from './HandTypes';
 
 /**
  * HandTracker - Handles webcam initialization and MediaPipe hand detection
@@ -90,35 +83,29 @@ export class HandTracker {
       HandTracker.initializationPromise = (async () => {
         // Step 1: Load WASM runtime
         const vision = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
         );
 
         // Step 2: Create HandLandmarker with configuration
-        HandTracker.sharedHandLandmarker =
-          await HandLandmarker.createFromOptions(vision, {
-            baseOptions: {
-              modelAssetPath: this.config.modelAssetPath,
-              delegate: this.config.delegate,
-            },
-            runningMode: 'VIDEO',
-            numHands: this.config.numHands,
-            minHandDetectionConfidence: this.config.minHandDetectionConfidence,
-            minHandPresenceConfidence: this.config.minHandPresenceConfidence,
-            minTrackingConfidence: this.config.minTrackingConfidence,
-          });
+        HandTracker.sharedHandLandmarker = await HandLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: this.config.modelAssetPath,
+            delegate: this.config.delegate,
+          },
+          runningMode: 'VIDEO',
+          numHands: this.config.numHands,
+          minHandDetectionConfidence: this.config.minHandDetectionConfidence,
+          minHandPresenceConfidence: this.config.minHandPresenceConfidence,
+          minTrackingConfidence: this.config.minTrackingConfidence,
+        });
       })();
 
       await HandTracker.initializationPromise;
       this.handLandmarker = HandTracker.sharedHandLandmarker;
 
-      console.log(
-        '[HandTracker] MediaPipe HandLandmarker initialized (New Instance)',
-      );
+      console.log('[HandTracker] MediaPipe HandLandmarker initialized (New Instance)');
     } catch (error) {
-      console.error(
-        '[HandTracker] Failed to initialize HandLandmarker:',
-        error,
-      );
+      console.error('[HandTracker] Failed to initialize HandLandmarker:', error);
       HandTracker.initializationPromise = null; // Reset on failure
       throw new Error(`MediaPipe initialization failed: ${error}`);
     }
@@ -183,19 +170,13 @@ export class HandTracker {
     if (error instanceof DOMException) {
       switch (error.name) {
         case 'NotAllowedError':
-          console.error(
-            '[HandTracker] Camera permission denied. Please allow camera access.',
-          );
+          console.error('[HandTracker] Camera permission denied. Please allow camera access.');
           break;
         case 'NotFoundError':
-          console.error(
-            '[HandTracker] No camera found. Please connect a camera.',
-          );
+          console.error('[HandTracker] No camera found. Please connect a camera.');
           break;
         case 'NotReadableError':
-          console.error(
-            '[HandTracker] Camera is in use by another application.',
-          );
+          console.error('[HandTracker] Camera is in use by another application.');
           break;
         case 'OverconstrainedError':
           console.error('[HandTracker] Camera does not meet requirements.');
@@ -244,10 +225,7 @@ export class HandTracker {
 
     try {
       // detectForVideo is synchronous in VIDEO running mode
-      const result = this.handLandmarker.detectForVideo(
-        this.videoElement,
-        timestamp,
-      );
+      const result = this.handLandmarker.detectForVideo(this.videoElement, timestamp);
       this.lastDetectForVideoTimestamp = timestamp;
       this.lastResult = result;
       return result;

@@ -155,9 +155,7 @@ export class LevelUpOverlay {
     const upDir = new THREE.Vector3(0, 1, 0);
     upDir.applyQuaternion(this.camera.quaternion);
 
-    const centerPos = this.camera.position
-      .clone()
-      .add(cameraDir.multiplyScalar(2.5));
+    const centerPos = this.camera.position.clone().add(cameraDir.multiplyScalar(2.5));
 
     // Ultra-smooth motion with refined easing
     let offsetY = 0;
@@ -175,9 +173,7 @@ export class LevelUpOverlay {
       scale = 1 - easeInQuad(exitT) * 0.08;
     }
 
-    this.sprite.position
-      .copy(centerPos)
-      .add(upDir.multiplyScalar(1.15 + offsetY));
+    this.sprite.position.copy(centerPos).add(upDir.multiplyScalar(1.15 + offsetY));
 
     // Apply subtle scale
     const baseScale = 3;
@@ -239,14 +235,7 @@ export class LevelUpOverlay {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.09)';
     ctx.stroke();
 
-    drawRoundedRect(
-      ctx,
-      insetX + 1.5,
-      insetY + 1.5,
-      capsuleW - 3,
-      capsuleH - 3,
-      radius - 1
-    );
+    drawRoundedRect(ctx, insetX + 1.5, insetY + 1.5, capsuleW - 3, capsuleH - 3, radius - 1);
     const innerGrad = ctx.createLinearGradient(0, insetY, 0, insetY + capsuleH);
     innerGrad.addColorStop(0, 'rgba(255, 255, 255, 0.06)');
     innerGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.015)');
@@ -256,12 +245,7 @@ export class LevelUpOverlay {
 
     // Accent line (very subtle cyan glow, consistent with slicer trail)
     const accentY = insetY + capsuleH - 6;
-    const accentGrad = ctx.createLinearGradient(
-      insetX,
-      0,
-      insetX + capsuleW,
-      0
-    );
+    const accentGrad = ctx.createLinearGradient(insetX, 0, insetX + capsuleW, 0);
     accentGrad.addColorStop(0, 'rgba(0, 212, 255, 0)');
     accentGrad.addColorStop(0.18, 'rgba(0, 212, 255, 0.14)');
     accentGrad.addColorStop(0.5, 'rgba(0, 212, 255, 0.22)');

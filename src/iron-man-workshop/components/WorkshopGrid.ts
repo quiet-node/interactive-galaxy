@@ -42,9 +42,7 @@ const DEFAULT_CONFIG: WorkshopGridConfig = {
  * @param config - Configuration options for grid appearance
  * @returns THREE.Group containing the grid and ring meshes
  */
-export function createWorkshopGrid(
-  config: Partial<WorkshopGridConfig> = {}
-): THREE.Group {
+export function createWorkshopGrid(config: Partial<WorkshopGridConfig> = {}): THREE.Group {
   const { size, divisions, color, opacity } = { ...DEFAULT_CONFIG, ...config };
   const group = new THREE.Group();
 

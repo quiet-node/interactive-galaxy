@@ -12,47 +12,23 @@
  */
 
 import * as THREE from 'three';
-import {
-  EffectComposer,
-  RenderPass,
-  BloomEffect,
-  EffectPass,
-} from 'postprocessing';
+import { EffectComposer, RenderPass, BloomEffect, EffectPass } from 'postprocessing';
 
 import { HandTracker } from '../shared/HandTracker';
-import {
-  WorkshopConfig,
-  WorkshopDebugInfo,
-  DEFAULT_WORKSHOP_CONFIG,
-} from './types';
+import { WorkshopConfig, WorkshopDebugInfo, DEFAULT_WORKSHOP_CONFIG } from './types';
 
 // Components
 import { createWorkshopGrid } from './components/WorkshopGrid';
-import {
-  createWorkshopRings,
-  updateWorkshopRings,
-} from './components/WorkshopRings';
-import {
-  createWorkshopPanels,
-  updateWorkshopPanels,
-} from './components/WorkshopPanels';
-import {
-  loadMarkVIModel,
-  updateMarkVIModelCached,
-} from './components/MarkVIModel';
+import { createWorkshopRings, updateWorkshopRings } from './components/WorkshopRings';
+import { createWorkshopPanels, updateWorkshopPanels } from './components/WorkshopPanels';
+import { loadMarkVIModel, updateMarkVIModelCached } from './components/MarkVIModel';
 import { HandLandmarkOverlay } from './components/HandLandmarkOverlay';
-import {
-  ExplodedViewManager,
-  LimbType,
-} from './components/ExplodedViewManager';
+import { ExplodedViewManager, LimbType } from './components/ExplodedViewManager';
 import { ParticleTrailSystem } from './components/ParticleTrailEmitter';
 import { PartInfoPanel } from './components/PartInfoPanel';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { calculateHandRoll } from '../utils/math';
-import {
-  Vector3OneEuroFilter,
-  RotationOneEuroFilter,
-} from '../utils/smoothing';
+import { Vector3OneEuroFilter, RotationOneEuroFilter } from '../utils/smoothing';
 import gsap from 'gsap';
 import { WorkshopAudioManager } from './audio/WorkshopAudioManager';
 
@@ -156,9 +132,7 @@ export class WorkshopController {
   private readonly _tempRawTargetPosition: THREE.Vector3 = new THREE.Vector3();
   private readonly _tempNdc: THREE.Vector2 = new THREE.Vector2();
   private readonly _hoverBaseColor: THREE.Color = new THREE.Color(0x00ff88);
-  private readonly _hoverHighlightColor: THREE.Color = new THREE.Color(
-    0xffbf00
-  );
+  private readonly _hoverHighlightColor: THREE.Color = new THREE.Color(0xffbf00);
 
   // Performance optimization: Info panel raycast throttling
   private lastInfoPanelRaycastTime: number = 0;
@@ -166,10 +140,7 @@ export class WorkshopController {
   private lastHoveredPart: string | null = null;
 
   // Performance optimization: Cached schematic shader meshes
-  private schematicShaderMeshes: THREE.Mesh<
-    THREE.BufferGeometry,
-    THREE.ShaderMaterial
-  >[] = [];
+  private schematicShaderMeshes: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>[] = [];
 
   // Exploded View Feature
   private explodedViewManager: ExplodedViewManager | null = null;
@@ -223,12 +194,7 @@ export class WorkshopController {
     this.scene = new THREE.Scene();
 
     // Camera setup - positioned to see the holographic display
-    this.camera = new THREE.PerspectiveCamera(
-      60,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      100
-    );
+    this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
     this.camera.position.set(0, 0.5, 10); // Start zoomed out
     this.camera.lookAt(0, 0, 0);
 
@@ -484,14 +450,9 @@ export class WorkshopController {
             child instanceof THREE.Line ||
             child instanceof THREE.LineSegments
           ) {
-            const material = child.material as
-              | THREE.Material
-              | THREE.ShaderMaterial;
+            const material = child.material as THREE.Material | THREE.ShaderMaterial;
 
-            if (
-              material instanceof THREE.ShaderMaterial &&
-              material.uniforms?.uOpacity
-            ) {
+            if (material instanceof THREE.ShaderMaterial && material.uniforms?.uOpacity) {
               // For ShaderMaterial, animate uniform
               const targetOpacity = 0.6;
               material.uniforms.uOpacity.value = 0;
@@ -690,17 +651,10 @@ export class WorkshopController {
         mesh.getWorldPosition(this._tempWorldPos);
         // Initial direction (will be updated per-frame based on velocity)
         this._tempDirection.set(0, -1, 0);
-        this.particleTrailSystem?.startTrail(
-          limbName,
-          this._tempWorldPos,
-          this._tempDirection
-        );
+        this.particleTrailSystem?.startTrail(limbName, this._tempWorldPos, this._tempDirection);
 
         // Intensify glow on moving limb
-        if (
-          mesh instanceof THREE.Mesh &&
-          mesh.material instanceof THREE.ShaderMaterial
-        ) {
+        if (mesh instanceof THREE.Mesh && mesh.material instanceof THREE.ShaderMaterial) {
           gsap.to(mesh.material.uniforms.uOpacity, {
             value: 0.9, // Brighter during motion
             duration: 0.2,
@@ -713,11 +667,7 @@ export class WorkshopController {
       onLimbMoveUpdate: (limbName, mesh, velocity) => {
         mesh.getWorldPosition(this._tempWorldPos);
         // Update particle trail position AND direction based on velocity
-        this.particleTrailSystem?.updateTrailWithVelocity(
-          limbName,
-          this._tempWorldPos,
-          velocity
-        );
+        this.particleTrailSystem?.updateTrailWithVelocity(limbName, this._tempWorldPos, velocity);
       },
 
       // Called when limb stops moving
@@ -726,10 +676,7 @@ export class WorkshopController {
         this.particleTrailSystem?.stopTrail(limbName);
 
         // Reset glow
-        if (
-          mesh instanceof THREE.Mesh &&
-          mesh.material instanceof THREE.ShaderMaterial
-        ) {
+        if (mesh instanceof THREE.Mesh && mesh.material instanceof THREE.ShaderMaterial) {
           // Reset glow
           const baseOpacity = mesh.userData.baseOpacity ?? 0.4;
           gsap.to(mesh.material.uniforms.uOpacity, {
@@ -824,10 +771,7 @@ export class WorkshopController {
 
     this.schematicShaderMeshes = [];
     this.schematic.traverse((child) => {
-      if (
-        child instanceof THREE.Mesh &&
-        child.material instanceof THREE.ShaderMaterial
-      ) {
+      if (child instanceof THREE.Mesh && child.material instanceof THREE.ShaderMaterial) {
         // Store base opacity for hover effects
         child.userData.baseOpacity = child.material.uniforms.uOpacity.value;
         this.schematicShaderMeshes.push(
@@ -835,9 +779,7 @@ export class WorkshopController {
         );
       }
     });
-    console.log(
-      `[WorkshopController] Cached ${this.schematicShaderMeshes.length} shader meshes`
-    );
+    console.log(`[WorkshopController] Cached ${this.schematicShaderMeshes.length} shader meshes`);
   }
 
   /**
@@ -1089,12 +1031,7 @@ export class WorkshopController {
     };
 
     // Calculate average distance from fingertips to palm center
-    const fingerTips = [
-      landmarks[8],
-      landmarks[12],
-      landmarks[16],
-      landmarks[20],
-    ];
+    const fingerTips = [landmarks[8], landmarks[12], landmarks[16], landmarks[20]];
     let totalDistance = 0;
     for (const tip of fingerTips) {
       const dx = tip.x - palmCenter.x;
@@ -1128,33 +1065,20 @@ export class WorkshopController {
       const newStablePose = this.potentialPose;
 
       // Only trigger if the STABLE pose has changed
-      if (
-        newStablePose !== 'unknown' &&
-        newStablePose !== this.currentStablePose
-      ) {
+      if (newStablePose !== 'unknown' && newStablePose !== this.currentStablePose) {
         // Prepare for action
         const now = performance.now();
-        if (
-          now - this.lastLeftHandGestureTime >=
-          this.leftHandGestureCooldownMs
-        ) {
+        if (now - this.lastLeftHandGestureTime >= this.leftHandGestureCooldownMs) {
           // Perform Action
-          if (
-            newStablePose === 'open' &&
-            this.explodedViewManager?.getState() === 'assembled'
-          ) {
-            console.log(
-              '[WorkshopController] Left hand STABLE OPEN -> EXPLODE'
-            );
+          if (newStablePose === 'open' && this.explodedViewManager?.getState() === 'assembled') {
+            console.log('[WorkshopController] Left hand STABLE OPEN -> EXPLODE');
             this.lastLeftHandGestureTime = now;
             this.explodedViewManager.explode();
           } else if (
             newStablePose === 'fist' &&
             this.explodedViewManager?.getState() === 'exploded'
           ) {
-            console.log(
-              '[WorkshopController] Left hand STABLE FIST -> ASSEMBLE'
-            );
+            console.log('[WorkshopController] Left hand STABLE FIST -> ASSEMBLE');
             this.lastLeftHandGestureTime = now;
             this.explodedViewManager.assemble();
 
@@ -1304,10 +1228,8 @@ export class WorkshopController {
     // Dead zone to ignore tiny jittery movements
     const ROLL_DEAD_ZONE = 0.008; // ~0.5 degrees for roll
     const POSITION_DEAD_ZONE = 0.003; // Small threshold for position
-    const filteredRollDelta =
-      Math.abs(rollDelta) < ROLL_DEAD_ZONE ? 0 : rollDelta;
-    const filteredPalmYDelta =
-      Math.abs(palmYDelta) < POSITION_DEAD_ZONE ? 0 : palmYDelta;
+    const filteredRollDelta = Math.abs(rollDelta) < ROLL_DEAD_ZONE ? 0 : rollDelta;
+    const filteredPalmYDelta = Math.abs(palmYDelta) < POSITION_DEAD_ZONE ? 0 : palmYDelta;
 
     // Apply rotation to schematic
     // Roll twist -> Y-axis rotation
@@ -1369,12 +1291,10 @@ export class WorkshopController {
     for (const mesh of this.schematicShaderMeshes) {
       // Store base values if not already stored
       if (mesh.userData.baseScanlineFreq === undefined) {
-        mesh.userData.baseScanlineFreq =
-          mesh.material.uniforms.uScanlineFrequency.value;
+        mesh.userData.baseScanlineFreq = mesh.material.uniforms.uScanlineFrequency.value;
       }
       if (mesh.userData.baseFresnelPower === undefined) {
-        mesh.userData.baseFresnelPower =
-          mesh.material.uniforms.uFresnelPower.value;
+        mesh.userData.baseFresnelPower = mesh.material.uniforms.uFresnelPower.value;
       }
 
       // Animate to intensified/normal values
@@ -1417,8 +1337,8 @@ export class WorkshopController {
         if (child.userData.originalOpacity === undefined) {
           child.userData.originalOpacity =
             material instanceof THREE.ShaderMaterial
-              ? material.uniforms?.uOpacity?.value ?? 0.5
-              : (material as THREE.MeshBasicMaterial).opacity ?? 0.5;
+              ? (material.uniforms?.uOpacity?.value ?? 0.5)
+              : ((material as THREE.MeshBasicMaterial).opacity ?? 0.5);
         }
 
         const targetOpacity = visible ? child.userData.originalOpacity : 0;
@@ -1426,10 +1346,7 @@ export class WorkshopController {
         const ease = visible ? 'power2.out' : 'power2.inOut';
 
         // Animate shader uniform or basic material opacity
-        if (
-          material instanceof THREE.ShaderMaterial &&
-          material.uniforms?.uOpacity
-        ) {
+        if (material instanceof THREE.ShaderMaterial && material.uniforms?.uOpacity) {
           gsap.to(material.uniforms.uOpacity, {
             value: targetOpacity,
             duration,
@@ -1475,16 +1392,13 @@ export class WorkshopController {
         if (child.userData.originalOpacity === undefined) {
           child.userData.originalOpacity =
             material instanceof THREE.ShaderMaterial
-              ? material.uniforms?.uOpacity?.value ?? 0.5
-              : (material as THREE.MeshBasicMaterial).opacity ?? 0.5;
+              ? (material.uniforms?.uOpacity?.value ?? 0.5)
+              : ((material as THREE.MeshBasicMaterial).opacity ?? 0.5);
         }
 
         const targetOpacity = visible ? child.userData.originalOpacity : 0;
 
-        if (
-          material instanceof THREE.ShaderMaterial &&
-          material.uniforms?.uOpacity
-        ) {
+        if (material instanceof THREE.ShaderMaterial && material.uniforms?.uOpacity) {
           gsap.to(material.uniforms.uOpacity, {
             value: targetOpacity,
             duration,
@@ -1502,10 +1416,7 @@ export class WorkshopController {
       }
 
       // Handle Line/LineSegments materials (borders and brackets)
-      if (
-        (child instanceof THREE.Line || child instanceof THREE.LineSegments) &&
-        child.material
-      ) {
+      if ((child instanceof THREE.Line || child instanceof THREE.LineSegments) && child.material) {
         const material = child.material as THREE.LineBasicMaterial;
 
         // Store original opacity on first call
@@ -1579,8 +1490,7 @@ export class WorkshopController {
       // Left hand is reserved for fist/palm gesture (explode/assemble)
       let isRightHand = false;
       if (result.handedness && result.handedness[handIndex]) {
-        isRightHand =
-          result.handedness[handIndex]?.[0]?.categoryName === 'Right';
+        isRightHand = result.handedness[handIndex]?.[0]?.categoryName === 'Right';
       }
 
       // Skip pinch-to-rotate processing for left hand
@@ -1650,21 +1560,15 @@ export class WorkshopController {
 
           // Raycast against hit volumes (throttled for performance)
           if (this.schematic) {
-            const hitVolumes = this.schematic.userData.hitVolumes as
-              | THREE.Mesh[]
-              | undefined;
+            const hitVolumes = this.schematic.userData.hitVolumes as THREE.Mesh[] | undefined;
 
             if (hitVolumes && hitVolumes.length > 0) {
               // Throttle info panel raycasting to RAYCAST_INTERVAL_MS
               const now = performance.now();
-              if (
-                now - this.lastInfoPanelRaycastTime >
-                this.RAYCAST_INTERVAL_MS
-              ) {
+              if (now - this.lastInfoPanelRaycastTime > this.RAYCAST_INTERVAL_MS) {
                 this._tempNdc.set(ndcX, ndcY);
                 this.raycaster.setFromCamera(this._tempNdc, this.camera);
-                this.cachedInfoPanelIntersects =
-                  this.raycaster.intersectObjects(hitVolumes, false);
+                this.cachedInfoPanelIntersects = this.raycaster.intersectObjects(hitVolumes, false);
                 this.lastInfoPanelRaycastTime = now;
               }
 
@@ -1683,10 +1587,7 @@ export class WorkshopController {
 
                   // Convert intersection point to world space for the panel anchor
                   // The intersection point is already in world space
-                  this.partInfoPanel.show(
-                    partName,
-                    this.cachedInfoPanelIntersects[0].point
-                  );
+                  this.partInfoPanel.show(partName, this.cachedInfoPanelIntersects[0].point);
                   anyHandHovering = true; // Keep schematic glow effect too
                 }
               } else {
@@ -1718,12 +1619,8 @@ export class WorkshopController {
 
             // Performance optimization: Raycast against hit volume only (not full model)
             // This avoids expensive recursive triangle intersection tests on complex GLB
-            const hitVolumes = this.schematic.userData.hitVolumes as
-              | THREE.Mesh[]
-              | undefined;
-            const hitVolume = this.schematic.userData.hitVolume as
-              | THREE.Mesh
-              | undefined;
+            const hitVolumes = this.schematic.userData.hitVolumes as THREE.Mesh[] | undefined;
+            const hitVolume = this.schematic.userData.hitVolume as THREE.Mesh | undefined;
 
             // Support both new (array) and legacy (single) hit volume structures
             let targets: THREE.Object3D[] = [];
@@ -1734,9 +1631,7 @@ export class WorkshopController {
             }
 
             const intersects =
-              targets.length > 0
-                ? this.raycaster.intersectObjects(targets, false)
-                : [];
+              targets.length > 0 ? this.raycaster.intersectObjects(targets, false) : [];
 
             // Check what we hit
             let foundTarget = false;
@@ -1756,14 +1651,12 @@ export class WorkshopController {
                 handState.grabStartHandPosition = handPosition.clone();
 
                 // Check if we're in exploded mode - enables limb grabbing
-                const isExploded =
-                  this.explodedViewManager?.getState() === 'exploded';
+                const isExploded = this.explodedViewManager?.getState() === 'exploded';
 
                 if (isExploded && userData.limbType) {
                   // === EXPLODED MODE: Grab individual limb ===
                   const limbType = userData.limbType as LimbType;
-                  const limbMesh =
-                    this.explodedViewManager?.getLimbMesh(limbType);
+                  const limbMesh = this.explodedViewManager?.getLimbMesh(limbType);
 
                   if (limbMesh) {
                     handState.grabTarget = 'limb';
@@ -1786,21 +1679,11 @@ export class WorkshopController {
                     // Initialize One Euro Filters for stable limb manipulation
                     // minCutoff=1.0: moderate smoothing at rest
                     // beta=0.5: responsive to fast movements
-                    handState.limbPositionFilter = new Vector3OneEuroFilter(
-                      1.0,
-                      0.5,
-                      1.0
-                    );
+                    handState.limbPositionFilter = new Vector3OneEuroFilter(1.0, 0.5, 1.0);
                     // Slightly more aggressive smoothing for rotation
-                    handState.limbRotationFilter = new RotationOneEuroFilter(
-                      1.2,
-                      0.6,
-                      1.0
-                    );
+                    handState.limbRotationFilter = new RotationOneEuroFilter(1.2, 0.6, 1.0);
 
-                    console.log(
-                      `[WorkshopController] Hand ${handIndex} grabbed limb: ${limbType}`
-                    );
+                    console.log(`[WorkshopController] Hand ${handIndex} grabbed limb: ${limbType}`);
 
                     // Play grab sound
                     this.audioManager.play('pinchRotate');
@@ -1825,9 +1708,7 @@ export class WorkshopController {
                   handState.grabStartRotation.copy(this.schematic.rotation);
                   this.rotationVelocity = { x: 0, y: 0 };
 
-                  console.log(
-                    `[WorkshopController] Hand ${handIndex} grabbed body for rotation`
-                  );
+                  console.log(`[WorkshopController] Hand ${handIndex} grabbed body for rotation`);
                   this.audioManager.play('pinchRotate');
                 }
 
@@ -1842,10 +1723,7 @@ export class WorkshopController {
           }
         } else {
           // === CONTINUE GRABBING ===
-          if (
-            handState.grabTarget === 'limb' &&
-            handState.grabStartHandPosition
-          ) {
+          if (handState.grabTarget === 'limb' && handState.grabStartHandPosition) {
             // === LIMB MOVEMENT & ROTATION (Exploded Mode) ===
             if (
               handState.grabbedLimbMesh &&
@@ -1897,8 +1775,7 @@ export class WorkshopController {
               // Calculate raw target rotation
               const ROTATION_SENSITIVITY = 2.5;
               const rawTargetRotation =
-                handState.grabStartLimbRotation.y +
-                rollDelta * ROTATION_SENSITIVITY;
+                handState.grabStartLimbRotation.y + rollDelta * ROTATION_SENSITIVITY;
 
               // Apply One Euro Filter for smooth rotation
               if (handState.limbRotationFilter) {
@@ -1912,10 +1789,7 @@ export class WorkshopController {
                 handState.grabbedLimbMesh.rotation.y = rawTargetRotation;
               }
             }
-          } else if (
-            handState.grabTarget === 'body' &&
-            handState.grabStartHandPosition
-          ) {
+          } else if (handState.grabTarget === 'body' && handState.grabStartHandPosition) {
             const deltaX = handPosition.x - handState.grabStartHandPosition.x;
             const deltaY = handPosition.y - handState.grabStartHandPosition.y;
 
@@ -1925,10 +1799,8 @@ export class WorkshopController {
             const prevTargetY = this.schematicTargetRotation.y;
 
             // Map hand movement to rotation
-            this.schematicTargetRotation.y =
-              handState.grabStartRotation.y + deltaX * 2;
-            this.schematicTargetRotation.x =
-              handState.grabStartRotation.x - deltaY * 1.5;
+            this.schematicTargetRotation.y = handState.grabStartRotation.y + deltaX * 2;
+            this.schematicTargetRotation.x = handState.grabStartRotation.x - deltaY * 1.5;
 
             // Clamp X rotation to prevent flipping
             this.schematicTargetRotation.x = Math.max(
@@ -1938,21 +1810,16 @@ export class WorkshopController {
 
             // Calculate velocity (change in rotation per second)
             if (deltaTime > 0) {
-              const currentVelX =
-                (this.schematicTargetRotation.x - prevTargetX) / deltaTime;
-              const currentVelY =
-                (this.schematicTargetRotation.y - prevTargetY) / deltaTime;
+              const currentVelX = (this.schematicTargetRotation.x - prevTargetX) / deltaTime;
+              const currentVelY = (this.schematicTargetRotation.y - prevTargetY) / deltaTime;
 
               // Smooth velocity slightly
-              this.rotationVelocity.x =
-                this.rotationVelocity.x * 0.7 + currentVelX * 0.3;
-              this.rotationVelocity.y =
-                this.rotationVelocity.y * 0.7 + currentVelY * 0.3;
+              this.rotationVelocity.x = this.rotationVelocity.x * 0.7 + currentVelX * 0.3;
+              this.rotationVelocity.y = this.rotationVelocity.y * 0.7 + currentVelY * 0.3;
             }
 
             // === ROTATION SOUND (Assembled mode only) ===
-            const isAssembled =
-              this.explodedViewManager?.getState() === 'assembled';
+            const isAssembled = this.explodedViewManager?.getState() === 'assembled';
             if (isAssembled) {
               const rotationDelta = Math.abs(
                 this.schematicTargetRotation.y - this.previousSchematicRotationY
@@ -1967,8 +1834,7 @@ export class WorkshopController {
               ) {
                 this.audioManager.play('rotateSchematic');
                 this.lastRotationSoundTime = now;
-                this.previousSchematicRotationY =
-                  this.schematicTargetRotation.y;
+                this.previousSchematicRotationY = this.schematicTargetRotation.y;
               }
             }
           }
@@ -2008,12 +1874,8 @@ export class WorkshopController {
             this.raycaster.setFromCamera(this._tempNdc, this.camera);
 
             // Performance optimization: Raycast against hit volumes
-            const hitVolumes = this.schematic.userData.hitVolumes as
-              | THREE.Mesh[]
-              | undefined;
-            const hitVolume = this.schematic.userData.hitVolume as
-              | THREE.Mesh
-              | undefined;
+            const hitVolumes = this.schematic.userData.hitVolumes as THREE.Mesh[] | undefined;
+            const hitVolume = this.schematic.userData.hitVolume as THREE.Mesh | undefined;
 
             let targets: THREE.Object3D[] = [];
             if (hitVolumes && hitVolumes.length > 0) {
@@ -2023,9 +1885,7 @@ export class WorkshopController {
             }
 
             handState.cachedIntersects =
-              targets.length > 0
-                ? this.raycaster.intersectObjects(targets, false)
-                : [];
+              targets.length > 0 ? this.raycaster.intersectObjects(targets, false) : [];
 
             handState.lastRaycastTime = now;
           }
@@ -2144,15 +2004,13 @@ export class WorkshopController {
       const targetLimbIntensity = this.hoveredLimbTypes.has(limbType) ? 1 : 0;
       const currentIntensity = this.limbHoverIntensities.get(limbType) ?? 0;
       const newIntensity =
-        currentIntensity +
-        (targetLimbIntensity - currentIntensity) * transitionSpeed * deltaTime;
+        currentIntensity + (targetLimbIntensity - currentIntensity) * transitionSpeed * deltaTime;
       this.limbHoverIntensities.set(limbType, newIntensity);
     }
 
     // Smooth transition for global hover intensity
     const targetIntensity = isHovering ? 1 : 0;
-    this.hoverIntensity +=
-      (targetIntensity - this.hoverIntensity) * transitionSpeed * deltaTime;
+    this.hoverIntensity += (targetIntensity - this.hoverIntensity) * transitionSpeed * deltaTime;
 
     // Use pre-allocated colors for hover effect (avoid per-frame allocations)
     const BASE_COLOR = this._hoverBaseColor;
@@ -2169,10 +2027,7 @@ export class WorkshopController {
 
         // Apply scale to individual limb meshes
         this.schematic.traverse((child) => {
-          if (
-            child instanceof THREE.Mesh &&
-            allLimbs.includes(child.name as LimbType)
-          ) {
+          if (child instanceof THREE.Mesh && allLimbs.includes(child.name as LimbType)) {
             const limbType = child.name as LimbType;
             const limbIntensity = this.limbHoverIntensities.get(limbType) ?? 0;
 
@@ -2195,19 +2050,15 @@ export class WorkshopController {
 
         // Update shader opacity and color for hovered limbs
         for (const mesh of this.schematicShaderMeshes) {
-          if (
-            mesh.material.uniforms.uOpacity &&
-            mesh.material.uniforms.uColor
-          ) {
+          if (mesh.material.uniforms.uOpacity && mesh.material.uniforms.uColor) {
             const baseOpacity = mesh.userData.baseOpacity ?? 0.4;
             // Check if this mesh is a hovered limb
             const meshLimbType = mesh.name as LimbType;
             const limbIntensity = allLimbs.includes(meshLimbType)
-              ? this.limbHoverIntensities.get(meshLimbType) ?? 0
+              ? (this.limbHoverIntensities.get(meshLimbType) ?? 0)
               : 0;
 
-            mesh.material.uniforms.uOpacity.value =
-              baseOpacity + limbIntensity * 0.15;
+            mesh.material.uniforms.uOpacity.value = baseOpacity + limbIntensity * 0.15;
 
             // Apply Amber color when hovered (intensity > 0.5 for clear switch)
             if (limbIntensity > 0.1) {
@@ -2226,10 +2077,7 @@ export class WorkshopController {
         // === ASSEMBLED STATE: Whole schematic scaling ===
         // Reset individual limb scales to original
         this.schematic.traverse((child) => {
-          if (
-            child instanceof THREE.Mesh &&
-            child.userData.originalLimbScale !== undefined
-          ) {
+          if (child instanceof THREE.Mesh && child.userData.originalLimbScale !== undefined) {
             child.scale.setScalar(child.userData.originalLimbScale as number);
           }
         });
@@ -2242,19 +2090,15 @@ export class WorkshopController {
           // Performance optimization: Use cached meshes instead of traverse()
           for (const mesh of this.schematicShaderMeshes) {
             // Boost opacity for hover feedback
-            if (
-              mesh.material.uniforms.uOpacity &&
-              mesh.material.uniforms.uColor
-            ) {
+            if (mesh.material.uniforms.uOpacity && mesh.material.uniforms.uColor) {
               const baseOpacity = mesh.userData.baseOpacity ?? 0.4;
-              mesh.material.uniforms.uOpacity.value =
-                baseOpacity + this.hoverIntensity * 0.15;
+              mesh.material.uniforms.uOpacity.value = baseOpacity + this.hoverIntensity * 0.15;
 
               // Key change: Check if THIS specific limb is being hovered
               // Even in assembled state, we want ONLY the hovered part to glow Amber
               const meshLimbType = mesh.name as LimbType;
               const limbIntensity = allLimbs.includes(meshLimbType)
-                ? this.limbHoverIntensities.get(meshLimbType) ?? 0
+                ? (this.limbHoverIntensities.get(meshLimbType) ?? 0)
                 : 0;
 
               if (limbIntensity > 0.1) {
@@ -2277,10 +2121,7 @@ export class WorkshopController {
 
             // Performance optimization: Use cached meshes instead of traverse()
             for (const mesh of this.schematicShaderMeshes) {
-              if (
-                mesh.material.uniforms.uOpacity &&
-                mesh.material.uniforms.uColor
-              ) {
+              if (mesh.material.uniforms.uOpacity && mesh.material.uniforms.uColor) {
                 const baseOpacity = mesh.userData.baseOpacity ?? 0.4;
                 mesh.material.uniforms.uOpacity.value = baseOpacity;
                 mesh.material.uniforms.uColor.value.copy(BASE_COLOR);

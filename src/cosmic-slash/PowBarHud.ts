@@ -255,9 +255,7 @@ export class PowBarHud {
     this.barFillEl = this.element.querySelector('.pow-bar__fill');
     this.labelEl = this.element.querySelector('.pow-bar__label');
     this.glowEl = this.element.querySelector('.pow-bar__glow');
-    this.particleContainerEl = this.element.querySelector(
-      '.pow-bar__particles'
-    );
+    this.particleContainerEl = this.element.querySelector('.pow-bar__particles');
 
     // Inject styles
     this.injectStyles();

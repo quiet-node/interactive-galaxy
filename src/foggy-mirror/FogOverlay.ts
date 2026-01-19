@@ -3,11 +3,7 @@
  * Provides a fog effect over content that can be "wiped away" by clearing specific areas
  */
 
-import {
-  FogOverlayConfig,
-  DEFAULT_FOG_OVERLAY_CONFIG,
-  TrailPoint,
-} from './types';
+import { FogOverlayConfig, DEFAULT_FOG_OVERLAY_CONFIG, TrailPoint } from './types';
 
 /**
  * FogOverlay manages a canvas element that overlays content with a fog effect
@@ -158,10 +154,7 @@ export class FogOverlay {
     // Set blur canvas resolution (downscaled for performance)
     // A scale of 0.1 means 1/10th width and height, which gives a strong blur when upscaled
     // Adjust scale based on blur amount: higher blur = smaller canvas
-    const blurScale = Math.max(
-      0.05,
-      Math.min(0.2, 10 / this.config.blurAmount)
-    );
+    const blurScale = Math.max(0.05, Math.min(0.2, 10 / this.config.blurAmount));
     this.blurCanvas.width = Math.floor(rect.width * blurScale);
     this.blurCanvas.height = Math.floor(rect.height * blurScale);
 
@@ -259,13 +252,7 @@ export class FogOverlay {
 
     // 2. Draw Blurred Video (Optimized)
     // Step A: Draw video to small offscreen canvas
-    this.blurCtx.drawImage(
-      this.videoElement,
-      0,
-      0,
-      this.blurCanvas.width,
-      this.blurCanvas.height
-    );
+    this.blurCtx.drawImage(this.videoElement, 0, 0, this.blurCanvas.width, this.blurCanvas.height);
 
     // Step B: Draw small canvas to main canvas (upscaling creates blur)
     // We disable image smoothing on the context if we wanted pixelated look,
@@ -302,12 +289,7 @@ export class FogOverlay {
     }
 
     // Store current mask data
-    const maskData = this.maskCtx.getImageData(
-      0,
-      0,
-      this.maskCanvas.width,
-      this.maskCanvas.height
-    );
+    const maskData = this.maskCtx.getImageData(0, 0, this.maskCanvas.width, this.maskCanvas.height);
 
     // Update dimensions
     this.updateDimensions();
@@ -329,12 +311,7 @@ export class FogOverlay {
 
     try {
       // Sample the canvas to estimate fog coverage
-      const imageData = this.ctx.getImageData(
-        0,
-        0,
-        this.canvas.width,
-        this.canvas.height
-      );
+      const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
       const data = imageData.data;
       let opaquePixels = 0;
       const totalPixels = data.length / 4;

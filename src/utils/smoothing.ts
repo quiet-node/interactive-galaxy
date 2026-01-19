@@ -25,8 +25,7 @@ export class ScalarSmoother {
    * Update with new target value and return smoothed result
    */
   update(targetValue: number): number {
-    this.currentValue +=
-      (targetValue - this.currentValue) * this.smoothingFactor;
+    this.currentValue += (targetValue - this.currentValue) * this.smoothingFactor;
     return this.currentValue;
   }
 
@@ -59,10 +58,7 @@ export class Vector3Smoother {
   private currentValue: THREE.Vector3;
   private smoothingFactor: number;
 
-  constructor(
-    initialValue: THREE.Vector3 = new THREE.Vector3(),
-    smoothingFactor: number = 0.15
-  ) {
+  constructor(initialValue: THREE.Vector3 = new THREE.Vector3(), smoothingFactor: number = 0.15) {
     this.currentValue = initialValue.clone();
     this.smoothingFactor = smoothingFactor;
   }
@@ -120,12 +116,7 @@ export class QuaternionSmoother {
     // Handle quaternion double-cover for shortest path
     if (this.currentValue.dot(targetValue) < 0) {
       targetValue = targetValue.clone();
-      targetValue.set(
-        -targetValue.x,
-        -targetValue.y,
-        -targetValue.z,
-        -targetValue.w
-      );
+      targetValue.set(-targetValue.x, -targetValue.y, -targetValue.z, -targetValue.w);
     }
     this.currentValue.slerp(targetValue, this.smoothingFactor);
     return this.currentValue.clone();
@@ -160,10 +151,7 @@ export class QuaternionSmoother {
 export class EulerSmoother {
   private quaternionSmoother: QuaternionSmoother;
 
-  constructor(
-    initialValue: THREE.Euler = new THREE.Euler(),
-    smoothingFactor: number = 0.15
-  ) {
+  constructor(initialValue: THREE.Euler = new THREE.Euler(), smoothingFactor: number = 0.15) {
     const quat = new THREE.Quaternion().setFromEuler(initialValue);
     this.quaternionSmoother = new QuaternionSmoother(quat, smoothingFactor);
   }
@@ -260,11 +248,7 @@ export class OneEuroFilter {
    * @param beta - Speed coefficient. Higher = less lag when moving fast.
    * @param dCutoff - Derivative cutoff frequency (Hz).
    */
-  constructor(
-    minCutoff: number = 1.0,
-    beta: number = 0.0,
-    dCutoff: number = 1.0
-  ) {
+  constructor(minCutoff: number = 1.0, beta: number = 0.0, dCutoff: number = 1.0) {
     this.minCutoff = minCutoff;
     this.beta = beta;
     this.dCutoff = dCutoff;
@@ -335,8 +319,7 @@ class LowPassFilter {
       this._lastValue = value;
       this.initialized = true;
     } else {
-      this._lastValue =
-        this._alpha * value + (1 - this._alpha) * this._lastValue;
+      this._lastValue = this._alpha * value + (1 - this._alpha) * this._lastValue;
     }
     return this._lastValue;
   }
@@ -373,11 +356,7 @@ export class Vector3OneEuroFilter {
    *               Typical values: 0.5-1.5 for responsive feel.
    * @param dCutoff - Derivative cutoff frequency (Hz). Usually left at default.
    */
-  constructor(
-    minCutoff: number = 1.0,
-    beta: number = 0.5,
-    dCutoff: number = 1.0
-  ) {
+  constructor(minCutoff: number = 1.0, beta: number = 0.5, dCutoff: number = 1.0) {
     this.xFilter = new OneEuroFilter(minCutoff, beta, dCutoff);
     this.yFilter = new OneEuroFilter(minCutoff, beta, dCutoff);
     this.zFilter = new OneEuroFilter(minCutoff, beta, dCutoff);
@@ -423,11 +402,7 @@ export class RotationOneEuroFilter {
    * @param beta - Speed coefficient. Higher = less lag during fast rotation.
    * @param dCutoff - Derivative cutoff frequency (Hz).
    */
-  constructor(
-    minCutoff: number = 1.5,
-    beta: number = 0.8,
-    dCutoff: number = 1.0
-  ) {
+  constructor(minCutoff: number = 1.5, beta: number = 0.8, dCutoff: number = 1.0) {
     this.euroFilter = new OneEuroFilter(minCutoff, beta, dCutoff);
   }
 

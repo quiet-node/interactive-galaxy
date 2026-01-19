@@ -43,9 +43,7 @@ const DEFAULT_CONFIG: WorkshopRingsConfig = {
  * @param config - Configuration options for ring appearance
  * @returns THREE.Group containing all ring meshes with rotation metadata
  */
-export function createWorkshopRings(
-  config: Partial<WorkshopRingsConfig> = {}
-): THREE.Group {
+export function createWorkshopRings(config: Partial<WorkshopRingsConfig> = {}): THREE.Group {
   const { innerRadius, outerRadius, thetaSegments, color } = {
     ...DEFAULT_CONFIG,
     ...config,
@@ -81,12 +79,7 @@ export function createWorkshopRings(
   }
 
   // Add inner decorative ring
-  const innerRingGeometry = new THREE.TorusGeometry(
-    innerRadius * 0.8,
-    0.02,
-    8,
-    64
-  );
+  const innerRingGeometry = new THREE.TorusGeometry(innerRadius * 0.8, 0.02, 8, 64);
   const innerMaterial = createWorkshopMaterial({
     color,
     opacity: 0.7,
@@ -111,11 +104,7 @@ export function createWorkshopRings(
  * @param deltaTime - Time since last frame in seconds
  * @param time - Current animation time in seconds (for shader uniforms)
  */
-export function updateWorkshopRings(
-  rings: THREE.Group,
-  deltaTime: number,
-  time: number
-): void {
+export function updateWorkshopRings(rings: THREE.Group, deltaTime: number, time: number): void {
   rings.children.forEach((child) => {
     if (child.userData.rotationSpeed) {
       const speed = child.userData.rotationSpeed * deltaTime;
@@ -131,10 +120,7 @@ export function updateWorkshopRings(
     }
 
     // Update shader time uniform
-    if (
-      child instanceof THREE.Mesh &&
-      child.material instanceof THREE.ShaderMaterial
-    ) {
+    if (child instanceof THREE.Mesh && child.material instanceof THREE.ShaderMaterial) {
       child.material.uniforms.uTime.value = time;
     }
   });

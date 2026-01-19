@@ -37,11 +37,7 @@ export class CollisionDetector {
   private collisionCooldown: number = 200;
   private lastCollisionTimes: Map<number, number> = new Map();
 
-  constructor(
-    camera: THREE.PerspectiveCamera,
-    screenWidth: number,
-    screenHeight: number
-  ) {
+  constructor(camera: THREE.PerspectiveCamera, screenWidth: number, screenHeight: number) {
     this.camera = camera;
     this.screenWidth = screenWidth;
     this.screenHeight = screenHeight;
@@ -59,9 +55,7 @@ export class CollisionDetector {
   /**
    * Project a 3D position to screen coordinates
    */
-  private projectToScreen(
-    position: THREE.Vector3
-  ): { x: number; y: number; scale: number } | null {
+  private projectToScreen(position: THREE.Vector3): { x: number; y: number; scale: number } | null {
     const vector = position.clone();
     vector.project(this.camera);
 
@@ -102,8 +96,7 @@ export class CollisionDetector {
 
       // Calculate collision radius - must be very precise
       // Only slightly larger than visual size
-      const objectVisualRadius =
-        this.baseRadius * screenPos.scale * object.config.scale * 1.2;
+      const objectVisualRadius = this.baseRadius * screenPos.scale * object.config.scale * 1.2;
 
       // Check each hand's trail separately
       for (const [handId, points] of trailSegments) {
@@ -121,9 +114,7 @@ export class CollisionDetector {
           const segmentAge = currentTime - p2.timestamp;
           if (segmentAge > 80) continue;
 
-          if (
-            this.lineCircleIntersection(p1, p2, screenPos, objectVisualRadius)
-          ) {
+          if (this.lineCircleIntersection(p1, p2, screenPos, objectVisualRadius)) {
             const velocity = this.calculateVelocity(points, i);
 
             collisions.push({
