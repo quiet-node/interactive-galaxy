@@ -1,0 +1,8 @@
+# robots.txt for Gesture Lab
+# https://gesturelab.icu
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://gesturelab.icu/sitemap.xml

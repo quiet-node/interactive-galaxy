@@ -3,8 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <meta name="description" content="Gesture Lab - Fun experiments with movement tracking" />
+
+    <!-- Primary Meta Tags -->
+    <title>Gesture Lab - Interactive Hand Tracking Experiments</title>
+    <meta
+      name="description"
+      content="Control 3D worlds with your hands. Gesture Lab offers 4 free browser-based experiments: Iron Man Workshop, Cosmic Slash, Galaxy, and Foggy Mirror. No download required."
+    />
+    <meta name="author" content="Logan (@quiet_node)" />
+    <meta name="creator" content="Logan" />
+    <meta
+      name="keywords"
+      content="hand tracking, gesture control, MediaPipe, Three.js, browser game, interactive art, motion control, web experiment"
+    />
     <meta name="theme-color" content="#0a0a0a" />
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://gesturelab.icu/" />
 
     <!-- Favicon: SVG for modern browsers with dark mode, fallbacks for legacy -->
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
@@ -15,28 +30,72 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://gesturelab.icu/" />
-    <meta property="og:title" content="Gesture Lab - Fun experiments with movement tracking" />
+    <meta property="og:site_name" content="Gesture Lab" />
+    <meta property="og:title" content="Gesture Lab - Interactive Hand Tracking Experiments" />
     <meta
       property="og:description"
-      content="Explore interactive movement tracking experiments in your browser."
+      content="Control 3D worlds with your hands. 4 free browser-based experiments: Iron Man Workshop, Cosmic Slash, Galaxy, and Foggy Mirror."
     />
     <meta property="og:image" content="https://gesturelab.icu/thumbnail.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_US" />
 
     <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://gesturelab.icu/" />
-    <meta property="twitter:title" content="Gesture Lab - Fun experiments with movement tracking" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://gesturelab.icu/" />
+    <meta name="twitter:site" content="@quiet_node" />
+    <meta name="twitter:creator" content="@quiet_node" />
+    <meta name="twitter:title" content="Gesture Lab - Interactive Hand Tracking Experiments" />
     <meta
-      property="twitter:description"
-      content="Explore interactive movement tracking experiments in your browser."
+      name="twitter:description"
+      content="Control 3D worlds with your hands. 4 free browser-based experiments: Iron Man Workshop, Cosmic Slash, Galaxy, and Foggy Mirror."
     />
-    <meta property="twitter:image" content="https://gesturelab.icu/thumbnail.png" />
+    <meta name="twitter:image" content="https://gesturelab.icu/thumbnail.png" />
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Gesture Lab",
+        "description": "Interactive movement tracking experiments in your browser. Control 3D worlds with hand gestures using Iron Man Workshop, Cosmic Slash, Galaxy, and Foggy Mirror modes.",
+        "url": "https://gesturelab.icu",
+        "applicationCategory": "Entertainment",
+        "operatingSystem": "Any (Web Browser)",
+        "browserRequirements": "Requires a modern browser with camera access (Chrome, Firefox, Edge, Safari)",
+        "author": {
+          "@type": "Person",
+          "name": "Logan",
+          "url": "https://x.com/quiet_node"
+        },
+        "creator": {
+          "@type": "Person",
+          "name": "Logan",
+          "url": "https://x.com/quiet_node"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "screenshot": "https://gesturelab.icu/thumbnail.png",
+        "featureList": [
+          "Iron Man Workshop - Inspect and assemble Iron Man armor in a holographic environment",
+          "Cosmic Slash - Slice through cosmic objects with lightsaber hands",
+          "Interactive Galaxy - Manipulate particles with hand gestures",
+          "Foggy Mirror - Clear mist by waving hands"
+        ],
+        "softwareVersion": "1.0",
+        "inLanguage": "en",
+        "isAccessibleForFree": true,
+        "license": "https://opensource.org/licenses/MIT"
+      }
+    </script>
 
     <!-- Preconnect to CDN for faster loading -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="preconnect" href="https://storage.googleapis.com" crossorigin />
-
-    <title>Gesture Lab</title>
 
     <style>
       /* Critical CSS for initial load */
