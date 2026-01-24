@@ -318,6 +318,162 @@ export class StellarWaveAudioManager {
     this.isRepulsionPlaying = false;
   }
 
+  // --- Gravity Well Sound ("The Singularity Drone") ---
+  // Procedural dark drone: Sub-bass Sine (50Hz) + Detuned Saw (51Hz) + Tremolo + LowPass Filter
+
+  private attractionOsc1: OscillatorNode | null = null;
+  private attractionOsc2: OscillatorNode | null = null;
+  private attractionLFO: OscillatorNode | null = null;
+  private attractionFilter: BiquadFilterNode | null = null;
+  private attractionGain: GainNode | null = null; // Modulated gain
+  private attractionMasterGain: GainNode | null = null; // Clean master gain
+  private attractionLFO_Gain: GainNode | null = null;
+  private isAttractionPlaying: boolean = false;
+
+  /**
+   * Start the "Gravity Well" singularity drone.
+   * A dark, unstable sub-bass texture that implies high mass and pressure.
+   */
+  startAttraction(): void {
+    if (!this.isInitialized || !this.audioContext || this.isAttractionPlaying) {
+      return;
+    }
+
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume();
+    }
+
+    try {
+      const ctx = this.audioContext;
+      const now = ctx.currentTime;
+
+      // 1. Create Nodes
+      this.attractionOsc1 = ctx.createOscillator();
+      this.attractionOsc2 = ctx.createOscillator();
+      this.attractionLFO = ctx.createOscillator();
+      this.attractionLFO_Gain = ctx.createGain();
+      this.attractionFilter = ctx.createBiquadFilter();
+      this.attractionGain = ctx.createGain();
+      this.attractionMasterGain = ctx.createGain();
+
+      // 2. Configure Oscillators
+      this.attractionOsc1.type = 'sine';
+      this.attractionOsc1.frequency.value = 50;
+      this.attractionOsc2.type = 'sawtooth';
+      this.attractionOsc2.frequency.value = 51;
+
+      // 3. Configure LFO
+      this.attractionLFO.type = 'triangle';
+      this.attractionLFO.frequency.value = 6;
+      this.attractionLFO_Gain.gain.value = 0.3;
+
+      // 4. Configure Filter
+      this.attractionFilter.type = 'lowpass';
+      this.attractionFilter.frequency.value = 120;
+      this.attractionFilter.Q.value = 1;
+
+      // 5. Configure Gains
+      // Base gain level that LFO oscillates around
+      this.attractionGain.gain.value = 0.5;
+
+      // Master gain for the actual fade-in/out (The "Gate")
+      this.attractionMasterGain.gain.setValueAtTime(0, now);
+      // Fade in to 0.25 (Total volume = Base * Master)
+      this.attractionMasterGain.gain.linearRampToValueAtTime(0.25, now + 0.8);
+
+      // 6. Connect Graph
+      // LFO chain modulates the synth inner gain
+      this.attractionLFO.connect(this.attractionLFO_Gain);
+      this.attractionLFO_Gain.connect(this.attractionGain.gain);
+
+      // Source chain: Oscs -> Filter -> Modulated Gain -> Master Gate -> Out
+      this.attractionOsc1.connect(this.attractionFilter);
+      this.attractionOsc2.connect(this.attractionFilter);
+      this.attractionFilter.connect(this.attractionGain);
+      this.attractionGain.connect(this.attractionMasterGain);
+      this.attractionMasterGain.connect(ctx.destination);
+
+      // 7. Start Sources
+      this.attractionOsc1.start(now);
+      this.attractionOsc2.start(now);
+      this.attractionLFO.start(now);
+
+      this.isAttractionPlaying = true;
+
+      // Dynamic movement: Sinking pitch
+      this.attractionOsc1.frequency.linearRampToValueAtTime(45, now + 3.0);
+      this.attractionOsc2.frequency.linearRampToValueAtTime(46, now + 3.0);
+    } catch (e) {
+      console.error('[StellarWaveAudioManager] Failed to start attraction sound', e);
+      this.stopAttraction();
+    }
+  }
+
+  /**
+   * Stop the gravity well sound.
+   * Uses setTargetAtTime for a pop-free, mathematically smooth release.
+   */
+  stopAttraction(): void {
+    if (!this.isAttractionPlaying || !this.audioContext || !this.attractionMasterGain) {
+      return;
+    }
+
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+
+    // Time constant for exponential decay (0.1 means ~95% quiet after 0.3s)
+    const timeConstant = 0.1;
+    const stopDelay = 0.5; // Wait 0.5s before killing oscillators
+
+    // Use setTargetAtTime - it starts exactly from the current (even if modulated) value
+    // and decays smoothly without requiring cancelScheduledValues (which causes pops)
+    this.attractionMasterGain.gain.setTargetAtTime(0, now, timeConstant);
+
+    // Also fade out LFO depth to reduce signal complexity during release
+    if (this.attractionLFO_Gain) {
+      this.attractionLFO_Gain.gain.setTargetAtTime(0, now, 0.05);
+    }
+
+    // Stop nodes after they are definitely silent
+    const stopTime = now + stopDelay;
+    [this.attractionOsc1, this.attractionOsc2, this.attractionLFO].forEach((node) => {
+      if (node) {
+        try {
+          node.stop(stopTime);
+        } catch {
+          /* ignore */
+        }
+      }
+    });
+
+    // Cleanup references
+    setTimeout(
+      () => {
+        // Safety check: is another sound playing now? (avoids race condition cleanup)
+        if (this.isAttractionPlaying) return;
+
+        this.attractionOsc1?.disconnect();
+        this.attractionOsc2?.disconnect();
+        this.attractionLFO?.disconnect();
+        this.attractionLFO_Gain?.disconnect();
+        this.attractionFilter?.disconnect();
+        this.attractionGain?.disconnect();
+        this.attractionMasterGain?.disconnect();
+
+        this.attractionOsc1 = null;
+        this.attractionOsc2 = null;
+        this.attractionLFO = null;
+        this.attractionLFO_Gain = null;
+        this.attractionFilter = null;
+        this.attractionGain = null;
+        this.attractionMasterGain = null;
+      },
+      stopDelay * 1000 + 100
+    );
+
+    this.isAttractionPlaying = false;
+  }
+
   /**
    * Clean up resources and close the audio context.
    */
