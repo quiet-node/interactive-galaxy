@@ -229,7 +229,9 @@ export class StellarWaveController {
     if (!result || result.landmarks.length === 0) {
       this.lastHandCount = 0;
       this.renderer?.updateInteraction(null, null);
+      this.renderer?.setAttraction(null, null); // Clear Gravity Well state
       this.audioManager?.stopRepulsion();
+      this.audioManager?.stopAttraction(); // Stop Gravity Well audio
       return;
     }
 
@@ -255,6 +257,26 @@ export class StellarWaveController {
         this.renderer?.triggerRipple(x, y);
         this.audioManager?.playRipple();
       }
+    }
+
+    // Process Gravity Well (Right Hand Fist)
+    if (gestureResult.fist && gestureResult.fist.data.handedness === 'right') {
+      const fistState = gestureResult.fist.state;
+      const { x, y } = gestureResult.fist.data.normalizedPosition;
+
+      if (fistState === GestureState.STARTED || fistState === GestureState.ACTIVE) {
+        // Engage Gravity Well
+        this.renderer?.setAttraction(x, y);
+        this.audioManager?.startAttraction();
+      } else {
+        // Disengage
+        this.renderer?.setAttraction(null, null);
+        this.audioManager?.stopAttraction();
+      }
+    } else {
+      // Ensure attraction is cleared if no right fist detected
+      this.renderer?.setAttraction(null, null);
+      this.audioManager?.stopAttraction();
     }
 
     // Process Left Hand Index Finger for repulsion interaction

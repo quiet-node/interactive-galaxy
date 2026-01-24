@@ -124,6 +124,9 @@ export class StellarWaveRenderer {
   // Interaction tracking (Left Index Finger)
   private interactionPoint: { x: number; y: number } | null = null;
 
+  // Attraction tracking (Right Fist)
+  private attractionPoint: { x: number; y: number; strength: number } | null = null;
+
   // Position and intensity buffers (for GPU updates)
   private positionAttribute: THREE.BufferAttribute | null = null;
   private rippleIntensityAttribute: THREE.BufferAttribute | null = null;
@@ -314,6 +317,26 @@ export class StellarWaveRenderer {
   }
 
   /**
+   * Set the gravity well attraction point
+   * @param x - X position in normalized coordinates (0-1), or null to clear
+   * @param y - Y position in normalized coordinates (0-1), or null to clear
+   * @param strength - Attraction strength (default 5.0)
+   */
+  setAttraction(x: number | null, y: number | null, strength: number = 5.0): void {
+    if (x === null || y === null) {
+      this.attractionPoint = null;
+      return;
+    }
+
+    // Convert normalized coordinates to screen pixels
+    // Mirror X axis to match video
+    const screenX = (1 - x) * this.container.clientWidth;
+    const screenY = y * this.container.clientHeight;
+
+    this.attractionPoint = { x: screenX, y: screenY, strength };
+  }
+
+  /**
    * Update physics simulation and ripple propagation
    * @param deltaTime - Time elapsed since last frame in seconds
    */
@@ -397,11 +420,37 @@ export class StellarWaveRenderer {
    */
   private updatePhysics(): void {
     const { stiffness, damping } = this.config;
+    // Pre-calculate attraction constants if active
+    const attractionActive = !!this.attractionPoint;
+    const attrX = this.attractionPoint?.x || 0;
+    const attrY = this.attractionPoint?.y || 0;
+    const attrStrength = (this.attractionPoint?.strength || 0) * 2000; // Scale up for noticeable effect
+    const softeningSq = 2500; // 50^2 softening radius
 
     for (const point of this.meshPoints) {
       if (point.pinned) continue;
 
-      // Spring force toward rest position
+      // 1. Apply Gravity Well (Attraction)
+      if (attractionActive) {
+        const dx = attrX - point.position.x;
+        const dy = attrY - point.position.y;
+        const distSq = dx * dx + dy * dy;
+
+        // Softened Gravity Formula: F = G * M / (d^2 + softening^2)
+        const force = attrStrength / (distSq + softeningSq);
+
+        point.velocity.dx += dx * force * 0.05; // 0.05 time step adjustment
+        point.velocity.dy += dy * force * 0.05;
+
+        // Visual Feedback: Darken/Purple shift for points under high gravity
+        // We use negative ripple intensity to signal "compression" to the shader (optional, if supported)
+        // For now, let's just make them glow intensely (positive)
+        if (force > 0.5) {
+          point.rippleIntensity = Math.min(1.0, point.rippleIntensity + force * 0.02);
+        }
+      }
+
+      // 2. Spring force toward rest position
       const dx = point.restPosition.x - point.position.x;
       const dy = point.restPosition.y - point.position.y;
 

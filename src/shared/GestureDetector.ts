@@ -25,10 +25,12 @@ import {
   Handedness,
   DEFAULT_GESTURE_CONFIG,
   AnyGestureEvent,
+  FistGestureEvent,
+  FistGestureData,
 } from './GestureTypes';
 
 /**
- * Internal state for tracking pinch gesture lifecycles
+ * Internal state for tracking pinch and fist gesture lifecycles
  */
 interface GestureStateTracker {
   pinch: {
@@ -43,10 +45,20 @@ interface GestureStateTracker {
       sustainedFrames: number;
     };
   };
+  fist: {
+    left: {
+      isActive: boolean;
+      sustainedFrames: number;
+    };
+    right: {
+      isActive: boolean;
+      sustainedFrames: number;
+    };
+  };
 }
 
 /**
- * GestureDetector - Detects pinch gestures from MediaPipe landmarks
+ * GestureDetector - Detects pinch and fist gestures from MediaPipe landmarks
  *
  * Design principles:
  * - Stateful tracking for gesture lifecycles (STARTED → ACTIVE → ENDED)
@@ -64,13 +76,17 @@ export class GestureDetector {
   }
 
   /**
-   * Create initial state for pinch gesture tracker
+   * Create initial state for gesture trackers
    */
   private createInitialState(): GestureStateTracker {
     return {
       pinch: {
         left: { isActive: false, lastTriggerTime: 0, sustainedFrames: 0 },
         right: { isActive: false, lastTriggerTime: 0, sustainedFrames: 0 },
+      },
+      fist: {
+        left: { isActive: false, sustainedFrames: 0 },
+        right: { isActive: false, sustainedFrames: 0 },
       },
     };
   }
@@ -81,7 +97,7 @@ export class GestureDetector {
    * @param landmarks - Array of hand landmarks (one or two hands)
    * @param handedness - Array of handedness classifications
    * @param timestamp - Current timestamp in milliseconds
-   * @returns Detection result with pinch gesture events
+   * @returns Detection result with pinch and fist gesture events
    */
   detect(
     landmarks: NormalizedLandmark[][],
@@ -90,8 +106,9 @@ export class GestureDetector {
   ): GestureDetectionResult {
     const events: AnyGestureEvent[] = [];
     let pinchEvent: PinchGestureEvent | null = null;
+    let fistEvent: FistGestureEvent | null = null;
 
-    // Process each hand independently for pinch detection
+    // Process each hand independently
     for (let i = 0; i < landmarks.length; i++) {
       const hand = landmarks[i];
       const handType = handedness[i] || 'unknown';
@@ -102,11 +119,115 @@ export class GestureDetector {
         events.push(pinch);
         pinchEvent = pinch;
       }
+
+      // Detect fist gesture
+      const fist = this.detectFist(hand, handType, timestamp);
+      if (fist) {
+        events.push(fist);
+        fistEvent = fist;
+      }
     }
 
     return {
       events,
       pinch: pinchEvent,
+      fist: fistEvent,
+    };
+  }
+
+  /**
+   * Detect FIST gesture (fingers curled into palm)
+   */
+  private detectFist(
+    landmarks: NormalizedLandmark[],
+    handedness: Handedness,
+    timestamp: number
+  ): FistGestureEvent | null {
+    // 1. Calculate Scale Reference: Wrist to Middle Finger Knuckle (MCP)
+    const wrist = landmarks[HandLandmarkIndex.WRIST];
+    const middleMCP = landmarks[HandLandmarkIndex.MIDDLE_FINGER_MCP];
+    const palmScale = this.calculateDistance3D(wrist, middleMCP);
+
+    // Safeguard against bad data (scale shouldn't be near zero)
+    if (palmScale < 0.01) return null;
+
+    // 2. Check all fingertips against wrist
+    const fingertipIndices = [
+      HandLandmarkIndex.INDEX_FINGER_TIP,
+      HandLandmarkIndex.MIDDLE_FINGER_TIP,
+      HandLandmarkIndex.RING_FINGER_TIP,
+      HandLandmarkIndex.PINKY_TIP,
+    ];
+
+    let allFingersClosed = true;
+    let anyFingerOpen = false;
+
+    for (const tipIndex of fingertipIndices) {
+      const tip = landmarks[tipIndex];
+      const distanceToWrist = this.calculateDistance3D(tip, wrist);
+      const ratio = distanceToWrist / palmScale;
+
+      if (ratio > this.config.fist.closeThreshold) {
+        allFingersClosed = false;
+      }
+      if (ratio > this.config.fist.openThreshold) {
+        anyFingerOpen = true;
+      }
+    }
+
+    // Get state tracker
+    const handKey = handedness === 'left' ? 'left' : 'right';
+    const handState = this.state.fist[handKey];
+    const wasActive = handState.isActive;
+
+    // State Transitions
+    let gestureState: GestureState;
+
+    if (!wasActive && allFingersClosed) {
+      // Potential start - check duration
+      handState.sustainedFrames++;
+      if (handState.sustainedFrames >= this.config.fist.minDurationFrames) {
+        gestureState = GestureState.STARTED;
+        handState.isActive = true;
+      } else {
+        return null; // Not sustained enough yet
+      }
+    } else if (wasActive && !anyFingerOpen) {
+      // Staying closed (hysteresis zone included)
+      gestureState = GestureState.ACTIVE;
+      handState.sustainedFrames++; // Keep counting for robustness
+    } else if (wasActive && anyFingerOpen) {
+      // Released
+      gestureState = GestureState.ENDED;
+      handState.isActive = false;
+      handState.sustainedFrames = 0;
+    } else {
+      // Not active and not closing
+      handState.sustainedFrames = 0;
+      return null;
+    }
+
+    // Compute Fist Center (approximate using Middle MCP for stability)
+    const center = middleMCP;
+
+    // Convert to Three.js world coords (mirror X)
+    const worldPosition = new THREE.Vector3(
+      -(center.x - 0.5) * 10,
+      -(center.y - 0.5) * 10,
+      -center.z * 10
+    );
+
+    const data: FistGestureData = {
+      position: worldPosition,
+      normalizedPosition: { x: center.x, y: center.y, z: center.z },
+      handedness,
+    };
+
+    return {
+      type: GestureType.FIST,
+      state: gestureState,
+      data,
+      timestamp,
     };
   }
 

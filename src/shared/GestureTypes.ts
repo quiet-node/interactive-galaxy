@@ -20,6 +20,8 @@ export type { Handedness };
 export enum GestureType {
   /** Thumb and index finger pinched together */
   PINCH = 'PINCH',
+  /** Fingers curled into a closed fist */
+  FIST = 'FIST',
 }
 
 /**
@@ -53,9 +55,21 @@ export interface PinchGestureData {
 }
 
 /**
+ * Data payload for fist gesture detection
+ */
+export interface FistGestureData {
+  /** 3D position of the fist center */
+  position: THREE.Vector3;
+  /** Normalized position (0-1 range from MediaPipe) */
+  normalizedPosition: { x: number; y: number; z: number };
+  /** Which hand is performing the fist */
+  handedness: Handedness;
+}
+
+/**
  * Generic gesture event with typed data payload
  */
-export interface GestureEvent<T = PinchGestureData> {
+export interface GestureEvent<T = PinchGestureData | FistGestureData> {
   /** Type of gesture */
   type: GestureType;
   /** Current state in gesture lifecycle */
@@ -67,17 +81,22 @@ export interface GestureEvent<T = PinchGestureData> {
 }
 
 /**
- * Pinch gesture event (only supported gesture type)
+ * Pinch gesture event
  */
 export type PinchGestureEvent = GestureEvent<PinchGestureData>;
 
 /**
- * Union type of all gesture events (currently only pinch)
+ * Fist gesture event
  */
-export type AnyGestureEvent = PinchGestureEvent;
+export type FistGestureEvent = GestureEvent<FistGestureData>;
 
 /**
- * Configuration thresholds for pinch gesture detection
+ * Union type of all gesture events
+ */
+export type AnyGestureEvent = PinchGestureEvent | FistGestureEvent;
+
+/**
+ * Configuration thresholds for gesture detection
  */
 export interface GestureConfig {
   /** Pinch gesture configuration */
@@ -89,10 +108,19 @@ export interface GestureConfig {
     /** Minimum time between pinch triggers (ms) - debouncing */
     cooldownMs: number;
   };
+  /** Fist gesture configuration */
+  fist: {
+    /** Threshold ratio for fingertip-to-wrist distance vs palm scale */
+    closeThreshold: number;
+    /** Threshold ratio to release fist (hysteresis) */
+    openThreshold: number;
+    /** Minimum sustained frames to confirm fist */
+    minDurationFrames: number;
+  };
 }
 
 /**
- * Default gesture configuration for Phase 3.2 (Pinch only)
+ * Default configuration
  */
 export const DEFAULT_GESTURE_CONFIG: GestureConfig = {
   pinch: {
@@ -100,16 +128,23 @@ export const DEFAULT_GESTURE_CONFIG: GestureConfig = {
     releaseThreshold: 0.055, // Hysteresis to prevent flickering
     cooldownMs: 800, // 800ms between star bursts (prevent spam)
   },
+  fist: {
+    closeThreshold: 1.0, // Tip dist must be < 1.0x scale (tight fist)
+    openThreshold: 1.4, // Tip dist must be > 1.4x scale to open
+    minDurationFrames: 5, // Require 5 frames of stability
+  },
 };
 
 /**
- * Result of gesture detection for a single frame (pinch only)
+ * Result of gesture detection for a single frame
  */
 export interface GestureDetectionResult {
   /** All detected gesture events this frame */
   events: AnyGestureEvent[];
   /** Current pinch state (null if not detected) */
   pinch: PinchGestureEvent | null;
+  /** Current fist state (null if not detected) */
+  fist: FistGestureEvent | null;
 }
 
 /**
