@@ -173,9 +173,149 @@ export class StellarWaveAudioManager {
 
     // Stop force field sound if active
     this.stopForceField();
+
+    // Stop vortex sound if active
+    this.stopVortex();
   }
 
-  // --- Force Field Sound (Left Hand Interaction) ---
+  // --- Nebula Vortex Sound (Left Hand Fist) ---
+  // Swirling drone: Mid-range saw/sine + Fast LFO (rotation) + Bandpass
+  private vortexOsc1: OscillatorNode | null = null;
+  private vortexOsc2: OscillatorNode | null = null;
+  private vortexLFO: OscillatorNode | null = null;
+  private vortexFilter: BiquadFilterNode | null = null;
+  private vortexGain: GainNode | null = null;
+  private vortexMasterGain: GainNode | null = null;
+  private vortexLFO_Gain: GainNode | null = null;
+  private isVortexPlaying: boolean = false;
+
+  /**
+   * Start the "Nebula Vortex" sound.
+   * A swirling, airy texture that implies rapid rotation.
+   */
+  startVortex(): void {
+    if (!this.isInitialized || !this.audioContext || this.isVortexPlaying) {
+      return;
+    }
+
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume();
+    }
+
+    try {
+      const ctx = this.audioContext;
+      const now = ctx.currentTime;
+
+      // 1. Create Nodes
+      this.vortexOsc1 = ctx.createOscillator();
+      this.vortexOsc2 = ctx.createOscillator();
+      this.vortexLFO = ctx.createOscillator();
+      this.vortexLFO_Gain = ctx.createGain();
+      this.vortexFilter = ctx.createBiquadFilter();
+      this.vortexGain = ctx.createGain();
+      this.vortexMasterGain = ctx.createGain();
+
+      // 2. Configure Oscillators
+      // Airy, higher pitched than gravity
+      this.vortexOsc1.type = 'sawtooth';
+      this.vortexOsc1.frequency.value = 180;
+      this.vortexOsc2.type = 'sine';
+      this.vortexOsc2.frequency.value = 182; // Detune
+
+      // 3. Configure LFO
+      // Fast rotation (10Hz) to simulate spinning
+      this.vortexLFO.type = 'sine';
+      this.vortexLFO.frequency.value = 10;
+      this.vortexLFO_Gain.gain.value = 0.3;
+
+      // 4. Configure Filter
+      // Bandpass to isolate the "windy" frequencies
+      this.vortexFilter.type = 'bandpass';
+      this.vortexFilter.frequency.value = 400;
+      this.vortexFilter.Q.value = 1;
+
+      // 5. Configure Gains
+      this.vortexGain.gain.value = 0.3;
+      this.vortexMasterGain.gain.setValueAtTime(0, now);
+      this.vortexMasterGain.gain.linearRampToValueAtTime(0.2, now + 0.5);
+
+      // 6. Connect Graph
+      this.vortexLFO.connect(this.vortexLFO_Gain);
+      this.vortexLFO_Gain.connect(this.vortexGain.gain);
+
+      this.vortexOsc1.connect(this.vortexFilter);
+      this.vortexOsc2.connect(this.vortexFilter);
+      this.vortexFilter.connect(this.vortexGain);
+      this.vortexGain.connect(this.vortexMasterGain);
+      this.vortexMasterGain.connect(ctx.destination);
+
+      // 7. Start
+      this.vortexOsc1.start(now);
+      this.vortexOsc2.start(now);
+      this.vortexLFO.start(now);
+
+      this.isVortexPlaying = true;
+    } catch (e) {
+      console.error('[StellarWaveAudioManager] Failed to start vortex sound', e);
+      this.stopVortex();
+    }
+  }
+
+  /**
+   * Stop the vortex sound.
+   */
+  stopVortex(): void {
+    if (!this.isVortexPlaying || !this.audioContext || !this.vortexMasterGain) {
+      return;
+    }
+
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+    const timeConstant = 0.1;
+    const stopDelay = 0.5;
+
+    this.vortexMasterGain.gain.setTargetAtTime(0, now, timeConstant);
+
+    if (this.vortexLFO_Gain) {
+      this.vortexLFO_Gain.gain.setTargetAtTime(0, now, 0.05);
+    }
+
+    const stopTime = now + stopDelay;
+    [this.vortexOsc1, this.vortexOsc2, this.vortexLFO].forEach((node) => {
+      if (node) {
+        try {
+          node.stop(stopTime);
+        } catch {
+          /* ignore */
+        }
+      }
+    });
+
+    setTimeout(
+      () => {
+        if (this.isVortexPlaying) return;
+
+        this.vortexOsc1?.disconnect();
+        this.vortexOsc2?.disconnect();
+        this.vortexLFO?.disconnect();
+        this.vortexLFO_Gain?.disconnect();
+        this.vortexFilter?.disconnect();
+        this.vortexGain?.disconnect();
+        this.vortexMasterGain?.disconnect();
+
+        this.vortexOsc1 = null;
+        this.vortexOsc2 = null;
+        this.vortexLFO = null;
+        this.vortexLFO_Gain = null;
+        this.vortexFilter = null;
+        this.vortexGain = null;
+        this.vortexMasterGain = null;
+      },
+      stopDelay * 1000 + 100
+    );
+
+    this.isVortexPlaying = false;
+  }
   // Refined "Force Field" drone: Sine + Triangle (110Hz) + LFO + LowPass Filter
 
   private repulsionOsc1: OscillatorNode | null = null;
@@ -329,7 +469,7 @@ export class StellarWaveAudioManager {
   private attractionLFO_Gain: GainNode | null = null;
   private isAttractionPlaying: boolean = false;
 
-  /**
+  /*
    * Start the "Gravity Well" singularity drone.
    * A dark, unstable sub-bass texture that implies high mass and pressure.
    */
