@@ -24,6 +24,8 @@ export enum GestureType {
   MIDDLE_PINCH = 'MIDDLE_PINCH',
   /** Thumb and ring finger pinched together (Nebula Vortex trigger) */
   RING_PINCH = 'RING_PINCH',
+  /** Thumb and pinky finger pinched together (Cosmic Strings trigger) */
+  PINKY_PINCH = 'PINKY_PINCH',
   /** Fingers curled into a closed fist */
   FIST = 'FIST',
 }
@@ -107,10 +109,31 @@ export interface RingPinchGestureData {
 }
 
 /**
+ * Data payload for pinky finger pinch gesture (Cosmic Strings trigger)
+ */
+export interface PinkyPinchGestureData {
+  /** 3D position of the pinch point (midpoint between thumb and pinky) */
+  position: THREE.Vector3;
+  /** Normalized position (0-1 range from MediaPipe) */
+  normalizedPosition: { x: number; y: number; z: number };
+  /** Distance between thumb and pinky finger (normalized) */
+  distance: number;
+  /** Which hand is performing the pinch */
+  handedness: Handedness;
+  /** Confidence/strength of the pinch (0-1) */
+  strength: number;
+}
+
+/**
  * Generic gesture event with typed data payload
  */
 export interface GestureEvent<
-  T = PinchGestureData | FistGestureData | MiddlePinchGestureData | RingPinchGestureData,
+  T =
+    | PinchGestureData
+    | FistGestureData
+    | MiddlePinchGestureData
+    | RingPinchGestureData
+    | PinkyPinchGestureData,
 > {
   /** Type of gesture */
   type: GestureType;
@@ -138,6 +161,11 @@ export type MiddlePinchGestureEvent = GestureEvent<MiddlePinchGestureData>;
 export type RingPinchGestureEvent = GestureEvent<RingPinchGestureData>;
 
 /**
+ * Pinky finger pinch gesture event (Cosmic Strings trigger)
+ */
+export type PinkyPinchGestureEvent = GestureEvent<PinkyPinchGestureData>;
+
+/**
  * Fist gesture event
  */
 export type FistGestureEvent = GestureEvent<FistGestureData>;
@@ -149,7 +177,8 @@ export type AnyGestureEvent =
   | PinchGestureEvent
   | FistGestureEvent
   | MiddlePinchGestureEvent
-  | RingPinchGestureEvent;
+  | RingPinchGestureEvent
+  | PinkyPinchGestureEvent;
 
 /**
  * Configuration thresholds for gesture detection
@@ -176,6 +205,15 @@ export interface GestureConfig {
   /** Ring pinch gesture configuration (thumb + ring finger for Nebula Vortex) */
   ringPinch: {
     /** Maximum distance between thumb and ring finger to trigger pinch (normalized) */
+    threshold: number;
+    /** Minimum distance to end pinch gesture (with hysteresis) */
+    releaseThreshold: number;
+    /** Minimum time between triggers (ms) - debouncing */
+    cooldownMs: number;
+  };
+  /** Pinky pinch gesture configuration (thumb + pinky finger for Cosmic Strings) */
+  pinkyPinch: {
+    /** Maximum distance between thumb and pinky finger to trigger pinch (normalized) */
     threshold: number;
     /** Minimum distance to end pinch gesture (with hysteresis) */
     releaseThreshold: number;
@@ -212,6 +250,11 @@ export const DEFAULT_GESTURE_CONFIG: GestureConfig = {
     releaseThreshold: 0.06,
     cooldownMs: 200,
   },
+  pinkyPinch: {
+    threshold: 0.08, // Significantly looser to ensure detection with smaller fingers
+    releaseThreshold: 0.12, // More hysteresis
+    cooldownMs: 200,
+  },
   fist: {
     closeThreshold: 1.0, // Tip dist must be < 1.0x scale (tight fist)
     openThreshold: 1.4, // Tip dist must be > 1.4x scale to open
@@ -231,6 +274,8 @@ export interface GestureDetectionResult {
   middlePinch: MiddlePinchGestureEvent | null;
   /** Current ring pinch state (null if not detected) */
   ringPinch: RingPinchGestureEvent | null;
+  /** Current pinky pinch state (null if not detected) */
+  pinkyPinch: PinkyPinchGestureEvent | null;
   /** Current fist state (null if not detected) */
   fist: FistGestureEvent | null;
 }

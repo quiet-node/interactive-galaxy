@@ -179,6 +179,9 @@ export class StellarWaveAudioManager {
 
     // Stop quasar surge sound if active
     this.stopQuasarSurgeCharge();
+
+    // Stop cosmic strings tension if active
+    this.stopCosmicStringTension();
   }
 
   // --- Nebula Vortex Sound (Left Hand Fist) ---
@@ -318,6 +321,136 @@ export class StellarWaveAudioManager {
     );
 
     this.isVortexPlaying = false;
+  }
+
+  // --- Cosmic Strings Sound (Left Hand Pinky + Thumb Pinch) ---
+
+  private stringTensionOsc1: OscillatorNode | null = null;
+  private stringTensionOsc2: OscillatorNode | null = null;
+  private stringTensionLFO: OscillatorNode | null = null;
+  private stringTensionFilter: BiquadFilterNode | null = null;
+  private stringTensionGain: GainNode | null = null;
+  private stringTensionMasterGain: GainNode | null = null;
+  private isStringTensionPlaying: boolean = false;
+
+  /**
+   * Start the "Cosmic String" tension drone.
+   * A metallic, high-tension hum that builds as the string is pulled.
+   */
+  startCosmicStringTension(): void {
+    if (!this.isInitialized || !this.audioContext || this.isStringTensionPlaying) {
+      return;
+    }
+
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume();
+    }
+
+    try {
+      const ctx = this.audioContext;
+      const now = ctx.currentTime;
+
+      // 1. Create Nodes
+      this.stringTensionOsc1 = ctx.createOscillator();
+      this.stringTensionOsc2 = ctx.createOscillator();
+      this.stringTensionLFO = ctx.createOscillator();
+      this.stringTensionFilter = ctx.createBiquadFilter();
+      this.stringTensionGain = ctx.createGain();
+      this.stringTensionMasterGain = ctx.createGain();
+
+      // 2. Configure Oscillators (Metallic/Stringy feel)
+      this.stringTensionOsc1.type = 'triangle';
+      this.stringTensionOsc1.frequency.value = 165; // ~E3
+      this.stringTensionOsc2.type = 'sine';
+      this.stringTensionOsc2.frequency.value = 166.5; // Harmonic detune
+
+      // 3. Configure LFO (Subtle vibration)
+      this.stringTensionLFO.type = 'sine';
+      this.stringTensionLFO.frequency.value = 5;
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = 0.15;
+
+      // 4. Configure Filter
+      this.stringTensionFilter.type = 'lowpass';
+      this.stringTensionFilter.frequency.value = 1200;
+      this.stringTensionFilter.Q.value = 2;
+
+      // 5. Configure Gains
+      this.stringTensionGain.gain.value = 0.2;
+      this.stringTensionMasterGain.gain.setValueAtTime(0, now);
+      this.stringTensionMasterGain.gain.linearRampToValueAtTime(0.1, now + 0.2);
+
+      // 6. Connect Graph
+      this.stringTensionLFO.connect(lfoGain);
+      lfoGain.connect(this.stringTensionGain.gain);
+
+      this.stringTensionOsc1.connect(this.stringTensionFilter);
+      this.stringTensionOsc2.connect(this.stringTensionFilter);
+      this.stringTensionFilter.connect(this.stringTensionGain);
+      this.stringTensionGain.connect(this.stringTensionMasterGain);
+      this.stringTensionMasterGain.connect(ctx.destination);
+
+      // 7. Start
+      this.stringTensionOsc1.start(now);
+      this.stringTensionOsc2.start(now);
+      this.stringTensionLFO.start(now);
+
+      this.isStringTensionPlaying = true;
+    } catch (e) {
+      console.error('[StellarWaveAudioManager] Failed to start string tension sound', e);
+      this.stopCosmicStringTension();
+    }
+  }
+
+  /**
+   * Stop the cosmic string tension sound.
+   */
+  stopCosmicStringTension(): void {
+    if (!this.isStringTensionPlaying || !this.audioContext || !this.stringTensionMasterGain) {
+      this.isStringTensionPlaying = false;
+      return;
+    }
+
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+    const timeConstant = 0.05;
+    const stopDelay = 0.2;
+
+    this.stringTensionMasterGain.gain.setTargetAtTime(0, now, timeConstant);
+
+    const stopTime = now + stopDelay;
+    [this.stringTensionOsc1, this.stringTensionOsc2, this.stringTensionLFO].forEach((node) => {
+      if (node) {
+        try {
+          node.stop(stopTime);
+        } catch {
+          /* ignore */
+        }
+      }
+    });
+
+    setTimeout(
+      () => {
+        if (this.isStringTensionPlaying) return;
+
+        this.stringTensionOsc1?.disconnect();
+        this.stringTensionOsc2?.disconnect();
+        this.stringTensionLFO?.disconnect();
+        this.stringTensionFilter?.disconnect();
+        this.stringTensionGain?.disconnect();
+        this.stringTensionMasterGain?.disconnect();
+
+        this.stringTensionOsc1 = null;
+        this.stringTensionOsc2 = null;
+        this.stringTensionLFO = null;
+        this.stringTensionFilter = null;
+        this.stringTensionGain = null;
+        this.stringTensionMasterGain = null;
+      },
+      stopDelay * 1000 + 50
+    );
+
+    this.isStringTensionPlaying = false;
   }
 
   // --- Quasar Surge Sound (Right Hand Middle Finger + Thumb Pinch) ---

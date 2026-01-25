@@ -89,6 +89,14 @@ export interface StellarWaveConfig {
   /** Duration of burst effect in seconds */
   quasarSurgeBurstDuration: number;
 
+  // Cosmic Strings
+  /** Strength of the string tension (stiffness) */
+  cosmicStringsTension: number;
+  /** Damping factor for string oscillation (friction) */
+  cosmicStringsDamping: number;
+  /** Reach of the pluck influence in pixels */
+  cosmicStringsReach: number;
+
   // Audio params
   /** Frequency of the ripple sound in Hz */
   rippleFreq: number;
@@ -140,6 +148,11 @@ export const DEFAULT_STELLAR_WAVE_CONFIG: StellarWaveConfig = {
   quasarSurgeMaxChargeTime: 3000,
   quasarSurgeBurstVelocity: 25.0,
   quasarSurgeBurstDuration: 1.5,
+
+  // Cosmic Strings
+  cosmicStringsTension: 0.15,
+  cosmicStringsDamping: 0.96,
+  cosmicStringsReach: 200,
 
   // Audio params
   rippleFreq: 440,
@@ -218,6 +231,13 @@ export enum StellarWaveInteraction {
    * - Burst: Supernova-like explosion on release
    */
   QUASAR_SURGE = 'QUASAR_SURGE',
+
+  /**
+   * Cosmic Strings
+   * Triggered by pinching right middle finger and thumb.
+   * Dots behave like elastic strings that can be plucked.
+   */
+  COSMIC_STRINGS = 'COSMIC_STRINGS',
 }
 
 /**

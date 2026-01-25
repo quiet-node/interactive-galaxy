@@ -92,6 +92,10 @@ export class HintComponent {
             <span class="hint-value">Left Ring Pinch</span>
           </div>
           <div class="hint-row">
+            <span class="hint-label">Cosmic Strings</span>
+            <span class="hint-value">Left Pinky Pinch</span>
+          </div>
+          <div class="hint-row">
             <span class="hint-label">Quasar Surge</span>
             <span class="hint-value">Left Fist Hold</span>
           </div>

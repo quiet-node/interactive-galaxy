@@ -16,6 +16,7 @@ import {
   type FistGestureData,
   type MiddlePinchGestureData,
   type RingPinchGestureData,
+  type PinkyPinchGestureData,
 } from '../shared/GestureTypes';
 import { HandLandmarkOverlay } from '../shared/HandLandmarkOverlay';
 import { StellarWaveRenderer } from './StellarWaveRenderer';
@@ -244,6 +245,9 @@ export class StellarWaveController {
       this.audioManager?.stopForceField();
       this.audioManager?.stopGravityWell();
       this.audioManager?.stopVortex();
+      // Clear Cosmic Strings (Left Pinky)
+      this.renderer?.setCosmicStringPluck(null, null);
+      this.audioManager?.stopCosmicStringTension();
       return;
     }
 
@@ -259,6 +263,7 @@ export class StellarWaveController {
     const gestureResult = this.gestureDetector.detect(result.landmarks, handedness, timestamp);
 
     let leftPinchActive = false;
+    let leftPinkyPinchActive = false; // COSMIC_STRINGS
     let leftMiddlePinchActive = false; // GRAVITY_WELL
     let leftRingPinchActive = false; // NEBULA_VORTEX
     let quasarSurgeActive = false; // QUASAR_SURGE (Left Hand Fist)
@@ -301,6 +306,23 @@ export class StellarWaveController {
             this.renderer?.setGravityWell(x, y);
             this.audioManager?.startGravityWell();
             leftMiddlePinchActive = true;
+          }
+        }
+      }
+
+      // 3. COSMIC STRINGS (Left Pinky Pinch)
+      if (event.type === GestureType.PINKY_PINCH) {
+        const pinkyPinchData = event.data as PinkyPinchGestureData;
+        // Allow both hands for Cosmic Strings for better accessibility and robustness
+        if (pinkyPinchData.handedness === 'left' || pinkyPinchData.handedness === 'right') {
+          if (event.state === GestureState.STARTED) {
+            this.audioManager?.startCosmicStringTension();
+          }
+
+          if (event.state === GestureState.STARTED || event.state === GestureState.ACTIVE) {
+            const { x, y } = pinkyPinchData.normalizedPosition;
+            this.renderer?.setCosmicStringPluck(x, y);
+            leftPinkyPinchActive = true;
           }
         }
       }
@@ -353,6 +375,14 @@ export class StellarWaveController {
     if (!leftPinchActive) {
       this.renderer?.setForceField(null, null);
       this.audioManager?.stopForceField();
+    }
+
+    if (!leftPinkyPinchActive) {
+      if (this.renderer?.hasActiveCosmicStringPluck()) {
+        // Plucked!
+      }
+      this.renderer?.setCosmicStringPluck(null, null);
+      this.audioManager?.stopCosmicStringTension();
     }
 
     if (!leftMiddlePinchActive) {

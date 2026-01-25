@@ -31,6 +31,8 @@ import {
   MiddlePinchGestureData,
   RingPinchGestureEvent,
   RingPinchGestureData,
+  PinkyPinchGestureEvent,
+  PinkyPinchGestureData,
 } from './GestureTypes';
 
 /**
@@ -64,6 +66,18 @@ interface GestureStateTracker {
     };
   };
   ringPinch: {
+    left: {
+      isActive: boolean;
+      lastTriggerTime: number;
+      sustainedFrames: number;
+    };
+    right: {
+      isActive: boolean;
+      lastTriggerTime: number;
+      sustainedFrames: number;
+    };
+  };
+  pinkyPinch: {
     left: {
       isActive: boolean;
       lastTriggerTime: number;
@@ -124,6 +138,10 @@ export class GestureDetector {
         left: { isActive: false, lastTriggerTime: 0, sustainedFrames: 0 },
         right: { isActive: false, lastTriggerTime: 0, sustainedFrames: 0 },
       },
+      pinkyPinch: {
+        left: { isActive: false, lastTriggerTime: 0, sustainedFrames: 0 },
+        right: { isActive: false, lastTriggerTime: 0, sustainedFrames: 0 },
+      },
       fist: {
         left: { isActive: false, sustainedFrames: 0, holdStartTime: 0 },
         right: { isActive: false, sustainedFrames: 0, holdStartTime: 0 },
@@ -148,6 +166,7 @@ export class GestureDetector {
     let pinchEvent: PinchGestureEvent | null = null;
     let middlePinchEvent: MiddlePinchGestureEvent | null = null;
     let ringPinchEvent: RingPinchGestureEvent | null = null;
+    let pinkyPinchEvent: PinkyPinchGestureEvent | null = null;
     let fistEvent: FistGestureEvent | null = null;
 
     // Process each hand independently
@@ -176,6 +195,13 @@ export class GestureDetector {
         ringPinchEvent = ringPinch;
       }
 
+      // Detect pinky pinch gesture (thumb + pinky finger)
+      const pinkyPinch = this.detectPinkyPinch(hand, handType, timestamp);
+      if (pinkyPinch) {
+        events.push(pinkyPinch);
+        pinkyPinchEvent = pinkyPinch;
+      }
+
       // Detect fist gesture
       const fist = this.detectFist(hand, handType, timestamp);
       if (fist) {
@@ -189,6 +215,7 @@ export class GestureDetector {
       pinch: pinchEvent,
       middlePinch: middlePinchEvent,
       ringPinch: ringPinchEvent,
+      pinkyPinch: pinkyPinchEvent,
       fist: fistEvent,
     };
   }
@@ -584,6 +611,94 @@ export class GestureDetector {
 
     return {
       type: GestureType.RING_PINCH,
+      state: gestureState,
+      data,
+      timestamp,
+    };
+  }
+
+  /**
+   * Detect pinky finger pinch gesture (thumb + pinky finger)
+   * used for Cosmic Strings trigger
+   *
+   * @param landmarks
+   * @param handedness
+   * @param timestamp
+   * @returns Pinky pinch gesture event or null
+   */
+  private detectPinkyPinch(
+    landmarks: NormalizedLandmark[],
+    handedness: Handedness,
+    timestamp: number
+  ): PinkyPinchGestureEvent | null {
+    const thumbTip = landmarks[HandLandmarkIndex.THUMB_TIP];
+    const pinkyTip = landmarks[HandLandmarkIndex.PINKY_TIP];
+
+    // Calculate distance between thumb and pinky finger tips
+    const distance = this.calculateDistance3D(thumbTip, pinkyTip);
+
+    // Get state tracker
+    const handKey = handedness === 'left' ? 'left' : 'right';
+    const handState = this.state.pinkyPinch[handKey];
+
+    // Determine gesture state
+    const wasActive = handState.isActive;
+    const isPinching = distance < this.config.pinkyPinch.threshold;
+    const isReleased = distance > this.config.pinkyPinch.releaseThreshold;
+
+    const cooldownElapsed =
+      timestamp - handState.lastTriggerTime > this.config.pinkyPinch.cooldownMs;
+
+    const REQUIRED_SUSTAINED_FRAMES = 1; // Faster reaction for pinky pinch
+    if (isPinching) {
+      handState.sustainedFrames++;
+    } else {
+      handState.sustainedFrames = 0;
+    }
+
+    const isSustainedPinch = handState.sustainedFrames >= REQUIRED_SUSTAINED_FRAMES;
+
+    let gestureState: GestureState;
+
+    if (!wasActive && isSustainedPinch && cooldownElapsed) {
+      gestureState = GestureState.STARTED;
+      handState.isActive = true;
+      handState.lastTriggerTime = timestamp;
+    } else if (wasActive && isPinching) {
+      gestureState = GestureState.ACTIVE;
+    } else if (wasActive && isReleased) {
+      gestureState = GestureState.ENDED;
+      handState.isActive = false;
+      handState.sustainedFrames = 0;
+    } else if (!wasActive && !isSustainedPinch) {
+      return null;
+    } else {
+      gestureState = wasActive ? GestureState.ACTIVE : GestureState.IDLE;
+      if (gestureState === GestureState.IDLE) return null;
+    }
+
+    // Calculate center
+    const midX = (thumbTip.x + pinkyTip.x) / 2;
+    const midY = (thumbTip.y + pinkyTip.y) / 2;
+    const midZ = (thumbTip.z + pinkyTip.z) / 2;
+
+    const worldPosition = new THREE.Vector3(-(midX - 0.5) * 10, -(midY - 0.5) * 10, -midZ * 10);
+
+    const strength = Math.max(
+      0,
+      Math.min(1, 1 - distance / this.config.pinkyPinch.releaseThreshold)
+    );
+
+    const data: PinkyPinchGestureData = {
+      position: worldPosition,
+      normalizedPosition: { x: midX, y: midY, z: midZ },
+      distance,
+      handedness,
+      strength,
+    };
+
+    return {
+      type: GestureType.PINKY_PINCH,
       state: gestureState,
       data,
       timestamp,

@@ -25,10 +25,12 @@ import {
 const vertexShader = /* glsl */ `
   attribute float aRippleIntensity;
   attribute float aQuasarSurgeIntensity;
+  attribute float aCosmicStringsIntensity;
   attribute float aVelocity;
   
   varying float vRippleIntensity;
   varying float vQuasarSurgeIntensity;
+  varying float vCosmicStringsIntensity;
   varying float vZ;
   
   uniform float uTime;
@@ -38,11 +40,11 @@ const vertexShader = /* glsl */ `
   void main() {
     vRippleIntensity = aRippleIntensity;
     vQuasarSurgeIntensity = aQuasarSurgeIntensity;
+    vCosmicStringsIntensity = aCosmicStringsIntensity;
     vZ = position.z;
     
-    // Size interpolation based on either ripple or quasar surge activity
-    // Use the larger ripple size for both to avoid them looking smaller than regular pulses
-    float effectiveIntensity = max(aRippleIntensity, aQuasarSurgeIntensity);
+    // Size interpolation based on activity
+    float effectiveIntensity = max(max(aRippleIntensity, aQuasarSurgeIntensity), aCosmicStringsIntensity);
     float baseSize = mix(uNormalSize, uRippleSize, step(0.01, effectiveIntensity));
     
     gl_PointSize = baseSize * 2.0; // Diameter
@@ -60,6 +62,7 @@ const vertexShader = /* glsl */ `
 const fragmentShader = /* glsl */ `
   varying float vRippleIntensity;
   varying float vQuasarSurgeIntensity;
+  varying float vCosmicStringsIntensity;
   varying float vZ;
   
   uniform float uQuasarSurgePhase; // 0 = inactive, 1 = charging, 2 = bursting
@@ -165,6 +168,18 @@ const fragmentShader = /* glsl */ `
       hue = mod(hue + 1.0, 1.0);
       color = hsl2rgb(hue, 0.95, 0.5);
       finalAlpha = alpha;
+    } else if (vCosmicStringsIntensity > 0.01) {
+      // Cosmic Strings color: Lime (0.35) -> Emerald -> Deep Ocean Blue/Indigo (0.65)
+      // Metallic, high-tension feel
+      float hue = 0.35 + vCosmicStringsIntensity * 0.3; 
+      hue = mod(hue, 1.0);
+      color = hsl2rgb(hue, 1.0, 0.5);
+      
+      // Add a metallic "shimmer" based on intensity
+      float shimmer = pow(vCosmicStringsIntensity, 2.0) * 0.5;
+      color += vec3(shimmer);
+      
+      finalAlpha = alpha * (0.8 + vCosmicStringsIntensity * 0.2);
     } else {
       // Normal state: white at 75% opacity
       color = vec3(1.0);
@@ -216,6 +231,9 @@ export class StellarWaveRenderer {
   // Vortex tracking (Left Fist)
   private vortexPoint: { x: number; y: number } | null = null;
 
+  // Cosmic Strings tracking (Right Middle Pinch)
+  private cosmicStringPluckPoint: { x: number; y: number } | null = null;
+
   // Quasar Surge state (Right Middle Finger + Thumb Pinch)
   private quasarSurgeState: QuasarSurgeState = {
     phase: QuasarSurgePhase.INACTIVE,
@@ -231,6 +249,7 @@ export class StellarWaveRenderer {
   private positionAttribute: THREE.BufferAttribute | null = null;
   private rippleIntensityAttribute: THREE.BufferAttribute | null = null;
   private quasarSurgeIntensityAttribute: THREE.BufferAttribute | null = null;
+  private cosmicStringsIntensityAttribute: THREE.BufferAttribute | null = null;
   private velocityAttribute: THREE.BufferAttribute | null = null;
 
   constructor(container: HTMLElement, config: Partial<StellarWaveConfig> = {}) {
@@ -345,6 +364,7 @@ export class StellarWaveRenderer {
     const positions = new Float32Array(count * 3);
     const rippleIntensities = new Float32Array(count);
     const quasarSurgeIntensities = new Float32Array(count);
+    const cosmicStringsIntensities = new Float32Array(count);
 
     // Fill initial positions
     for (let i = 0; i < count; i++) {
@@ -354,6 +374,7 @@ export class StellarWaveRenderer {
       positions[i * 3 + 2] = 0;
       rippleIntensities[i] = point.rippleIntensity;
       quasarSurgeIntensities[i] = 0;
+      cosmicStringsIntensities[i] = 0;
     }
 
     // Create geometry
@@ -361,11 +382,13 @@ export class StellarWaveRenderer {
     this.positionAttribute = new THREE.BufferAttribute(positions, 3);
     this.rippleIntensityAttribute = new THREE.BufferAttribute(rippleIntensities, 1);
     this.quasarSurgeIntensityAttribute = new THREE.BufferAttribute(quasarSurgeIntensities, 1);
+    this.cosmicStringsIntensityAttribute = new THREE.BufferAttribute(cosmicStringsIntensities, 1);
     this.velocityAttribute = new THREE.BufferAttribute(new Float32Array(this.meshPoints.length), 1);
 
     this.geometry.setAttribute('position', this.positionAttribute);
     this.geometry.setAttribute('aRippleIntensity', this.rippleIntensityAttribute);
     this.geometry.setAttribute('aQuasarSurgeIntensity', this.quasarSurgeIntensityAttribute);
+    this.geometry.setAttribute('aCosmicStringsIntensity', this.cosmicStringsIntensityAttribute);
     this.geometry.setAttribute('aVelocity', this.velocityAttribute);
 
     // Create shader material
@@ -467,6 +490,31 @@ export class StellarWaveRenderer {
   }
 
   /**
+   * Set the Cosmic Strings pluck point (Right Middle Pinch)
+   * @param x - X position in normalized coordinates (0-1), or null to clear
+   * @param y - Y position in normalized coordinates (0-1), or null to clear
+   */
+  setCosmicStringPluck(x: number | null, y: number | null): void {
+    if (x === null || y === null) {
+      this.cosmicStringPluckPoint = null;
+      return;
+    }
+
+    // Convert normalized coordinates to screen pixels
+    const screenX = (1 - x) * this.container.clientWidth;
+    const screenY = y * this.container.clientHeight;
+
+    this.cosmicStringPluckPoint = { x: screenX, y: screenY };
+  }
+
+  /**
+   * Check if there is an active cosmic string pluck interaction
+   */
+  hasActiveCosmicStringPluck(): boolean {
+    return this.cosmicStringPluckPoint !== null;
+  }
+
+  /**
    * Start or update the Quasar Surge charging effect
    * Particles spiral inward toward the pinch point with gravitational attraction
    *
@@ -557,6 +605,9 @@ export class StellarWaveRenderer {
 
     // Update quasar surge effect (charging or bursting)
     this.updateQuasarSurge(deltaTime);
+
+    // Update Cosmic Strings (Elastic Plucking)
+    this.updateCosmicStrings(deltaTime);
 
     // Update spring physics for all points
     this.updatePhysics();
@@ -792,6 +843,54 @@ export class StellarWaveRenderer {
   }
 
   /**
+   * Update Cosmic Strings physics (Elastic Plucking)
+   * Implements damped harmonic oscillator for string-like behavior
+   * @param deltaTime - Time elapsed since last frame in seconds
+   */
+  private updateCosmicStrings(deltaTime: number): void {
+    const { cosmicStringsTension, cosmicStringsDamping, cosmicStringsReach } = this.config;
+    const pluckPoint = this.cosmicStringPluckPoint;
+
+    // Pass 1: Handle active pluck interaction (Stretching the strings)
+    if (pluckPoint) {
+      for (const point of this.meshPoints) {
+        if (point.pinned) continue;
+
+        const dx = pluckPoint.x - point.position.x;
+        const dy = pluckPoint.y - point.position.y;
+        const distSq = dx * dx + dy * dy;
+
+        // Influence check - only affect points near the pluck
+        if (distSq < cosmicStringsReach * cosmicStringsReach) {
+          const distance = Math.sqrt(distSq);
+          const influence = 1.0 - distance / cosmicStringsReach;
+
+          // Pull point towards pluck position (like stretching elastic)
+          // We limit the max displacement to avoid tearing the grid visually
+          const pullFactor = influence * cosmicStringsTension * 60 * deltaTime;
+
+          point.velocity.dx += dx * pullFactor;
+          point.velocity.dy += dy * pullFactor;
+
+          // Apply specific damping to points being plucked to prevent wild oscillation while holding
+          point.velocity.dx *= cosmicStringsDamping;
+          point.velocity.dy *= cosmicStringsDamping;
+        }
+      }
+    }
+
+    // Pass 2: Apply string tension logic to ALL points (Restoration force)
+    // This makes the grid act like a connected fabric of elastic strings
+    // We already have spring physics in updatePhysics(), but here we add specific
+    // "snap" behavior for the cosmic string feel
+    //
+    // Note: The main `updatePhysics` handles the return-to-rest behavior.
+    // Here we can add a bit of neighbor-dependency or specific oscillation boost if needed.
+    // For now, the standard spring physics with correct config values (High Damping, Low Stiffness)
+    // creates the "jelly" feel. To get "string" feel, we might want higher stiffness temporarily.
+  }
+
+  /**
    * Update spring physics for all non-pinned points
    */
   private updatePhysics(): void {
@@ -915,7 +1014,8 @@ export class StellarWaveRenderer {
     if (
       !this.positionAttribute ||
       !this.rippleIntensityAttribute ||
-      !this.quasarSurgeIntensityAttribute
+      !this.quasarSurgeIntensityAttribute ||
+      !this.cosmicStringsIntensityAttribute
     ) {
       return;
     }
@@ -923,6 +1023,7 @@ export class StellarWaveRenderer {
     const positions = this.positionAttribute.array as Float32Array;
     const intensities = this.rippleIntensityAttribute.array as Float32Array;
     const quasarSurgeIntensities = this.quasarSurgeIntensityAttribute.array as Float32Array;
+    const cosmicIntensities = this.cosmicStringsIntensityAttribute.array as Float32Array;
     const velocities = this.velocityAttribute!.array as Float32Array;
 
     const isQuasarSurgeActive = this.quasarSurgeState.phase !== QuasarSurgePhase.INACTIVE;
@@ -998,11 +1099,21 @@ export class StellarWaveRenderer {
         // Decay quasar surge intensity when inactive
         quasarSurgeIntensities[i] *= 0.9;
       }
+
+      // Calculate cosmic strings intensity based on displacement from rest
+      // This ensures the color/shimmer persists during the elastic snap-back phase
+      const cdx = point.position.x - point.restPosition.x;
+      const cdy = point.position.y - point.restPosition.y;
+      const displacement = Math.sqrt(cdx * cdx + cdy * cdy);
+
+      // Normalize displacement: 0 to ~60px displacement -> 0.0 to 1.0 intensity
+      cosmicIntensities[i] = Math.min(1.0, displacement / 60.0);
     }
 
     this.positionAttribute.needsUpdate = true;
     this.rippleIntensityAttribute.needsUpdate = true;
     this.quasarSurgeIntensityAttribute.needsUpdate = true;
+    this.cosmicStringsIntensityAttribute.needsUpdate = true;
     this.velocityAttribute!.needsUpdate = true;
   }
 
