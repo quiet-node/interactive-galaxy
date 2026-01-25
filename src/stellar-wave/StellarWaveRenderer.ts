@@ -127,6 +127,9 @@ export class StellarWaveRenderer {
   // Attraction tracking (Right Fist)
   private attractionPoint: { x: number; y: number; strength: number } | null = null;
 
+  // Vortex tracking (Left Fist)
+  private vortexPoint: { x: number; y: number } | null = null;
+
   // Position and intensity buffers (for GPU updates)
   private positionAttribute: THREE.BufferAttribute | null = null;
   private rippleIntensityAttribute: THREE.BufferAttribute | null = null;
@@ -337,6 +340,24 @@ export class StellarWaveRenderer {
   }
 
   /**
+   * Set the Nebula Vortex interaction point
+   * @param x - X position in normalized coordinates (0-1), or null to clear
+   * @param y - Y position in normalized coordinates (0-1), or null to clear
+   */
+  setVortex(x: number | null, y: number | null): void {
+    if (x === null || y === null) {
+      this.vortexPoint = null;
+      return;
+    }
+
+    // Convert normalized coordinates to screen pixels
+    const screenX = (1 - x) * this.container.clientWidth;
+    const screenY = y * this.container.clientHeight;
+
+    this.vortexPoint = { x: screenX, y: screenY };
+  }
+
+  /**
    * Update physics simulation and ripple propagation
    * @param deltaTime - Time elapsed since last frame in seconds
    */
@@ -466,7 +487,7 @@ export class StellarWaveRenderer {
       point.position.y += point.velocity.dy;
     }
 
-    // Apply Force Field repulsion (Left Index Finger)
+    // Apply Force Field repulsion (Left Pinch - Legacy/Alternative)
     if (this.interactionPoint) {
       const { interactionRadius, repulsionStrength } = this.config;
 
@@ -488,6 +509,44 @@ export class StellarWaveRenderer {
 
             // Also add a bit of ripple intensity for visual feedback
             point.rippleIntensity = Math.max(point.rippleIntensity, force * 0.1);
+          }
+        }
+      }
+    }
+
+    // Apply Nebula Vortex (Left Fist)
+    if (this.vortexPoint) {
+      const { vortexRadius, vortexStrength } = this.config;
+
+      for (const point of this.meshPoints) {
+        if (point.pinned) continue;
+
+        const dx = point.position.x - this.vortexPoint.x;
+        const dy = point.position.y - this.vortexPoint.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < vortexRadius) {
+          // Calculate vortex force (strongest near center, fades at edge)
+          // Use a smooth bell curve-like falloff for better looking spiral
+          const normalizedDist = distance / vortexRadius;
+          const force = (1 - normalizedDist) * vortexStrength;
+
+          // Perpendicular vector (-dy, dx) creates rotation
+          // Clockwise rotation: (dy, -dx)
+          // Counter-clockwise: (-dy, dx)
+          if (distance > 1.0) {
+            const rotDx = -dy / distance; // Perpendicular X
+            const rotDy = dx / distance; // Perpendicular Y
+
+            point.velocity.dx += rotDx * force;
+            point.velocity.dy += rotDy * force;
+
+            // Slight attraction to center to keep the spiral tight (Optional)
+            point.velocity.dx -= (dx / distance) * force * 0.2;
+            point.velocity.dy -= (dy / distance) * force * 0.2;
+
+            // Add intense ripple visual
+            point.rippleIntensity = Math.max(point.rippleIntensity, force * 0.15);
           }
         }
       }

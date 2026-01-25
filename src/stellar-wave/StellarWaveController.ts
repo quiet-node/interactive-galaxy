@@ -237,8 +237,10 @@ export class StellarWaveController {
       // Clear all interactions
       this.renderer?.setForceField(null, null);
       this.renderer?.setGravityWell(null, null);
+      this.renderer?.setVortex(null, null);
       this.audioManager?.stopForceField();
       this.audioManager?.stopGravityWell();
+      this.audioManager?.stopVortex();
       return;
     }
 
@@ -255,6 +257,7 @@ export class StellarWaveController {
 
     let leftPinchActive = false;
     let rightFistActive = false;
+    let leftFistActive = false;
 
     // Process all gesture events to handle multiple hands and interactions
     for (const event of gestureResult.events) {
@@ -283,17 +286,26 @@ export class StellarWaveController {
       }
 
       // ----------------------------------------------------------------
-      // 2. GRAVITY WELL (Right Hand Fist)
+      // 2. GRAVITY WELL & NEBULA VORTEX (Fist Gestures)
       // ----------------------------------------------------------------
       if (
         event.type === GestureType.FIST &&
-        event.data.handedness === 'right' &&
         (event.state === GestureState.STARTED || event.state === GestureState.ACTIVE)
       ) {
-        const { x, y } = (event.data as FistGestureData).normalizedPosition;
-        this.renderer?.setGravityWell(x, y);
-        this.audioManager?.startGravityWell();
-        rightFistActive = true;
+        const fistData = event.data as FistGestureData;
+        const { x, y } = fistData.normalizedPosition;
+
+        if (fistData.handedness === 'right') {
+          // Right Fist = Gravity Well
+          this.renderer?.setGravityWell(x, y);
+          this.audioManager?.startGravityWell();
+          rightFistActive = true;
+        } else if (fistData.handedness === 'left') {
+          // Left Fist = Nebula Vortex
+          this.renderer?.setVortex(x, y);
+          this.audioManager?.startVortex();
+          leftFistActive = true;
+        }
       }
     }
 
@@ -309,6 +321,11 @@ export class StellarWaveController {
     if (!rightFistActive) {
       this.renderer?.setGravityWell(null, null);
       this.audioManager?.stopGravityWell();
+    }
+
+    if (!leftFistActive) {
+      this.renderer?.setVortex(null, null);
+      this.audioManager?.stopVortex();
     }
   }
 

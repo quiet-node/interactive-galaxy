@@ -67,6 +67,12 @@ export interface StellarWaveConfig {
   /** Strength of the repulsion force */
   repulsionStrength: number;
 
+  // Vortex params
+  /** Radius of vortex influence */
+  vortexRadius: number;
+  /** Strength of rotational force */
+  vortexStrength: number;
+
   // Audio params
   /** Frequency of the ripple sound in Hz */
   rippleFreq: number;
@@ -105,6 +111,10 @@ export const DEFAULT_STELLAR_WAVE_CONFIG: StellarWaveConfig = {
   // Interaction params
   interactionRadius: 150,
   repulsionStrength: 5.0,
+
+  // Vortex params
+  vortexRadius: 200,
+  vortexStrength: 4.0,
 
   // Audio params
   rippleFreq: 440,
@@ -169,9 +179,9 @@ export enum StellarWaveInteraction {
   GRAVITY_WELL = 'GRAVITY_WELL',
 
   /**
-   * Force Field
-   * Triggered by left hand pinch (thumb + index).
-   * Creates a repulsion field around the pinch point.
+   * Nebula Vortex
+   * Triggered by left hand fist.
+   * Creates a spiraling, rotational force field.
    */
-  FORCE_FIELD = 'FORCE_FIELD',
+  NEBULA_VORTEX = 'NEBULA_VORTEX',
 }
